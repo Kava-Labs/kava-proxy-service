@@ -11,10 +11,13 @@ WORKDIR /app
 COPY go.mod go.sum ./
 
 # download service golang dependnecies source code
-RUN go mod tidy
+RUN go mod download
 
 # copy over local sources used to build service
 COPY *.go ./
+COPY logging/ logging/
+COPY clients/ clients/
+COPY config/ config/
 
 # build service from latest sources
 RUN go install
