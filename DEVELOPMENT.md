@@ -61,7 +61,7 @@ funcs
 Set a breakpoint
 
 ```bash
-b github.com/kava-labs/kava-proxy-service.(*Client).methodName
+b github.com/kava-labs/kava-proxy-service/config.ReadConfig
 ```
 
 Run program until breakpoint is hit

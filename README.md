@@ -8,7 +8,7 @@ _Under Development_
 
 ### Environment Variables
 
-Many aspects of the service are configurable via environment variables
+Many aspects of the service are configurable via environment variables:
 
 - `LOG_LEVEL` - controls the amount of logs produced by the service, defaults to `INFO`, supported values in order from most verbose to least verbose are
     - DEBUG

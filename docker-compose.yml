@@ -25,7 +25,7 @@ services:
   # run proxy service to observe, route, and scale requests to kava api endpoints
   proxy:
     build:
-      dockerfile: LocalDockerfile
+      dockerfile: local.Dockerfile
     env_file: .env
     ports:
       - "${PROXY_HOST_PORT}:${PROXY_CONTAINER_PORT}"
