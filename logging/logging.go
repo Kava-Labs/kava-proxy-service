@@ -1,3 +1,4 @@
+// package logging provides a JSON structured stdout level logger
 package logging
 
 import (

@@ -21,17 +21,17 @@ lint:
 # build a binary of the service using local sources
 # that can run on the build host and place it in the
 # GOBIN path for the current host
-install:
+install: lint
 	go install
 
 .PHONY: build
 # build a development version docker image of the service
-build:
+build: lint
 	docker build ./ -f local.Dockerfile -t ${IMAGE_NAME}:${LOCAL_IMAGE_TAG}
 
 .PHONY: publish
 # build a production version docker image of the service
-publish:
+publish: lint
 	docker build ./ -f production.Dockerfile -t ${IMAGE_NAME}:${PRODUCTION_IMAGE_TAG}
 
 .PHONY: unit-test
@@ -88,10 +88,12 @@ debug-proxy:
 
 .PHONY: debug-database
 # open a connection to the postgres database for debugging it's state
+# https://www.postgresql.org/docs/current/app-psql.html
 debug-database:
 	docker-compose exec postgres psql -U postgres
 
 .PHONY: debug-cache
 # open a connection to the redis service for debugging it's state
+# https://redis.io/docs/ui/cli/
 debug-cache:
 	docker-compose exec redis redis-cli

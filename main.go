@@ -1,4 +1,5 @@
-// TODO:
+// package main reads & validates configuration for the proxy service
+// and if the config is valid starts and monitors an instance of the proxy service
 package main
 
 import (

@@ -1,48 +1,121 @@
 # Development Guide
 
+This document provides context, tips and processes that developers can use when writing or debugging code for this service and it's dependencies.
+
 ## Dependencies
 
-- docker
-- docker compose v2
-- delve golang debugger installed
+The following dependencies are required to build and run the proxy service:
+
+- [Docker](https://docs.docker.com/engine/install/) for building
+- [Docker Compose (v2+)](https://docs.docker.com/compose/install/)
+- [Delve](https://github.com/go-delve/delve/tree/master/Documentation/installation) for step debugging of running golang processes
 
 ## Configuration
 
+Adjusting or setting of values to be used by `make`, `docker-compose` or any of the containerized applications is possible by modifying the [local environment file](./.env)
+
+```bash
+##### Local development config
+
+# Values used by `make`
+CONTAINER_NAME=kava-proxy-service
+IMAGE_NAME=kava-labs/kava-proxy-service
+LOCAL_IMAGE_TAG=local
+PRODUCTION_IMAGE_TAG=latest
+
+# Values used by docker-compose
+POSTGRES_CONTAINER_PORT=5432
+POSTGRES_HOST_PORT=5432
+
+##### Kava Proxy Config
+LOG_LEVEL=DEBUG
+
+etc...
+```
+
 ## Building
+
+To format and verify the syntax of the golang source code and dependency tree run:
+
+```bash
+make lint
+```
+
+While normally the docker image for local development will be auto-built by `docker-compose` when starting (`make up` or refreshing the service (`make refresh`) the service, the below commands can be used to build the docker image on demand or compile the service binary directly on the current host.
+
+```bash
+# build a development version docker image of the service
+make build
+# build a binary of the service using local sources
+# that can run on the build host and place it in the
+# GOBIN path for the current host
+make install
+# build a production version docker image of the service
+make publish
+```
+
+Alternatively one can compile tbe service binary in the current directory:
+
+```bash
+# requires go 1.20 or greater
+⋊> go build
+⋊> ./kava-proxy-service        13:55:22
+{"level":"info","time":"2023-03-02T13:55:25-08:00","caller":"/Users/levischoen/forges/kava/kava-proxy-service/main.go:38","message":"There and back again"}
+```
 
 ## Testing
 
-```Makefile
-# run all unit tests
-unit-test:
-	go test -v ./... -run "^TestUnitTest*"
+```bash
+# To run all tests (unit and environment based ones)
+make test
+```
 
-# run tests that execute against a local or remote instance of the API
-e2e-test:
-	go test -v ./... -run "^TestE2ETest*"
+## Unit Tests
+
+Prefix unit tests with `UnitTest`, e.g. `TestUnitTestValidateConfigThrowsErrorOnInvalidConfig`
+
+```bash
+make unit-test
+```
+
+### End-to-End Tests
+
+End-to-End (E2E) Tests run against a live version of the proxy service API (based on environment variables), and are useful both for local development and running as acceptance and canary tests on production deployments of the proxy service
+
+Prefix E2E tests with `TestE2ETest`, e.g. `TestE2ETestHealthCheckReturns200`
+
+```bash
+make unit-test
 ```
 
 ## Running
 
-## Debugging
+An example of command flow used during typical iterative development:
 
-```Makefile
-# follow the logs from all the dockerized servcies
-logs:
-	docker-compose logs ${S} -f
-
-# build and push docker image from local sources to remote registry
-publish:
-
-# open a shell to the postgres database for debugging it's state
-debug-database:
-	docker-compose exec postgres psql -U postgres
-
-# open a shell to the redis service for debugging it's state
-debug-cache:
-	docker-compose exec redis redis-cli
+```bash
+# start (or restart previously built) containers for all the services
+# in docker-compose.yml
+make up
+# rebuild, reset state and restart all containers for all the services
+# in docker-compose.yml
+make reset
+# rebuild, reset state and restart just the proxy service
+make refresh
+# stop and start (without re-building or wiping state) all services
+# in docker-compose.yml
+make restart
+# stop all services in docker-compose.yml
+make down
 ```
 
+## Debugging
+
+```bash
+# follow the logs from all the dockerized services
+make logs
+# or just one (filtering based off the name of the service in the docker-compose.yml file)
+make logs S=proxy
+```
 
 If the proxy service is up, running
 
@@ -94,3 +167,18 @@ to stop the current process
 ```bash
 ^c
 ```
+
+Additional debug commands are available for connecting to the database or cache used by the proxy service
+
+```bash
+# open a connection to the postgres database for debugging it's state
+# https://www.postgresql.org/docs/current/app-psql.html
+make debug-database
+# open a connection to the redis service for debugging it's state
+# https://redis.io/docs/ui/cli/
+make debug-cache
+```
+
+## Feedback
+
+For suggesting changes or reporting issues, please open a Github Issue.

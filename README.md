@@ -4,7 +4,7 @@ L7 proxy that enables observability, routing, and scaling of kava APIs to the fa
 
 ## Usage
 
-_Under Development_
+_Under Development_.
 
 ### Environment Variables
 
@@ -29,8 +29,12 @@ kava-proxy-service-proxy-1  | {"level":"info","time":"2023-03-02T19:30:18Z","cal
 
 ## Development
 
-See [Development.md](./DEVELOPMENT.md)
+See [Development.md](./DEVELOPMENT.md).
 
 ## Architecture
 
-See [architecture docs](./architecture/)
+See [architecture docs](./architecture/).
+
+## Feedback
+
+For suggesting changes or reporting issues, please open a Github Issue.

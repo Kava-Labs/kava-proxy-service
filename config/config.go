@@ -22,8 +22,8 @@ func EnvOrDefault(key string, fallback string) string {
 }
 
 // ReadConfig attempts to parse service config from environment values
-// the returned config may be invalid and must be validated via the `Validate`
-// function of the Config package
+// the returned config may be invalid and should be validated via the `Validate`
+// function of the Config package before use
 func ReadConfig() Config {
 	return Config{
 		LogLevel: EnvOrDefault(LOG_LEVEL_ENVIRONMENT_KEY, DEFAULT_LOG_LEVEL),
