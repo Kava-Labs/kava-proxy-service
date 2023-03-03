@@ -37,12 +37,12 @@ publish: lint
 .PHONY: unit-test
 # run all unit tests
 unit-test:
-	go test -v ./... -run "^TestUnitTest*"
+	go test -count=1 -v -cover --race ./... -run "^TestUnitTest*"
 
 .PHONY: e2e-test
 # run tests that execute against a local or remote instance of the API
 e2e-test:
-	go test -v ./... -run "^TestE2ETest*"
+	go test -count=1 -v -cover --race ./... -run "^TestE2ETest*"
 
 .PHONY: test
 # run all tests

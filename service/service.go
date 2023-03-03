@@ -27,6 +27,7 @@ func New(config config.Config, serviceLogger *logging.ServiceLogger) (ProxyServi
 
 	// create the main service handler for introspecting and transforming
 	// the request and the backend origin server(s) response(s)
+	// TODO: break out into more composable middleware
 	handler := func(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 		return func(w http.ResponseWriter, r *http.Request) {
 			serviceLogger.Debug().Msg(fmt.Sprintf("proxying request %+v", r))
