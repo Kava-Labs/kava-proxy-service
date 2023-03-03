@@ -85,7 +85,13 @@ End-to-End (E2E) Tests run against a live version of the proxy service API (base
 Prefix E2E tests with `TestE2ETest`, e.g. `TestE2ETestHealthCheckReturns200`
 
 ```bash
-make unit-test
+make e2e-test
+```
+
+The e2e tests won't pass if the proxy service and it's dependencies aren't fully running- e.g. the proxy service can start up in > second but the kava service can take 10's of seconds. To prevent test failures due to that situation, if you are restarting or starting the services for the first time and want to execute the tests immediately call the make `ready` target before the `e2e-test` target.
+
+```bash
+make ready e2e-test
 ```
 
 ## Running

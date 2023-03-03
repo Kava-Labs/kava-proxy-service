@@ -1,5 +1,5 @@
 # execute these tasks when `make` with no target is invoked
-default: unit-test reset e2e-test
+default: unit-test reset ready e2e-test
 
 # import environment file for setting or overriding
 # configuration used by this Makefile
@@ -71,6 +71,11 @@ reset:
 # rebuild and restart just the service
 refresh:
 	docker-compose up proxy -d --build --remove-orphans --force-recreate
+
+# poll kava service status endpoint until it doesn't error
+.PHONY: ready
+ready:
+	./scripts/wait-for-kava-node-running.sh
 
 .PHONY: logs
 # follow the logs from all the dockerized services
