@@ -4,6 +4,13 @@ FROM golang:1.20
 # Install go debugger for easier debug life
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
+# Install kava cli for debugging
+ARG PROXY_KAVA_CLI_VERSION_ARG=v0.21.0
+ENV PROXY_KAVA_CLI_VERSION=$PROXY_KAVA_CLI_VERSION_ARG
+
+RUN git clone https://github.com/Kava-Labs/kava.git
+RUN cd kava && git checkout $PROXY_KAVA_CLI_VERSION && make install
+
 # create and set default directory for service  files
 RUN mkdir /app
 WORKDIR /app
@@ -21,6 +28,7 @@ COPY *.go ./
 COPY logging/ logging/
 COPY clients/ clients/
 COPY config/ config/
+COPY service/ service/
 
 # build service from latest sources
 # with all compilier optimizations off to support debugging

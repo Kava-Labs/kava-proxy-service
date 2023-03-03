@@ -23,6 +23,9 @@ kava gentx kava-localnet-delegator 500000000stake \
 # merge above transaction with previously generated default genesis
 kava collect-gentxs
 
+# set config for kava processes to use
+cp /docker/kava/config.toml ~/.kava/config/config.toml
+
 # start the kava process
 kava start
 

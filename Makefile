@@ -27,7 +27,7 @@ install: lint
 .PHONY: build
 # build a development version docker image of the service
 build: lint
-	docker build ./ -f local.Dockerfile -t ${IMAGE_NAME}:${LOCAL_IMAGE_TAG}
+	docker build ./ -f local.Dockerfile -t ${IMAGE_NAME}:${LOCAL_IMAGE_TAG} --build-arg PROXY_KAVA_CLI_VERSION_ARG=${PROXY_KAVA_CLI_VERSION}
 
 .PHONY: publish
 # build a production version docker image of the service

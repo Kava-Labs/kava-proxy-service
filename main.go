@@ -3,11 +3,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"time"
 
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/logging"
+	"github.com/kava-labs/kava-proxy-service/service"
 )
 
 var (
@@ -34,9 +35,11 @@ func init() {
 func main() {
 	serviceLogger.Debug().Msg(fmt.Sprintf("initial config: %+v", serviceConfig))
 
-	for {
-		serviceLogger.Info().Msg("There and back again")
+	service, err := service.New(serviceConfig, &serviceLogger)
 
-		time.Sleep(2 * time.Second)
+	if err != nil {
+		serviceLogger.Panic().Msg(fmt.Sprintf("%v", errors.Unwrap(err)))
 	}
+
+	service.Run()
 }

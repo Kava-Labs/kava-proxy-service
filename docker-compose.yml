@@ -6,12 +6,16 @@ services:
     env_file: .env
     ports:
       - "${POSTGRES_HOST_PORT}:${POSTGRES_CONTAINER_PORT}"
+    expose:
+      - "${POSTGRES_CONTAINER_PORT}"
   # run redis for proxy service to cache responses
   redis:
     image: 'bitnami/redis:latest'
     env_file: .env
     ports:
       - "${REDIS_HOST_PORT}:${REDIS_CONTAINER_PORT}"
+    expose:
+      - "${REDIS_CONTAINER_PORT}"
   # run single validator kava node to provide a local kava network for development and testing of the proxy service
   kava:
     image: kava/kava:latest
@@ -22,6 +26,11 @@ services:
     ports:
       - "${KAVA_HOST_COSMOS_RPC_PORT}:${KAVA_CONTAINER_COSMOS_RPC_PORT}"
       - "${KAVA_HOST_EVM_RPC_PORT}:${KAVA_CONTAINER_EVM_RPC_PORT}"
+    # expose ports for other services to be able to connect to within
+    # the default docker-compose network
+    expose:
+      - "${KAVA_CONTAINER_COSMOS_RPC_PORT}"
+      - "${KAVA_CONTAINER_EVM_RPC_PORT}"
   # run proxy service to observe, route, and scale requests to kava api endpoints
   proxy:
     build:
