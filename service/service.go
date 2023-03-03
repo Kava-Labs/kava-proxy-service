@@ -3,7 +3,10 @@
 package service
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 
@@ -31,10 +34,29 @@ func New(config config.Config, serviceLogger *logging.ServiceLogger) (ProxyServi
 	handler := func(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 		return func(w http.ResponseWriter, r *http.Request) {
 			serviceLogger.Debug().Msg(fmt.Sprintf("proxying request %+v", r))
-			// TODO: Parse request, store request metric in database
+
+			var rawBody []byte
+			if r.Body != nil {
+				var rawBodyBuffer bytes.Buffer
+				// Read the request body
+				body := io.TeeReader(r.Body, &rawBodyBuffer)
+				var err error
+				rawBody, err = ioutil.ReadAll(body)
+				if err != nil {
+					w.WriteHeader(http.StatusRequestEntityTooLarge)
+					return
+				}
+				// Repopulate the request body for the ultimate consumer of this request
+				r.Body = ioutil.NopCloser(&rawBodyBuffer)
+			}
+
+			serviceLogger.Debug().Msg(fmt.Sprintf("request body %s", rawBody))
 			// TODO: Set Proxy headers
-			// TODO: Time response latency
+			// TODO: Start timing response latency
 			p.ServeHTTP(w, r)
+			// TODO: get response code
+			// TODO: calculate response latency
+			// TODO: store request metric in database
 		}
 	}
 
