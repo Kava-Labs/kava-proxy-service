@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -12,8 +13,9 @@ import (
 )
 
 var (
-	serviceConfig config.Config
-	serviceLogger logging.ServiceLogger
+	serviceConfig  config.Config
+	serviceLogger  logging.ServiceLogger
+	serviceContext = context.Background()
 )
 
 func init() {
@@ -35,7 +37,7 @@ func init() {
 func main() {
 	serviceLogger.Debug().Msg(fmt.Sprintf("initial config: %+v", serviceConfig))
 
-	service, err := service.New(serviceConfig, &serviceLogger)
+	service, err := service.New(serviceContext, serviceConfig, &serviceLogger)
 
 	if err != nil {
 		serviceLogger.Panic().Msg(fmt.Sprintf("%v", errors.Unwrap(err)))
