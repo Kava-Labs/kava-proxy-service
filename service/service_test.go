@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -11,16 +12,33 @@ import (
 )
 
 var (
-	proxyServiceURL = os.Getenv("TEST_PROXY_BACKEND_EVM_RPC_HOST_URL")
+	testDefaultContext  = context.TODO()
+	proxyServiceURL     = os.Getenv("TEST_PROXY_BACKEND_EVM_RPC_HOST_URL")
+	databaseName        = os.Getenv("DATABASE_NAME")
+	databaseUsername    = os.Getenv("DATABASE_USERNAME")
+	databasePassword    = os.Getenv("DATABASE_PASSWORD")
+	databaseEndpointURL = os.Getenv("DATABASE_ENDPOINT_URL")
 
 	dummyConfig = config.Config{
 		ProxyBackendHostURL: proxyServiceURL,
+		DatabaseName:        databaseName,
+		DatabaseUserName:    databaseUsername,
+		DatabasePassword:    databasePassword,
+		DatabaseEndpointURL: databaseEndpointURL,
 	}
-	dummyLogger = &logging.ServiceLogger{}
+	dummyLogger = func() *logging.ServiceLogger {
+		logger, err := logging.New("DEBUG")
+
+		if err != nil {
+			panic(err)
+		}
+
+		return &logger
+	}()
 )
 
 func TestUnitTestNewWithValidParamsCreatesProxyServiceWithoutError(t *testing.T) {
-	_, err := service.New(dummyConfig, dummyLogger)
+	_, err := service.New(testDefaultContext, dummyConfig, dummyLogger)
 
 	assert.Nil(t, err)
 

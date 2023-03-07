@@ -94,6 +94,23 @@ The e2e tests won't pass if the proxy service and it's dependencies aren't fully
 make ready e2e-test
 ```
 
+## Migrations
+
+On startup the proxy service will run any SQL based migration in the [migrations folder](./clients/database/migrations) that haven't already been run against the database being used.
+
+For lower level details on how the migration process works consult [these docs](https://bun.uptrace.dev/guide/migrations.html).
+
+### Adding a new migration
+
+Generate unique monotonically increasing migration prefix (to ensure) new migrations are detected and ran
+
+```bash
+$ date '+%Y%m%d%H%M%S'
+> 20230306182227
+```
+
+Add new SQL file with commands to run in the new migration (add/delete/modify tables and or indices) in the in the [migrations folder](./clients/database/migrations)
+
 ## Running
 
 An example of command flow used during typical iterative development:

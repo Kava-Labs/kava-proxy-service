@@ -64,13 +64,13 @@ restart: down up
 
 .PHONY: reset
 # wipe state and restart the service and all it's dependencies
-reset:
+reset: lint
 	docker-compose up -d --build --remove-orphans --renew-anon-volumes --force-recreate
 
 .PHONY: refresh
 # rebuild and restart just the service
-refresh:
-	docker-compose up proxy -d --build --remove-orphans --force-recreate
+refresh: lint
+	docker-compose up -d proxy --build --remove-orphans --force-recreate
 
 # poll kava service status endpoint until it doesn't error
 .PHONY: ready
@@ -95,7 +95,7 @@ debug-proxy:
 # open a connection to the postgres database for debugging it's state
 # https://www.postgresql.org/docs/current/app-psql.html
 debug-database:
-	docker-compose exec postgres psql -U postgres
+	docker-compose exec postgres psql -U ${DATABASE_USERNAME} -d ${DATABASE_NAME}
 
 .PHONY: debug-cache
 # open a connection to the redis service for debugging it's state
