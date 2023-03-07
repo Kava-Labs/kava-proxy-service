@@ -4,12 +4,19 @@
 // https://bun.uptrace.dev/guide/migrations.html#go-based-migrations
 package migrations
 
-import "github.com/uptrace/bun/migrate"
+import (
+	"embed"
+
+	"github.com/uptrace/bun/migrate"
+)
+
+//go:embed *.sql
+var SQLMigrations embed.FS
 
 var Migrations = migrate.NewMigrations()
 
 func init() {
-	if err := Migrations.DiscoverCaller(); err != nil {
+	if err := Migrations.Discover(SQLMigrations); err != nil {
 		panic(err)
 	}
 }
