@@ -1,8 +1,8 @@
 -- Add table for per proxyied request metrics
 CREATE TABLE IF NOT EXISTS proxied_request_metrics (
-  id SERIAL,
-  method_name TEXT NOT NULL,
-  block_number BIGINT,
-  response_latency_milliseconds NUMERIC,
-  request_time timestamptz NOT NULL
+  id bigserial, -- analytic tables usually hit the 4 byte limit
+  method_name character varying not null, -- same as text but often used to signify short strings to people and code generators reading the schema
+  block_number bigint,
+  response_latency_milliseconds real, -- use floats since we don't need exact percision and indexes, math, etc is faster
+  request_time timestamp without time zone NOT NULL
 );

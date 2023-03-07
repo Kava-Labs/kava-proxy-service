@@ -111,6 +111,16 @@ $ date '+%Y%m%d%H%M%S'
 
 Add new SQL file with commands to run in the new migration (add/delete/modify tables and or indices) in the in the [migrations folder](./clients/database/migrations)
 
+### Running migrations
+
+The below environment variable is used to control whether the proxy service will attempt to run migrations when it starts:
+
+```bash
+RUN_DATABASE_MIGRATIONS=true
+```
+
+In production by default database migrations are not run when the service starts to allow finer grained control when running migrations. For local development migrations ARE automatically run at service start time.
+
 ## Running
 
 An example of command flow used during typical iterative development:

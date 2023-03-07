@@ -15,13 +15,14 @@ import (
 // PostgresDatabaseConfig contains values for creating a
 // new connection to a postgres database
 type PostgresDatabaseConfig struct {
-	DatabaseName        string
-	DatabaseEndpointURL string
-	DatabaseUserName    string
-	DatabasePassword    string
-	SSLEnabled          bool
-	QueryLoggingEnabled bool
-	Logger              *logging.ServiceLogger
+	DatabaseName          string
+	DatabaseEndpointURL   string
+	DatabaseUserName      string
+	DatabasePassword      string
+	SSLEnabled            bool
+	QueryLoggingEnabled   bool
+	RunDatabaseMigrations bool
+	Logger                *logging.ServiceLogger
 }
 
 // PostgresClient wraps a connection to a postgres database

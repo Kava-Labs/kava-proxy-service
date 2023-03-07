@@ -90,13 +90,14 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 
 func createDatabase(ctx context.Context, config config.Config, logger *logging.ServiceLogger) (*database.PostgresClient, error) {
 	databaseConfig := database.PostgresDatabaseConfig{
-		DatabaseName:        config.DatabaseName,
-		DatabaseEndpointURL: config.DatabaseEndpointURL,
-		DatabaseUserName:    config.DatabaseUserName,
-		DatabasePassword:    config.DatabasePassword,
-		SSLEnabled:          config.DatabaseSSLEnabled,
-		QueryLoggingEnabled: config.DatabaseQueryLoggingEnabled,
-		Logger:              logger,
+		DatabaseName:          config.DatabaseName,
+		DatabaseEndpointURL:   config.DatabaseEndpointURL,
+		DatabaseUserName:      config.DatabaseUserName,
+		DatabasePassword:      config.DatabasePassword,
+		SSLEnabled:            config.DatabaseSSLEnabled,
+		QueryLoggingEnabled:   config.DatabaseQueryLoggingEnabled,
+		Logger:                logger,
+		RunDatabaseMigrations: config.RunDatabaseMigrations,
 	}
 
 	serviceDatabase, err := database.NewPostgresClient(databaseConfig)
@@ -107,7 +108,11 @@ func createDatabase(ctx context.Context, config config.Config, logger *logging.S
 		return &database.PostgresClient{}, err
 	}
 
-	// TODO: move into `Run` method
+	if !databaseConfig.RunDatabaseMigrations {
+		logger.Debug().Msg("skipping attempting to run migrations on database since RUN_DATABASE_MIGRATIONS was false")
+		return &serviceDatabase, nil
+	}
+
 	// wait for database to be reachable
 	var databaseOnline bool
 	for !databaseOnline {
@@ -128,7 +133,7 @@ func createDatabase(ctx context.Context, config config.Config, logger *logging.S
 
 	logger.Debug().Msg("running migrations on database")
 
-	migrations, err := database.Migrate(ctx, serviceDatabase.DBConnection, *migrations.Migrations)
+	migrations, err := database.Migrate(ctx, serviceDatabase.DBConnection, *migrations.Migrations, logger)
 
 	if err != nil {
 		logger.Error().Msg(fmt.Sprintf("error %s running migrations on database, will retry in 1 second", err))

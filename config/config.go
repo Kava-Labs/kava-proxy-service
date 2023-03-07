@@ -19,6 +19,7 @@ type Config struct {
 	DatabasePassword            string
 	DatabaseSSLEnabled          bool
 	DatabaseQueryLoggingEnabled bool
+	RunDatabaseMigrations       bool
 }
 
 const (
@@ -32,6 +33,7 @@ const (
 	DATABASE_PASSWORD_ENVIRONMENT_KEY              = "DATABASE_PASSWORD"
 	DATABASE_SSL_ENABLED_ENVIRONMENT_KEY           = "DATABASE_SSL_ENABLED"
 	DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY = "DATABASE_QUERY_LOGGING_ENABLED"
+	RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY        = "RUN_DATABASE_MIGRATIONS"
 )
 
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
@@ -74,5 +76,6 @@ func ReadConfig() Config {
 		DatabasePassword:            os.Getenv(DATABASE_PASSWORD_ENVIRONMENT_KEY),
 		DatabaseSSLEnabled:          EnvOrDefaultBool(DATABASE_SSL_ENABLED_ENVIRONMENT_KEY, false),
 		DatabaseQueryLoggingEnabled: EnvOrDefaultBool(DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY, true),
+		RunDatabaseMigrations:       EnvOrDefaultBool(RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY, false),
 	}
 }
