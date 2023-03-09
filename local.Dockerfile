@@ -29,6 +29,7 @@ COPY logging/ logging/
 COPY clients/ clients/
 COPY config/ config/
 COPY service/ service/
+COPY decode/ decode/
 
 # build service from latest sources
 # with all compilier optimizations off to support debugging

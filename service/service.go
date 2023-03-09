@@ -3,13 +3,9 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
-	"net/http/httputil"
 	"time"
 
 	"github.com/kava-labs/kava-proxy-service/clients/database"
@@ -27,48 +23,24 @@ type ProxyService struct {
 
 // New returns a new ProxyService with the specified config and error (if any)
 func New(ctx context.Context, config config.Config, serviceLogger *logging.ServiceLogger) (ProxyService, error) {
+	service := ProxyService{}
+
 	// create an http router for registering handlers for a given route
 	mux := http.NewServeMux()
 
+	// will run after the proxy middleware handler
+	metricMiddleware := createMetricMiddleware(&service)
+
 	// create an http handler that will proxy any request to the specified URL
-	proxy := httputil.NewSingleHostReverseProxy(&config.ProxyBackendHostURLParsed)
+	proxyMiddleware := createProxyRequestMiddleware(metricMiddleware, config, serviceLogger)
 
-	// create the main service handler for introspecting and transforming
-	// the request and the backend origin server(s) response(s)
-	// TODO: break out into more composable middleware
-	handler := func(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
-		return func(w http.ResponseWriter, r *http.Request) {
-			serviceLogger.Debug().Msg(fmt.Sprintf("proxying request %+v", r))
+	// create an http handler that will log the request to stdout
+	requestLoggingMiddleware := createRequestLoggingMiddleware(proxyMiddleware, serviceLogger)
 
-			var rawBody []byte
-			if r.Body != nil {
-				var rawBodyBuffer bytes.Buffer
-				// Read the request body
-				body := io.TeeReader(r.Body, &rawBodyBuffer)
-				var err error
-				rawBody, err = ioutil.ReadAll(body)
-				if err != nil {
-					w.WriteHeader(http.StatusRequestEntityTooLarge)
-					return
-				}
-				// Repopulate the request body for the ultimate consumer of this request
-				r.Body = ioutil.NopCloser(&rawBodyBuffer)
-			}
+	// register middleware chain as the default handler for any request to the proxy service
+	mux.HandleFunc("/", requestLoggingMiddleware)
 
-			serviceLogger.Debug().Msg(fmt.Sprintf("request body %s", rawBody))
-			// TODO: Set Proxy headers
-			// TODO: Start timing response latency
-			p.ServeHTTP(w, r)
-			// TODO: get response code
-			// TODO: calculate response latency
-			// TODO: store request metric in database
-		}
-	}
-
-	// register proxy handler as the default handler for any request
-	mux.HandleFunc("/", handler(proxy))
-
-	// create an http server for the caller to start at their own discretion
+	// create an http server for the caller to start on demand with a call to ProxyService.Run()
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", config.ProxyServicePort),
 		Handler: mux,
@@ -81,11 +53,13 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 		return ProxyService{}, err
 	}
 
-	return ProxyService{
+	service = ProxyService{
 		httpProxy:     server,
 		ServiceLogger: serviceLogger,
 		database:      db,
-	}, nil
+	}
+
+	return service, nil
 }
 
 func createDatabase(ctx context.Context, config config.Config, logger *logging.ServiceLogger) (*database.PostgresClient, error) {

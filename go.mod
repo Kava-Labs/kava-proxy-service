@@ -10,6 +10,7 @@ require (
 	github.com/uptrace/bun/dialect/pgdialect v1.1.12
 	github.com/uptrace/bun/driver/pgdriver v1.1.12
 	github.com/uptrace/bun/extra/bundebug v1.1.12
+	github.com/urfave/negroni v1.0.0
 )
 
 require (
