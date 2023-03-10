@@ -51,7 +51,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	}
 
 	// create database client
-	db, err := createDatabase(ctx, config, serviceLogger)
+	db, err := createDatabaseClient(ctx, config, serviceLogger)
 
 	if err != nil {
 		return ProxyService{}, err
@@ -66,11 +66,15 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	return service, nil
 }
 
-func createDatabase(ctx context.Context, config config.Config, logger *logging.ServiceLogger) (*database.PostgresClient, error) {
+// createDatabaseClient creates a connection to the database
+// using the specified config and runs migrations
+// (only if migration flag in config is true) returning the
+// returning the database connection and error (if any)
+func createDatabaseClient(ctx context.Context, config config.Config, logger *logging.ServiceLogger) (*database.PostgresClient, error) {
 	databaseConfig := database.PostgresDatabaseConfig{
 		DatabaseName:          config.DatabaseName,
 		DatabaseEndpointURL:   config.DatabaseEndpointURL,
-		DatabaseUserName:      config.DatabaseUserName,
+		DatabaseUsername:      config.DatabaseUserName,
 		DatabasePassword:      config.DatabasePassword,
 		SSLEnabled:            config.DatabaseSSLEnabled,
 		QueryLoggingEnabled:   config.DatabaseQueryLoggingEnabled,

@@ -17,7 +17,7 @@ import (
 type PostgresDatabaseConfig struct {
 	DatabaseName          string
 	DatabaseEndpointURL   string
-	DatabaseUserName      string
+	DatabaseUsername      string
 	DatabasePassword      string
 	SSLEnabled            bool
 	QueryLoggingEnabled   bool
@@ -43,7 +43,7 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 		pgOptions =
 			pgdriver.NewConnector(
 				pgdriver.WithAddr(config.DatabaseEndpointURL),
-				pgdriver.WithUser(config.DatabaseUserName),
+				pgdriver.WithUser(config.DatabaseUsername),
 				pgdriver.WithTLSConfig(&tls.Config{InsecureSkipVerify: false}),
 				pgdriver.WithPassword(config.DatabasePassword),
 				pgdriver.WithDatabase(config.DatabaseName),
@@ -51,7 +51,7 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 	} else {
 		pgOptions = pgdriver.NewConnector(
 			pgdriver.WithAddr(config.DatabaseEndpointURL),
-			pgdriver.WithUser(config.DatabaseUserName),
+			pgdriver.WithUser(config.DatabaseUsername),
 			pgdriver.WithInsecure(true),
 			pgdriver.WithPassword(config.DatabasePassword),
 			pgdriver.WithDatabase(config.DatabaseName),

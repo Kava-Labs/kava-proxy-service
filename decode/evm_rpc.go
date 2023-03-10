@@ -4,13 +4,14 @@ import "encoding/json"
 
 // EVMRPCRequest wraps expected values present in a request
 // to the RPC endpoint for an EVM node API
+// https://ethereum.org/en/developers/docs/apis/json-rpc/
 type EVMRPCRequestEnvelope struct {
 	// version of the RPC spec being used
 	// https://www.jsonrpc.org/specification
 	JSONRPCVersion string `json:"jsonrpc"`
 	ID             int64
 	Method         string
-	Params         []interface{} // a.k.a. raw json that should be parsed to a type based off the methond
+	Params         []interface{}
 }
 
 func DecodeEVMRPCRequest(body []byte) (*EVMRPCRequestEnvelope, error) {
