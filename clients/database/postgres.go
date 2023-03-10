@@ -27,7 +27,7 @@ type PostgresDatabaseConfig struct {
 
 // PostgresClient wraps a connection to a postgres database
 type PostgresClient struct {
-	DBConnection *bun.DB
+	*bun.DB
 }
 
 // NewPostgresClient returns a new connection to the specified
@@ -71,13 +71,13 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 	}
 
 	return PostgresClient{
-		DBConnection: db,
+		DB: db,
 	}, nil
 }
 
 // HealthCheck returns an error if the database can not
 // be connected to and queried, nil otherwise
 func (pg *PostgresClient) HealthCheck() error {
-	_, err := pg.DBConnection.Query(`SELECT 1;`)
+	_, err := pg.Query(`SELECT 1;`)
 	return err
 }
