@@ -28,13 +28,17 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	// create an http router for registering handlers for a given route
 	mux := http.NewServeMux()
 
-	// will run after the proxy middleware handler
-	metricMiddleware := createMetricMiddleware(&service)
+	// will run after the proxy middleware handler and is
+	// the final function called after all other middleware
+	// allowing it to access values added to the request context
+	// to do things like metric the response and cache the response
+	afterProxyFinalizer := createAfterProxyFinalizer(&service)
 
 	// create an http handler that will proxy any request to the specified URL
-	proxyMiddleware := createProxyRequestMiddleware(metricMiddleware, config, serviceLogger)
+	proxyMiddleware := createProxyRequestMiddleware(afterProxyFinalizer, config, serviceLogger)
 
 	// create an http handler that will log the request to stdout
+	// this handler will run before the proxyMiddleware handler
 	requestLoggingMiddleware := createRequestLoggingMiddleware(proxyMiddleware, serviceLogger)
 
 	// register middleware chain as the default handler for any request to the proxy service
@@ -107,7 +111,7 @@ func createDatabase(ctx context.Context, config config.Config, logger *logging.S
 
 	logger.Debug().Msg("running migrations on database")
 
-	migrations, err := database.Migrate(ctx, serviceDatabase.DBConnection, *migrations.Migrations, logger)
+	migrations, err := database.Migrate(ctx, serviceDatabase.DB, *migrations.Migrations, logger)
 
 	if err != nil {
 		logger.Error().Msg(fmt.Sprintf("error %s running migrations on database, will retry in 1 second", err))
