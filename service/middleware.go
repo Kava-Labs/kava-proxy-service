@@ -20,7 +20,7 @@ import (
 
 const (
 	DecodedRequestContextKey              = "X-KAVA-PROXY-DECODED-REQUEST-BODY"
-	OriginRoundtripLatencyMillisecondsKey = "X-KAVA--PROXY-ORIGIN-ROUNDTRIP-LATENCY-MILLISECONDS"
+	OriginRoundtripLatencyMillisecondsKey = "X-KAVA-PROXY-ORIGIN-ROUNDTRIP-LATENCY-MILLISECONDS"
 	RequestStartTimeContextKey            = "X-KAVA-PROXY-REQUEST-START-TIME"
 )
 
@@ -69,7 +69,9 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 			rawBody, err = ioutil.ReadAll(body)
 
 			if err != nil {
-				w.WriteHeader(http.StatusRequestEntityTooLarge)
+				serviceLogger.Debug().Msg(fmt.Sprintf("error %s reading request body %s", err, body))
+
+				h.ServeHTTP(w, r)
 
 				return
 			}

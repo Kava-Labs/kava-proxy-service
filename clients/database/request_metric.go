@@ -41,7 +41,7 @@ func ListProxiedRequestMetricsWithPagination(ctx context.Context, db *bun.DB, cu
 	if count == limit {
 		nextCursor = proxiedRequestMetrics[count-1].ID
 	}
-	// otherwise leave nextCursor as 0 to signal no more rows
 
+	// otherwise leave nextCursor as 0 to signal no more rows
 	return proxiedRequestMetrics, nextCursor, err
 }
