@@ -11,13 +11,15 @@ _Under Development_.
 Many aspects of the service are configurable via environment variables:
 
 - `LOG_LEVEL` - controls the amount of logs produced by the service, defaults to `INFO`, supported values in order from most verbose to least verbose are
-    - DEBUG
-    - INFO
-    - ERROR
+
+  - DEBUG
+  - INFO
+  - ERROR
 
 ### Logging
 
 The service logs to stdout using the json format, with logging configurable (via environment variables) at the following levels:
+
 - DEBUG
 - INFO
 - ERROR
