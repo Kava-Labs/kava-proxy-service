@@ -19,11 +19,12 @@ COPY logging/ logging/
 COPY clients/ clients/
 COPY config/ config/
 COPY service/ service/
-COPY decode/ decode /
+COPY decode/ decode/
 
 # build service from latest sources
 RUN go install
 
 # by default when a container is started from this image
 # run the proxy service
+EXPOSE 7777
 CMD ["kava-proxy-service"]
