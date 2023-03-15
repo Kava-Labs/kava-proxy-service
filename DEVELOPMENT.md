@@ -212,6 +212,26 @@ make debug-database
 make debug-cache
 ```
 
+## Publishing
+
+To publish new versions of the docker image for use in a deployed environment, set up a docker buildx builder (for being able to build the image to run on different cpu architectures)
+
+```bash
+docker buildx create --use
+```
+
+log into the docker registry you will be publishing to
+
+```bash
+AWS_PROFILE=shared aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 843137275421.dkr.ecr.us-east-1.amazonaws.com
+```
+
+then build and push the image
+
+```bash
+docker buildx build -f ./production.Dockerfile  --platform linux/amd64,linux/arm64 --push -t 843137275421.dkr.ecr.us-east-1.amazonaws.com/kava-proxy-service:latest .
+```
+
 ## Feedback
 
 For suggesting changes or reporting issues, please open a Github Issue.

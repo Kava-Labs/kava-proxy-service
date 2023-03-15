@@ -41,13 +41,25 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	// this handler will run before the proxyMiddleware handler
 	requestLoggingMiddleware := createRequestLoggingMiddleware(proxyMiddleware, serviceLogger)
 
+	// register healthcheck handler that can be used during deployment and operations
+	// to determine if the service is ready to receive requests
+	mux.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
+		serviceLogger.Debug().Msg("/healthcheck called")
+
+		w.WriteHeader(http.StatusOK)
+
+		w.Write([]byte("proxy service is healthy"))
+	})
+
 	// register middleware chain as the default handler for any request to the proxy service
 	mux.HandleFunc("/", requestLoggingMiddleware)
 
 	// create an http server for the caller to start on demand with a call to ProxyService.Run()
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%s", config.ProxyServicePort),
-		Handler: mux,
+		Addr:         fmt.Sprintf(":%s", config.ProxyServicePort),
+		Handler:      mux,
+		WriteTimeout: time.Duration(config.HTTPWriteTimeoutSeconds) * time.Second,
+		ReadTimeout:  time.Duration(config.HTTPReadTimeoutSeconds) * time.Second,
 	}
 
 	// create database client

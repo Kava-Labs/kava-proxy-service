@@ -20,6 +20,8 @@ type Config struct {
 	DatabaseSSLEnabled          bool
 	DatabaseQueryLoggingEnabled bool
 	RunDatabaseMigrations       bool
+	HTTPReadTimeoutSeconds      int64
+	HTTPWriteTimeoutSeconds     int64
 }
 
 const (
@@ -34,6 +36,10 @@ const (
 	DATABASE_SSL_ENABLED_ENVIRONMENT_KEY           = "DATABASE_SSL_ENABLED"
 	DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY = "DATABASE_QUERY_LOGGING_ENABLED"
 	RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY        = "RUN_DATABASE_MIGRATIONS"
+	DEFAULT_HTTP_READ_TIMEOUT                      = 30
+	DEFAULT_HTTP_WRITE_TIMEOUT                     = 60
+	HTTP_READ_TIMEOUT_ENVIRONMENT_KEY              = "HTTP_READ_TIMEOUT_SECONDS"
+	HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY             = "HTTP_WRITE_TIMEOUT_SECONDS"
 )
 
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
@@ -48,6 +54,18 @@ func EnvOrDefault(key string, fallback string) string {
 func EnvOrDefaultBool(key string, fallback bool) bool {
 	if val, ok := os.LookupEnv(key); ok {
 		val, err := strconv.ParseBool(val)
+		if err != nil {
+			return fallback
+		}
+		return val
+	}
+	return fallback
+}
+
+// EnvOrDefaultInt64 fetches an int64 environment variable value, or if not set returns the fallback value
+func EnvOrDefaultInt64(key string, fallback int64) int64 {
+	if val, ok := os.LookupEnv(key); ok {
+		val, err := strconv.ParseInt(val, 0, 64)
 		if err != nil {
 			return fallback
 		}
@@ -77,5 +95,7 @@ func ReadConfig() Config {
 		DatabaseSSLEnabled:          EnvOrDefaultBool(DATABASE_SSL_ENABLED_ENVIRONMENT_KEY, false),
 		DatabaseQueryLoggingEnabled: EnvOrDefaultBool(DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY, true),
 		RunDatabaseMigrations:       EnvOrDefaultBool(RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY, false),
+		HTTPReadTimeoutSeconds:      EnvOrDefaultInt64(HTTP_READ_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_READ_TIMEOUT),
+		HTTPWriteTimeoutSeconds:     EnvOrDefaultInt64(HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_WRITE_TIMEOUT),
 	}
 }
