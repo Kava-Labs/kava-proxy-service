@@ -38,7 +38,16 @@ func TestUnitTestValidateConfigReturnsErrorIfInvalidProxyBackendHostURL(t *testi
 	// turns out it's actually very hard to make a non-parseable url 😅
 	// https://pkg.go.dev/net/url#Parse
 	// > The url may be relative (a path, without a host) or absolute (starting with a scheme). Trying to parse a hostname and path without a scheme is invalid but may not necessarily return an error, due to parsing ambiguities.
-	testConfig.ProxyBackendHostURL = "kava.com/path%^"
+	testConfig.ProxyBackendHostURLMapRaw = "kava.com/path%^"
+
+	err := config.Validate(testConfig)
+
+	assert.NotNil(t, err)
+}
+
+func TestUnitTestValidateConfigReturnsErrorIfInvalidProxyBackendHostURLComponents(t *testing.T) {
+	testConfig := defaultConfig
+	testConfig.ProxyBackendHostURLMapRaw = "localhost:7777,localhost:7778>http://kava:8545$^,localhost:7777>http://kava:8545"
 
 	err := config.Validate(testConfig)
 

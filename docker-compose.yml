@@ -38,10 +38,7 @@ services:
     env_file: .env
     ports:
       - "${PROXY_HOST_PORT}:${PROXY_CONTAINER_PORT}"
+      - "${PROXY_CONTAINER_EVM_RPC_DATA_PORT}:${PROXY_CONTAINER_PORT}"
       - "${PROXY_HOST_DEBUG_PORT}:${PROXY_CONTAINER_DEBUG_PORT}"
     cap_add:
       - SYS_PTRACE # Allows for attaching debugger to process in this container
-    depends_on:
-      - postgres
-      - redis
-      - kava

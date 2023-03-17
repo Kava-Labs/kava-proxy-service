@@ -102,9 +102,17 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 // the request and the backend origin server(s) response(s)
 func createProxyRequestMiddleware(next http.Handler, config config.Config, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
 	// create an http handler that will proxy any request to the specified URL
-	proxy := httputil.NewSingleHostReverseProxy(&config.ProxyBackendHostURLParsed)
+	reverseProxyForHost := make(map[string]*httputil.ReverseProxy)
 
-	handler := func(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+	for host, proxyBackendURL := range config.ProxyBackendHostURLMapParsed {
+		serviceLogger.Debug().Msg(fmt.Sprintf("creating reverse proxy for host %s to %+v", host, proxyBackendURL))
+
+		targetURL := config.ProxyBackendHostURLMapParsed[host]
+
+		reverseProxyForHost[host] = httputil.NewSingleHostReverseProxy(&targetURL)
+	}
+
+	handler := func(proxies map[string]*httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 		return func(w http.ResponseWriter, r *http.Request) {
 			serviceLogger.Debug().Msg(fmt.Sprintf("proxying request %+v", r))
 
@@ -115,7 +123,20 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 			lrw := &bodySaverResponseWriter{ResponseWriter: negroni.NewResponseWriter(w), body: bytes.NewBufferString("")}
 
 			// proxy the request to the backend origin server
-			p.ServeHTTP(lrw, r)
+			// based on the request host
+			proxy, ok := proxies[r.Host]
+
+			if !ok {
+				serviceLogger.Error().Msg(fmt.Sprintf("no matching proxy for host %s for request %+v\n configured proxies %+v", r.Host, r, proxies))
+
+				w.WriteHeader(http.StatusBadGateway)
+
+				w.Write([]byte("no proxy backend configured for request host"))
+
+				return
+			}
+
+			proxy.ServeHTTP(lrw, r)
 
 			serviceLogger.Debug().Msg(fmt.Sprintf("response %+v \nheaders %+v \nstatus %+v for request %+v", lrw.Status(), lrw.Header(), lrw.body, r))
 
@@ -130,7 +151,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 		}
 	}
 
-	return handler(proxy)
+	return handler(reverseProxyForHost)
 }
 
 func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {

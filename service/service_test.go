@@ -12,22 +12,36 @@ import (
 )
 
 var (
-	testDefaultContext  = context.TODO()
-	proxyServiceURL     = os.Getenv("TEST_PROXY_BACKEND_EVM_RPC_HOST_URL")
-	databaseName        = os.Getenv("DATABASE_NAME")
-	databaseUsername    = os.Getenv("DATABASE_USERNAME")
-	databasePassword    = os.Getenv("DATABASE_PASSWORD")
-	databaseEndpointURL = os.Getenv("DATABASE_ENDPOINT_URL")
+	testDefaultContext    = context.TODO()
+	proxyServiceURLMapRaw = os.Getenv("TEST_PROXY_BACKEND_HOST_URL_MAP")
+	databaseName          = os.Getenv("DATABASE_NAME")
+	databaseUsername      = os.Getenv("DATABASE_USERNAME")
+	databasePassword      = os.Getenv("DATABASE_PASSWORD")
+	databaseEndpointURL   = os.Getenv("DATABASE_ENDPOINT_URL")
+	testServiceLogLevel   = os.Getenv("TEST_SERVICE_LOG_LEVEL")
 
-	dummyConfig = config.Config{
-		ProxyBackendHostURL: proxyServiceURL,
-		DatabaseName:        databaseName,
-		DatabaseUserName:    databaseUsername,
-		DatabasePassword:    databasePassword,
-		DatabaseEndpointURL: databaseEndpointURL,
-	}
+	dummyConfig = func() config.Config {
+
+		proxyBackendHostURLMapParsed, err := config.ParseRawProxyBackendHostURLMap(proxyServiceURLMapRaw)
+
+		if err != nil {
+			panic(err)
+		}
+
+		conf := config.Config{
+			ProxyBackendHostURLMapRaw:    proxyServiceURLMapRaw,
+			ProxyBackendHostURLMapParsed: proxyBackendHostURLMapParsed,
+			DatabaseName:                 databaseName,
+			DatabaseUserName:             databaseUsername,
+			DatabasePassword:             databasePassword,
+			DatabaseEndpointURL:          databaseEndpointURL,
+		}
+
+		return conf
+	}()
+
 	dummyLogger = func() *logging.ServiceLogger {
-		logger, err := logging.New("DEBUG")
+		logger, err := logging.New(testServiceLogLevel)
 
 		if err != nil {
 			panic(err)
