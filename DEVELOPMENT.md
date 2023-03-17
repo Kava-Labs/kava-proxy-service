@@ -132,10 +132,9 @@ make up
 # rebuild, reset state and restart all containers for all the services
 # in docker-compose.yml
 make reset
-# rebuild, reset state and restart just the proxy service
+# rebuild and restart just the proxy service
 make refresh
-# stop and start (without re-building or wiping state) all services
-# in docker-compose.yml
+# stop and start (without re-building or wiping state) just the proxy service
 make restart
 # stop all services in docker-compose.yml
 make down

@@ -59,8 +59,9 @@ down:
 	docker-compose down
 
 .PHONY: restart
-# restart the service and all it's dependencies (preserving any container state)
-restart: down up
+# restart just the service (useful for picking up new environment variable values)
+restart:
+	docker-compose up -d proxy --force-recreate
 
 .PHONY: reset
 # wipe state and restart the service and all it's dependencies
@@ -68,9 +69,11 @@ reset: lint
 	docker-compose up -d --build --remove-orphans --renew-anon-volumes --force-recreate
 
 .PHONY: refresh
-# rebuild and restart just the service
-refresh: lint
-	docker-compose up -d proxy --build --remove-orphans --force-recreate
+
+# rebuild from latest local sources and restart just the service containers
+# (preserving any volume state such as database tables & rows)
+refresh:
+	docker-compose up -d proxy --build --force-recreate
 
 # poll kava service status endpoint until it doesn't error
 .PHONY: ready

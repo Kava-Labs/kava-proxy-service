@@ -24,7 +24,8 @@ var (
 		return logger
 	}()
 
-	proxyServiceURL = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
+	proxyServiceURL     = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
+	proxyServiceDataURL = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_DATA_URL")
 
 	databaseURL      = os.Getenv("TEST_DATABASE_ENDPOINT_URL")
 	databasePassword = os.Getenv("DATABASE_PASSWORD")
@@ -50,6 +51,34 @@ func TestE2ETestProxyReturnsNonZeroLatestBlockHeader(t *testing.T) {
 	}
 
 	header, err := client.HeaderByNumber(testContext, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Greater(t, int(header.Number.Int64()), 0)
+}
+
+func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
+	client, err := ethclient.Dial(proxyServiceURL)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	header, err := client.HeaderByNumber(testContext, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Greater(t, int(header.Number.Int64()), 0)
+
+	dataClient, err := ethclient.Dial(proxyServiceDataURL)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	header, err = dataClient.HeaderByNumber(testContext, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

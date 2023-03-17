@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"strconv"
 )
 
@@ -29,10 +28,10 @@ func Validate(config Config) error {
 		allErrs = fmt.Errorf("invalid %s specified %s, supported values are %v", LOG_LEVEL_ENVIRONMENT_KEY, config.LogLevel, ValidLogLevels)
 	}
 
-	_, err := url.Parse(config.ProxyBackendHostURL)
+	_, err := ParseRawProxyBackendHostURLMap(config.ProxyBackendHostURLMapRaw)
 
 	if err != nil {
-		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_BACKEND_HOST_URL_ENVIRONMENT_KEY, config.ProxyBackendHostURL))
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyBackendHostURLMapRaw))
 	}
 
 	_, err = strconv.Atoi(config.ProxyServicePort)

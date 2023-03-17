@@ -9,9 +9,9 @@ import (
 )
 
 var (
-	proxyServicePort             = "7777"
-	randomEnvironmentVariableKey = "TEST_KAVA_RANDOM_VALUE"
-	proxyServiceURL              = os.Getenv("TEST_PROXY_BACKEND_EVM_RPC_HOST_URL")
+	proxyServicePort              = "7777"
+	randomEnvironmentVariableKey  = "TEST_KAVA_RANDOM_VALUE"
+	proxyServiceBackendHostURLMap = os.Getenv("TEST_PROXY_BACKEND_HOST_URL_MAP")
 )
 
 func TestUnitTestEnvODefaultReturnsDefaultIfEnvironmentVariableNotSet(t *testing.T) {
@@ -43,12 +43,11 @@ func TestUnitTestReadConfigReturnsConfigWithValuesFromEnv(t *testing.T) {
 	readConfig := config.ReadConfig()
 
 	assert.Equal(t, config.DEFAULT_LOG_LEVEL, readConfig.LogLevel)
-	assert.Equal(t, proxyServiceURL, readConfig.ProxyBackendHostURL)
 	assert.Equal(t, proxyServicePort, readConfig.ProxyServicePort)
 }
 
 func setDefaultEnv() {
-	os.Setenv(config.PROXY_BACKEND_HOST_URL_ENVIRONMENT_KEY, proxyServiceURL)
+	os.Setenv(config.PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, proxyServiceBackendHostURLMap)
 	os.Setenv(config.PROXY_SERVICE_PORT_ENVIRONMENT_KEY, proxyServicePort)
 	os.Setenv(config.LOG_LEVEL_ENVIRONMENT_KEY, config.DEFAULT_LOG_LEVEL)
 }
