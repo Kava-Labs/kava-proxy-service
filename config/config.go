@@ -84,11 +84,18 @@ const PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER = ","
 // seperator for
 const PROXY_BACKEND_HOST_URL_MAP_SUB_COMPONENT_DELIMITER = ">"
 
+// ParseRawProxyBackendHostURLMap attempts to parse mappings
+// of hostname to proxy for and the backend servers to proxy
+// the request to, returning the mapping and error (if any).
 func ParseRawProxyBackendHostURLMap(raw string) (map[string]url.URL, error) {
 	hostURLMap := map[string]url.URL{}
 	var combinedErr error
 
 	entries := strings.Split(raw, PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER)
+
+	if len(entries) < 1 {
+		return hostURLMap, fmt.Errorf("found zero mappings delimited by %s in %s", PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER, raw)
+	}
 
 	for _, entry := range entries {
 		entryComponents := strings.Split(entry, PROXY_BACKEND_HOST_URL_MAP_SUB_COMPONENT_DELIMITER)

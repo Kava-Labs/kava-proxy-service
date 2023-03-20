@@ -6,9 +6,11 @@ This document provides context, tips and processes that developers can use when 
 
 The following dependencies are required to build and run the proxy service:
 
-- [Docker](https://docs.docker.com/engine/install/) for building
-- [Docker Compose (v2+)](https://docs.docker.com/compose/install/)
+- [Docker](https://docs.docker.com/engine/install/) for building service docker images
+- [Docker Compose (v2+)](https://docs.docker.com/compose/install/) for orchestrating containers for the service and it's dependencies (e.g. postgres database and redis cache)
 - [Delve](https://github.com/go-delve/delve/tree/master/Documentation/installation) for step debugging of running golang processes
+- [JQ](https://stedolan.github.io/jq/download/) for parsing JSON output by utility scripts
+- Kava CLI can be installed by checking out [kava repo](https://github.com/Kava-Labs/kava) and running `make install`
 
 ## Configuration
 
