@@ -79,7 +79,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 }
 
 // createDatabaseClient creates a connection to the database
-// using the specified config and runs migrations
+// using the specified config and runs migrations async
 // (only if migration flag in config is true) returning the
 // returning the database connection and error (if any)
 func createDatabaseClient(ctx context.Context, config config.Config, logger *logging.ServiceLogger) (*database.PostgresClient, error) {
@@ -107,34 +107,40 @@ func createDatabaseClient(ctx context.Context, config config.Config, logger *log
 		return &serviceDatabase, nil
 	}
 
-	// wait for database to be reachable
-	var databaseOnline bool
-	for !databaseOnline {
-		err = serviceDatabase.HealthCheck()
+	// run migrations async so waiting for the database to
+	// be reachable doesn't block the ability of the proxy service
+	// to degrade gracefully and continue to proxy requests even
+	// without it's database
+	go func() {
+		// wait for database to be reachable
+		var databaseOnline bool
+		for !databaseOnline {
+			err = serviceDatabase.HealthCheck()
 
-		if err != nil {
-			logger.Debug().Msg("unable to connect to database, will retry in 1 second")
+			if err != nil {
+				logger.Debug().Msg("unable to connect to database, will retry in 1 second")
 
-			time.Sleep(1 * time.Second)
+				time.Sleep(1 * time.Second)
 
-			continue
+				continue
+			}
+
+			logger.Debug().Msg("connected to database")
+
+			databaseOnline = true
 		}
 
-		logger.Debug().Msg("connected to database")
+		logger.Debug().Msg("running migrations on database")
 
-		databaseOnline = true
-	}
+		migrations, err := database.Migrate(ctx, serviceDatabase.DB, *migrations.Migrations, logger)
 
-	logger.Debug().Msg("running migrations on database")
+		if err != nil {
+			logger.Error().Msg(fmt.Sprintf("error %s running migrations on database, will retry in 1 second", err))
 
-	migrations, err := database.Migrate(ctx, serviceDatabase.DB, *migrations.Migrations, logger)
+		}
 
-	if err != nil {
-		logger.Error().Msg(fmt.Sprintf("error %s running migrations on database, will retry in 1 second", err))
-
-	}
-
-	logger.Debug().Msg(fmt.Sprintf("run migrations %+v \n last group %+v \n unapplied %+v", migrations.Applied(), migrations.LastGroup(), migrations.Unapplied()))
+		logger.Debug().Msg(fmt.Sprintf("run migrations %+v \n last group %+v \n unapplied %+v", migrations.Applied(), migrations.LastGroup(), migrations.Unapplied()))
+	}()
 
 	return &serviceDatabase, err
 }
