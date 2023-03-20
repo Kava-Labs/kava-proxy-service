@@ -32,11 +32,11 @@ Below are the ordered goals (ordered from most important to least) that develope
 
 > Because the proxy service handles every request for a given API endpoint, above all else the service should always strive to be available for proxying requests to it's configured backend origin(s), failing open or degrading gracefully whenever possible.
 
-2. Scale multiplier
+1. Scale multiplier
 
 > The proxy service should be a scalablity multiplier (as opposed to a bottleneck), preferring simple and efficient implementations over complex, blocking or bimodal ones.
 
-3. Transparency
+1. Transparency
 
 > Since errors in the proxy service have a potentially catastrophic impact on the the availability of the API endpoint(s) being proxied, the proxy should be easy to debug, instrument and monitor.
 
@@ -46,6 +46,7 @@ As [John Gruber](https://daringfireball.net/) notes often, it matters not just w
 
 1. [How the middleware stack works](./MIDDLEWARE.MD)
 1. [Database migrations](./MIGRATIONS.MD)
+1. [AWS network topology worked example](./ARCHITECTURE.md)
 
 ## Editable Diagrams
 
