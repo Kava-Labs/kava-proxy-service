@@ -233,6 +233,12 @@ then build and push the image
 docker buildx build -f ./production.Dockerfile  --platform linux/amd64,linux/arm64 --push -t 843137275421.dkr.ecr.us-east-1.amazonaws.com/kava-proxy-service:latest .
 ```
 
+If the service is deployed on AWS ECS, to force ECS to start a new instance of the proxy service with the updated container run, replacing the values of cluster and service as appropriate for your deployment:
+
+```bash
+AWS_PROFILE=production aws ecs update-service --cluster kava-internal-testnet-proxy-service --service kava-internal-testnet-proxy-service --force-new-deployment
+```
+
 ## Feedback
 
 For suggesting changes or reporting issues, please open a Github Issue.

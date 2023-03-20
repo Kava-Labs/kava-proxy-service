@@ -16,6 +16,8 @@ type ProxiedRequestMetric struct {
 	MethodName                  string
 	BlockNumber                 *int64
 	ResponseLatencyMilliseconds int64
+	Hostname                    string
+	RequestIP                   string `bun:"request_ip"`
 	RequestTime                 time.Time
 }
 

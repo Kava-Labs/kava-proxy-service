@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"time"
 
 	"github.com/urfave/negroni"
@@ -22,6 +23,9 @@ const (
 	DecodedRequestContextKey              = "X-KAVA-PROXY-DECODED-REQUEST-BODY"
 	OriginRoundtripLatencyMillisecondsKey = "X-KAVA-PROXY-ORIGIN-ROUNDTRIP-LATENCY-MILLISECONDS"
 	RequestStartTimeContextKey            = "X-KAVA-PROXY-REQUEST-START-TIME"
+	RequestHostnameContextKey             = "X-KAVA-PROXY-REQUEST-HOSTNAME"
+	RequestIPContextKey                   = "X-KAVA-PROXY-REQUEST-IP"
+	LoadBalancerForwardedForHeaderKey     = "X-Forwarded-For"
 )
 
 // bodySaverResponseWriter implements the interface for http.ResponseWriter
@@ -147,7 +151,27 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			originRoundtripLatencyContext := context.WithValue(r.Context(), OriginRoundtripLatencyMillisecondsKey, requestRoundtrip.Milliseconds())
 
-			next.ServeHTTP(lrw, r.WithContext(originRoundtripLatencyContext))
+			// extract the original hostname the request was sent to
+			requestHostnameContext := context.WithValue(originRoundtripLatencyContext, RequestHostnameContextKey, r.Host)
+
+			enrichedContext := requestHostnameContext
+
+			// extract the ip of the client that made the request
+			requestIPHeaderValues := r.Header[LoadBalancerForwardedForHeaderKey]
+
+			// when deployed in a production environment there will often
+			// be a load balancer in front of the proxy service that first handles
+			// the request, in which case the ip of the original request should be tracked
+			// otherwise the ip of the connecting client
+			if len(requestIPHeaderValues) == 1 {
+				enrichedContext = context.WithValue(enrichedContext, RequestIPContextKey, requestIPHeaderValues[0])
+
+			} else {
+				remoteAddressParts := strings.Split(r.RemoteAddr, ":")
+				enrichedContext = context.WithValue(enrichedContext, RequestIPContextKey, remoteAddressParts[0])
+			}
+
+			next.ServeHTTP(lrw, r.WithContext(enrichedContext))
 		}
 	}
 
@@ -184,11 +208,31 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			return
 		}
 
+		rawRequestHostname := r.Context().Value(RequestHostnameContextKey)
+		requestHostname, ok := rawRequestHostname.(string)
+
+		if !ok {
+			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestHostname, RequestHostnameContextKey))
+
+			return
+		}
+
+		rawRequestIP := r.Context().Value(RequestIPContextKey)
+		requestIP, ok := rawRequestIP.(string)
+
+		if !ok {
+			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestIP, RequestIPContextKey))
+
+			return
+		}
+
 		// create a metric for the request
 		metric := database.ProxiedRequestMetric{
 			MethodName:                  decodedRequestBody.Method,
 			ResponseLatencyMilliseconds: originRoundtripLatencyMilliseconds,
 			RequestTime:                 requestStartTime,
+			Hostname:                    requestHostname,
+			RequestIP:                   requestIP,
 		}
 
 		// save metric to database

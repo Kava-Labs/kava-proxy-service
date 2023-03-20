@@ -24,8 +24,9 @@ var (
 		return logger
 	}()
 
-	proxyServiceURL     = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
-	proxyServiceDataURL = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_DATA_URL")
+	proxyServiceURL      = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
+	proxyServiceHostname = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_HOSTNAME")
+	proxyServiceDataURL  = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_DATA_URL")
 
 	databaseURL      = os.Getenv("TEST_DATABASE_ENDPOINT_URL")
 	databasePassword = os.Getenv("DATABASE_PASSWORD")
@@ -156,4 +157,6 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	assert.Greater(t, requestMetricDuringRequestWindow.ResponseLatencyMilliseconds, int64(0))
 	assert.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
+	assert.Equal(t, requestMetricDuringRequestWindow.Hostname, proxyServiceHostname)
+	assert.NotEqual(t, requestMetricDuringRequestWindow.RequestIP, "")
 }
