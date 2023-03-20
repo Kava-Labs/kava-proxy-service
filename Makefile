@@ -78,7 +78,8 @@ refresh:
 # poll kava service status endpoint until it doesn't error
 .PHONY: ready
 ready:
-	./scripts/wait-for-kava-node-running.sh
+	./scripts/wait-for-kava-node-running.sh && \
+	./scripts/wait-for-proxy-service-running.sh
 
 .PHONY: logs
 # follow the logs from all the dockerized services
