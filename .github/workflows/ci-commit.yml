@@ -1,0 +1,7 @@
+name: Continuous Integration (Commit)
+on:
+  push:
+# run per commit ci checks against this commit
+jobs:
+  lint:
+    uses: ./.github/workflows/ci-lint.yml

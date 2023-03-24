@@ -1,0 +1,13 @@
+name: Continuous Integration (PR)
+on:
+  pull_request:
+    # run CI on pull requests to main or a release branch
+    branches:
+      - main
+      - 'releases/**'
+# run default ci checks against current PR
+jobs:
+  # default:
+  #   uses: ./.github/workflows/ci-default.yml
+  e2e-tests:
+    uses: ./.github/workflows/ci-e2e-tests.yml

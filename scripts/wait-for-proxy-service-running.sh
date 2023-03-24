@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x
 
-until curl -f localhost:"${PROXY_CONTAINER_PORT}/healthcheck"
+until curl -f http://localhost:"${PROXY_CONTAINER_PORT}/healthcheck"
 do
     echo "waiting for proxy service to be running"
     sleep 0.5

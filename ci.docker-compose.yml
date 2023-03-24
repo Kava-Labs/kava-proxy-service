@@ -1,0 +1,34 @@
+---
+services:
+  # run postgres for proxy service to store observability metrics
+  postgres:
+    image: postgres:15
+    env_file: .env
+    ports:
+      - "${POSTGRES_HOST_PORT}:${POSTGRES_CONTAINER_PORT}"
+    expose:
+      - "${POSTGRES_CONTAINER_PORT}"
+  # run redis for proxy service to cache responses
+  redis:
+    image: 'bitnami/redis:latest'
+    env_file: .env
+    ports:
+      - "${REDIS_HOST_PORT}:${REDIS_CONTAINER_PORT}"
+    expose:
+      - "${REDIS_CONTAINER_PORT}"
+  # run proxy service to observe, route, and scale requests to kava api endpoints
+  proxy:
+    build:
+      dockerfile: local.Dockerfile
+    env_file: .env
+    environment:
+      # use public testnet as backend origin server to avoid having
+      # to self-host a beefy Github Action runner
+      # to build and run a kava node each execution
+      PROXY_BACKEND_HOST_URL_MAP: localhost:7777>https://evmrpc.internal.testnet.proxy.kava.io,localhost:7778>https://evmrpcdata.internal.testnet.proxy.kava.io
+    ports:
+      - "${PROXY_HOST_PORT}:${PROXY_CONTAINER_PORT}"
+      - "${PROXY_CONTAINER_EVM_RPC_DATA_PORT}:${PROXY_CONTAINER_PORT}"
+      - "${PROXY_HOST_DEBUG_PORT}:${PROXY_CONTAINER_DEBUG_PORT}"
+    cap_add:
+      - SYS_PTRACE # Allows for attaching debugger to process in this container

@@ -43,5 +43,9 @@ func main() {
 		serviceLogger.Panic().Msg(fmt.Sprintf("%v", errors.Unwrap(err)))
 	}
 
-	service.Run()
+	finalErr := service.Run()
+
+	if finalErr != nil {
+		serviceLogger.Debug().Msg(fmt.Sprintf("service stopped with error %s", finalErr))
+	}
 }

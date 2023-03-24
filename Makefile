@@ -51,29 +51,29 @@ test: unit-test e2e-test
 .PHONY: up
 # start dockerized versions of the service and it's dependencies
 up:
-	docker-compose up -d
+	docker compose up -d
 
 .PHONY: down
 # stop the service and it's dependencies
 down:
-	docker-compose down
+	docker compose down
 
 .PHONY: restart
 # restart just the service (useful for picking up new environment variable values)
 restart:
-	docker-compose up -d proxy --force-recreate
+	docker compose up -d proxy --force-recreate
 
 .PHONY: reset
 # wipe state and restart the service and all it's dependencies
 reset: lint
-	docker-compose up -d --build --remove-orphans --renew-anon-volumes --force-recreate
+	docker compose up -d --build --remove-orphans --renew-anon-volumes --force-recreate
 
 .PHONY: refresh
 
 # rebuild from latest local sources and restart just the service containers
 # (preserving any volume state such as database tables & rows)
 refresh:
-	docker-compose up -d proxy --build --force-recreate
+	docker compose up -d proxy --build --force-recreate
 
 # poll kava service status endpoint until it doesn't error
 .PHONY: ready
@@ -87,22 +87,22 @@ ready:
 # or one
 # make logs S=proxy
 logs:
-	docker-compose logs ${S} -f
+	docker compose logs ${S} -f
 
 .PHONY: debug-proxy
 # attach the dlv debugger to the running service and connect to the dlv debugger
 debug-proxy:
-	docker-compose exec -d proxy dlv attach 1 --listen=:${PROXY_CONTAINER_DEBUG_PORT} --headless --api-version=2 --log && \
+	docker compose exec -d proxy dlv attach 1 --listen=:${PROXY_CONTAINER_DEBUG_PORT} --headless --api-version=2 --log && \
 	dlv connect :${PROXY_HOST_DEBUG_PORT}
 
 .PHONY: debug-database
 # open a connection to the postgres database for debugging it's state
 # https://www.postgresql.org/docs/current/app-psql.html
 debug-database:
-	docker-compose exec postgres psql -U ${DATABASE_USERNAME} -d ${DATABASE_NAME}
+	docker compose exec postgres psql -U ${DATABASE_USERNAME} -d ${DATABASE_NAME}
 
 .PHONY: debug-cache
 # open a connection to the redis service for debugging it's state
 # https://redis.io/docs/ui/cli/
 debug-cache:
-	docker-compose exec redis redis-cli
+	docker compose exec redis redis-cli
