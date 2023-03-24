@@ -43,13 +43,11 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 
 	// register healthcheck handler that can be used during deployment and operations
 	// to determine if the service is ready to receive requests
-	mux.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
-		serviceLogger.Debug().Msg("/healthcheck called")
+	mux.HandleFunc("/healthcheck", createHealthcheckHandler(&service))
 
-		w.WriteHeader(http.StatusOK)
-
-		w.Write([]byte("proxy service is healthy"))
-	})
+	// register healthcheck handler that can be used during deployment and operations
+	// to determine if the service is ready to receive requests
+	mux.HandleFunc("/servicecheck", createServicecheckHandler(&service))
 
 	// register middleware chain as the default handler for any request to the proxy service
 	mux.HandleFunc("/", requestLoggingMiddleware)

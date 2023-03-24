@@ -5,9 +5,13 @@ on:
     branches:
       - main
 jobs:
-  # run per commit ci checks against master branch
+  # run per commit ci checks against main branch
   lint-checks:
     uses: ./.github/workflows/ci-lint.yml
-  # run default ci checks against master branch
+  # run default ci checks against main branch
   default-checks:
     uses: ./.github/workflows/ci-default.yml
+  # run e2e testing ci checks against main branch
+  e2e-tests:
+    needs: [lint-checks, default-checks]
+    uses: ./.github/workflows/ci-e2e-tests.yml
