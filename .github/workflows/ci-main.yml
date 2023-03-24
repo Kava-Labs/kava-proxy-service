@@ -1,4 +1,4 @@
-name: Continuous Integration (Kava Proxy Service Main)
+name: Continuous Integration (Main Branch)
 on:
   push:
     # run CI on any push to the main branch

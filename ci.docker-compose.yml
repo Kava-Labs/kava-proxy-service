@@ -19,7 +19,7 @@ services:
   # run proxy service to observe, route, and scale requests to kava api endpoints
   proxy:
     build:
-      dockerfile: local.Dockerfile
+      dockerfile: ci.Dockerfile
     env_file: .env
     environment:
       # use public testnet as backend origin server to avoid having
@@ -30,5 +30,3 @@ services:
       - "${PROXY_HOST_PORT}:${PROXY_CONTAINER_PORT}"
       - "${PROXY_CONTAINER_EVM_RPC_DATA_PORT}:${PROXY_CONTAINER_PORT}"
       - "${PROXY_HOST_DEBUG_PORT}:${PROXY_CONTAINER_DEBUG_PORT}"
-    cap_add:
-      - SYS_PTRACE # Allows for attaching debugger to process in this container
