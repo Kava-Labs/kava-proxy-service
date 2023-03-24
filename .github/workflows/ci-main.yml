@@ -1,0 +1,13 @@
+name: Continuous Integration (Kava Proxy Service Main)
+on:
+  push:
+    # run CI on any push to the main branch
+    branches:
+      - main
+jobs:
+  # run per commit ci checks against master branch
+  lint-checks:
+    uses: ./.github/workflows/ci-lint.yml
+  # run default ci checks against master branch
+  default-checks:
+    uses: ./.github/workflows/ci-default.yml

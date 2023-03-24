@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"strings"
@@ -70,7 +69,7 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 
 			var err error
 
-			rawBody, err = ioutil.ReadAll(body)
+			rawBody, err = io.ReadAll(body)
 
 			if err != nil {
 				serviceLogger.Debug().Msg(fmt.Sprintf("error %s reading request body %s", err, body))
@@ -81,7 +80,7 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 			}
 
 			// Repopulate the request body for the ultimate consumer of this request
-			r.Body = ioutil.NopCloser(&rawBodyBuffer)
+			r.Body = io.NopCloser(&rawBodyBuffer)
 		}
 
 		decodedRequest, err := decode.DecodeEVMRPCRequest(rawBody)
