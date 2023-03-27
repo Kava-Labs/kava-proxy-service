@@ -1,0 +1,18 @@
+name: Continuous Deployment (Internal Testnet)
+# run after every successful CI job of new commits to the main branch
+on:
+  workflow_run:
+    workflows: [Continuous Integration (Main Branch)]
+    types:
+      - completed
+
+jobs:
+  upgrade-internal-testnet:
+    uses: ./.github/workflows/cd-upgrade-proxy-service.yml
+    with:
+      aws-region: us-east-1
+      service-name: kava-internal-testnet-proxy-service
+      cluster-name: kava-internal-testnet-proxy-service
+      container-name: kava-internal-testnet-proxy-service
+      task-family-name: kava-internal-testnet-proxy-service
+    secrets: inherit
