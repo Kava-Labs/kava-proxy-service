@@ -1,0 +1,14 @@
+name: Continuous Deployment (Public Testnet)
+# allow to be triggered manually
+on: workflow_dispatch
+
+jobs:
+  upgrade-public-testnet:
+    uses: ./.github/workflows/cd-upgrade-proxy-service.yml
+    with:
+      aws-region: us-east-1
+      service-name: kava-public-testnet-proxy-service
+      cluster-name: kava-public-testnet-proxy-service
+      container-name: kava-public-testnet-proxy-service
+      task-family-name: kava-public-testnet-proxy-service
+    secrets: inherit
