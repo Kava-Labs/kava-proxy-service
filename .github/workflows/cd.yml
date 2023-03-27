@@ -1,0 +1,20 @@
+name: Continuous Deployment
+# run after every successful CI job of new commits to the main branch
+on:
+  workflow_run:
+    # workflows: [Continuous Integration (Main Branch)]
+    workflows: [Continuous Integration (Commit)]
+    types:
+      - completed
+
+jobs:
+  set-image-id:
+    runs-on: ubuntu-latest
+    steps:
+      - id: step1
+        run: |
+          # get the latest image not tagged "latest" since
+          # ci-docker-release.yml workflow every run
+          # publishes images tagged `latest` and TIMESTAMP_GITSHA
+          image_id=$(curl "https://hub.docker.com/v2/repositories/kava/kava-proxy-service/tags/?page_size=25&page=1&ordering=last_updated" |  jq '.results[] | select(.name != "latest") | {name: .name}' | jq -s .[0].name)
+          echo "IMAGE_ID=$image_id" >> $GITHUB_ENV
