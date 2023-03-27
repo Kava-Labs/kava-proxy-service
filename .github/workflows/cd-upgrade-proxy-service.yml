@@ -1,0 +1,68 @@
+name: Upgrade Proxy Service
+
+on:
+  workflow_call:
+    inputs:
+      aws-region:
+        required: true
+        type: string
+      cluster-name:
+          required: true
+          type: string
+      service-name:
+          required: true
+          type: string
+      container-name:
+          required: true
+          type: string
+      task-family-name:
+        required: true
+        type: string
+    secrets:
+      CD_AWS_KEY_ID:
+        required: true
+      CD_AWS_KEY_SECRET:
+        required: true
+
+jobs:
+  upgrade-proxy-service:
+    runs-on: ubuntu-latest
+    steps:
+      - name: set-image-id
+        run: |
+              # get the latest image not tagged "latest" since
+              # ci-docker-release.yml workflow every run
+              # publishes images tagged `latest` and TIMESTAMP_GITSHA
+              image_id=$(curl "https://hub.docker.com/v2/repositories/kava/kava-proxy-service/tags/?page_size=25&page=1&ordering=last_updated" |  jq '.results[] | select(.name != "latest") | {name: .name}' | jq -rs .[0].name)
+              echo "IMAGE_ID=$image_id" >> $GITHUB_ENV
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.CD_AWS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.CD_AWS_KEY_SECRET }}
+          aws-region: ${{ inputs.aws-region}}
+      - name: Download Current Task Definition
+        run: |
+          aws ecs describe-task-definition --task-definition $TASK_FAMILY_NAME --query taskDefinition > task-definition.json
+        env:
+          TASK_FAMILY_NAME: ${{ inputs.task-family-name }}
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          # use the file downloaded in the previous step
+          task-definition: task-definition.json
+          container-name: ${{ inputs.container-name }}
+          image: "kava/kava-proxy-service:${{ env.IMAGE_ID }}"
+      - name: Print Updated Task Definition
+        run: |
+               cat $TASK_DEF_FILEPATH
+        env:
+            TASK_DEF_FILEPATH: ${{ steps.task-def.outputs.task-definition }}
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ inputs.service-name }}
+          cluster: ${{ inputs.cluster-name }}
+          wait-for-service-stability: true
