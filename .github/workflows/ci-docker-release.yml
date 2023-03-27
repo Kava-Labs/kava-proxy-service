@@ -12,7 +12,7 @@ on:
 
 # runs in ci-main after successful checks
 # you can use images built by this action in future jobs.
-# https://docs.docker.com/build/ci/github-actions/examples/#share-built-image-between-jobs
+# https://docs.docker.com/build/ci/github-actions/share-image-jobs/
 jobs:
   docker:
     # https://github.com/marketplace/actions/build-and-push-docker-images
