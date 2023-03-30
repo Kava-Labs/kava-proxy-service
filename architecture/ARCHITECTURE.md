@@ -47,6 +47,7 @@ As [John Gruber](https://daringfireball.net/) notes often, it matters not just w
 1. [How the middleware stack works](./MIDDLEWARE.MD)
 1. [Database migrations](./MIGRATIONS.MD)
 1. [AWS network topology worked example](./NETWORK_TOPOLOGY.md)
+1. [Metric Compaction routine](./METRIC_COMPACTION_ROUTINE.md)
 
 ## Editable Diagrams
 

@@ -9,22 +9,24 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
-	ProxyServicePort             string
-	LogLevel                     string
-	ProxyBackendHostURLMapRaw    string
-	ProxyBackendHostURLMapParsed map[string]url.URL
-	DatabaseName                 string
-	DatabaseEndpointURL          string
-	DatabaseUserName             string
-	DatabasePassword             string
-	DatabaseSSLEnabled           bool
-	DatabaseQueryLoggingEnabled  bool
-	RunDatabaseMigrations        bool
-	HTTPReadTimeoutSeconds       int64
-	HTTPWriteTimeoutSeconds      int64
+	ProxyServicePort                string
+	LogLevel                        string
+	ProxyBackendHostURLMapRaw       string
+	ProxyBackendHostURLMapParsed    map[string]url.URL
+	DatabaseName                    string
+	DatabaseEndpointURL             string
+	DatabaseUserName                string
+	DatabasePassword                string
+	DatabaseSSLEnabled              bool
+	DatabaseQueryLoggingEnabled     bool
+	RunDatabaseMigrations           bool
+	HTTPReadTimeoutSeconds          int64
+	HTTPWriteTimeoutSeconds         int64
+	MetricCompactionRoutineInterval time.Duration
 }
 
 const (
@@ -43,6 +45,9 @@ const (
 	DEFAULT_HTTP_WRITE_TIMEOUT                     = 60
 	HTTP_READ_TIMEOUT_ENVIRONMENT_KEY              = "HTTP_READ_TIMEOUT_SECONDS"
 	HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY             = "HTTP_WRITE_TIMEOUT_SECONDS"
+	METRIC_COMPACTION_ROUTINE_INTERVAL_KEY         = "METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS"
+	// 60 seconds / minute * 60 minutes = 1 hour
+	DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS = 3600
 )
 
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
@@ -69,6 +74,18 @@ func EnvOrDefaultBool(key string, fallback bool) bool {
 func EnvOrDefaultInt64(key string, fallback int64) int64 {
 	if val, ok := os.LookupEnv(key); ok {
 		val, err := strconv.ParseInt(val, 0, 64)
+		if err != nil {
+			return fallback
+		}
+		return val
+	}
+	return fallback
+}
+
+// EnvOrDefaultInt fetches an int environment variable value, or if not set returns the fallback value
+func EnvOrDefaultInt(key string, fallback int) int {
+	if val, ok := os.LookupEnv(key); ok {
+		val, err := strconv.Atoi(val)
 		if err != nil {
 			return fallback
 		}
@@ -132,18 +149,19 @@ func ReadConfig() Config {
 	parsedProxyBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyBackendHostURLMap)
 
 	return Config{
-		ProxyServicePort:             os.Getenv(PROXY_SERVICE_PORT_ENVIRONMENT_KEY),
-		LogLevel:                     EnvOrDefault(LOG_LEVEL_ENVIRONMENT_KEY, DEFAULT_LOG_LEVEL),
-		ProxyBackendHostURLMapRaw:    rawProxyBackendHostURLMap,
-		ProxyBackendHostURLMapParsed: parsedProxyBackendHostURLMap,
-		DatabaseName:                 os.Getenv(DATABASE_NAME_ENVIRONMENT_KEY),
-		DatabaseEndpointURL:          os.Getenv(DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY),
-		DatabaseUserName:             os.Getenv(DATABASE_USERNAME_ENVIRONMENT_KEY),
-		DatabasePassword:             os.Getenv(DATABASE_PASSWORD_ENVIRONMENT_KEY),
-		DatabaseSSLEnabled:           EnvOrDefaultBool(DATABASE_SSL_ENABLED_ENVIRONMENT_KEY, false),
-		DatabaseQueryLoggingEnabled:  EnvOrDefaultBool(DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY, true),
-		RunDatabaseMigrations:        EnvOrDefaultBool(RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY, false),
-		HTTPReadTimeoutSeconds:       EnvOrDefaultInt64(HTTP_READ_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_READ_TIMEOUT),
-		HTTPWriteTimeoutSeconds:      EnvOrDefaultInt64(HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_WRITE_TIMEOUT),
+		ProxyServicePort:                os.Getenv(PROXY_SERVICE_PORT_ENVIRONMENT_KEY),
+		LogLevel:                        EnvOrDefault(LOG_LEVEL_ENVIRONMENT_KEY, DEFAULT_LOG_LEVEL),
+		ProxyBackendHostURLMapRaw:       rawProxyBackendHostURLMap,
+		ProxyBackendHostURLMapParsed:    parsedProxyBackendHostURLMap,
+		DatabaseName:                    os.Getenv(DATABASE_NAME_ENVIRONMENT_KEY),
+		DatabaseEndpointURL:             os.Getenv(DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY),
+		DatabaseUserName:                os.Getenv(DATABASE_USERNAME_ENVIRONMENT_KEY),
+		DatabasePassword:                os.Getenv(DATABASE_PASSWORD_ENVIRONMENT_KEY),
+		DatabaseSSLEnabled:              EnvOrDefaultBool(DATABASE_SSL_ENABLED_ENVIRONMENT_KEY, false),
+		DatabaseQueryLoggingEnabled:     EnvOrDefaultBool(DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY, true),
+		RunDatabaseMigrations:           EnvOrDefaultBool(RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY, false),
+		HTTPReadTimeoutSeconds:          EnvOrDefaultInt64(HTTP_READ_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_READ_TIMEOUT),
+		HTTPWriteTimeoutSeconds:         EnvOrDefaultInt64(HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_WRITE_TIMEOUT),
+		MetricCompactionRoutineInterval: time.Duration(time.Duration(EnvOrDefaultInt(METRIC_COMPACTION_ROUTINE_INTERVAL_KEY, DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS)) * time.Second),
 	}
 }

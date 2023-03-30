@@ -20,6 +20,7 @@ COPY clients/ clients/
 COPY config/ config/
 COPY service/ service/
 COPY decode/ decode/
+COPY routines/ routines/
 
 # build service from latest sources
 RUN go install

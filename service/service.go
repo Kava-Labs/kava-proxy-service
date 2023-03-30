@@ -16,7 +16,7 @@ import (
 
 // ProxyService represents an instance of the proxy service API
 type ProxyService struct {
-	database  *database.PostgresClient
+	Database  *database.PostgresClient
 	httpProxy *http.Server
 	*logging.ServiceLogger
 }
@@ -70,7 +70,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	service = ProxyService{
 		httpProxy:     server,
 		ServiceLogger: serviceLogger,
-		database:      db,
+		Database:      db,
 	}
 
 	return service, nil
