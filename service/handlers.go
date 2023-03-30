@@ -16,7 +16,7 @@ func createHealthcheckHandler(service *ProxyService) func(http.ResponseWriter, *
 		service.Debug().Msg("/healthcheck called")
 
 		// check that the database is reachable
-		err := service.database.HealthCheck()
+		err := service.Database.HealthCheck()
 
 		if err != nil {
 			errMsg := fmt.Errorf("proxy service unable to connect to database")
