@@ -24,7 +24,7 @@ jobs:
         # Ignore the failure of a step and avoid terminating the job.
         continue-on-error: true
       - name: build and start proxy service and it's dependencies
-        run: sudo docker compose -f ci.docker-compose.yml up -d
+        run: sudo docker compose -f ci.docker-compose.yml up -d --build
       - name: wait for proxy service to be running
         run: bash ${GITHUB_WORKSPACE}/scripts/wait-for-proxy-service-running.sh
         env:
