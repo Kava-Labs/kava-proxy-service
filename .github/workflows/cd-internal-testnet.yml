@@ -8,6 +8,8 @@ on:
 
 jobs:
   upgrade-internal-testnet:
+    # only start cd pipeline if last ci run was successful
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     uses: ./.github/workflows/cd-upgrade-proxy-service.yml
     with:
       aws-region: us-east-1
