@@ -19,6 +19,8 @@ type ProxiedRequestMetric struct {
 	Hostname                    string
 	RequestIP                   string `bun:"request_ip"`
 	RequestTime                 time.Time
+	UserAgent                   *string
+	Referer                     *string
 }
 
 // Save saves the current ProxiedRequestMetric to

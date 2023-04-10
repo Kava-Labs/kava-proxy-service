@@ -19,12 +19,19 @@ import (
 )
 
 const (
+	// Service defined context keys
 	DecodedRequestContextKey              = "X-KAVA-PROXY-DECODED-REQUEST-BODY"
 	OriginRoundtripLatencyMillisecondsKey = "X-KAVA-PROXY-ORIGIN-ROUNDTRIP-LATENCY-MILLISECONDS"
 	RequestStartTimeContextKey            = "X-KAVA-PROXY-REQUEST-START-TIME"
 	RequestHostnameContextKey             = "X-KAVA-PROXY-REQUEST-HOSTNAME"
 	RequestIPContextKey                   = "X-KAVA-PROXY-REQUEST-IP"
-	LoadBalancerForwardedForHeaderKey     = "X-Forwarded-For"
+	RequestUserAgentContextKey            = "X-KAVA-PROXY-USER-AGENT"
+	RequestRefererContextKey              = "X-KAVA-PROXY-REFERER"
+	// Values defined by upstream services
+	LoadBalancerForwardedForHeaderKey = "X-Forwarded-For"
+	UserAgentHeaderkey                = "User-Agent"
+	RefererHeaderKey                  = "Referer"
+	DefaultAnonymousUserAgent         = "anon"
 )
 
 // bodySaverResponseWriter implements the interface for http.ResponseWriter
@@ -170,6 +177,28 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 				enrichedContext = context.WithValue(enrichedContext, RequestIPContextKey, remoteAddressParts[0])
 			}
 
+			// similarly `RefererHeaderKey` will be set by the load balancer
+			// and should be used if present otherwise default to the requester's ip
+			requestRefererHeaderValues := r.Header[RefererHeaderKey]
+
+			if len(requestRefererHeaderValues) == 1 {
+				enrichedContext = context.WithValue(enrichedContext, RequestRefererContextKey, requestRefererHeaderValues[0])
+			} else {
+				remoteAddressParts := strings.Split(r.RemoteAddr, ":")
+				enrichedContext = context.WithValue(enrichedContext, RequestRefererContextKey, fmt.Sprintf("http://%s", remoteAddressParts[0]))
+			}
+
+			// extract the user agent of the requestor
+			userAgentHeaderValues := r.Header[UserAgentHeaderkey]
+
+			// add user agent to context if present
+			// otherwise defaulting to `DefaultAnonymousUserAgent`
+			if len(userAgentHeaderValues) == 1 {
+				enrichedContext = context.WithValue(enrichedContext, RequestUserAgentContextKey, userAgentHeaderValues[0])
+			} else {
+				enrichedContext = context.WithValue(enrichedContext, RequestUserAgentContextKey, DefaultAnonymousUserAgent)
+			}
+
 			next.ServeHTTP(lrw, r.WithContext(enrichedContext))
 		}
 	}
@@ -225,6 +254,24 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			return
 		}
 
+		rawUserAgent := r.Context().Value(RequestUserAgentContextKey)
+		userAgent, ok := rawUserAgent.(string)
+
+		if !ok {
+			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawUserAgent, RequestUserAgentContextKey))
+
+			return
+		}
+
+		rawReferer := r.Context().Value(RequestRefererContextKey)
+		referer, ok := rawReferer.(string)
+
+		if !ok {
+			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawReferer, RequestRefererContextKey))
+
+			return
+		}
+
 		// create a metric for the request
 		metric := database.ProxiedRequestMetric{
 			MethodName:                  decodedRequestBody.Method,
@@ -232,6 +279,8 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			RequestTime:                 requestStartTime,
 			Hostname:                    requestHostname,
 			RequestIP:                   requestIP,
+			UserAgent:                   &userAgent,
+			Referer:                     &referer,
 		}
 
 		// save metric to database

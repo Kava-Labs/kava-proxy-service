@@ -12,6 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	EthClientUserAgent = "Go-http-client/1.1"
+)
+
 var (
 	testContext = context.Background()
 
@@ -159,4 +163,6 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 	assert.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
 	assert.Equal(t, requestMetricDuringRequestWindow.Hostname, proxyServiceHostname)
 	assert.NotEqual(t, requestMetricDuringRequestWindow.RequestIP, "")
+	assert.Equal(t, *requestMetricDuringRequestWindow.UserAgent, EthClientUserAgent)
+	assert.NotEqual(t, *requestMetricDuringRequestWindow.Referer, "")
 }
