@@ -165,4 +165,5 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 	assert.NotEqual(t, requestMetricDuringRequestWindow.RequestIP, "")
 	assert.Equal(t, *requestMetricDuringRequestWindow.UserAgent, EthClientUserAgent)
 	assert.NotEqual(t, *requestMetricDuringRequestWindow.Referer, "")
+	assert.NotEqual(t, *requestMetricDuringRequestWindow.Origin, "")
 }

@@ -21,6 +21,7 @@ type ProxiedRequestMetric struct {
 	RequestTime                 time.Time
 	UserAgent                   *string
 	Referer                     *string
+	Origin                      *string
 }
 
 // Save saves the current ProxiedRequestMetric to

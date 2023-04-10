@@ -19,6 +19,7 @@ import (
 )
 
 const (
+	DefaultAnonymousUserAgent = "anon"
 	// Service defined context keys
 	DecodedRequestContextKey              = "X-KAVA-PROXY-DECODED-REQUEST-BODY"
 	OriginRoundtripLatencyMillisecondsKey = "X-KAVA-PROXY-ORIGIN-ROUNDTRIP-LATENCY-MILLISECONDS"
@@ -27,11 +28,12 @@ const (
 	RequestIPContextKey                   = "X-KAVA-PROXY-REQUEST-IP"
 	RequestUserAgentContextKey            = "X-KAVA-PROXY-USER-AGENT"
 	RequestRefererContextKey              = "X-KAVA-PROXY-REFERER"
+	RequestOriginContextKey               = "X-KAVA-PROXY-ORIGIN"
 	// Values defined by upstream services
 	LoadBalancerForwardedForHeaderKey = "X-Forwarded-For"
 	UserAgentHeaderkey                = "User-Agent"
 	RefererHeaderKey                  = "Referer"
-	DefaultAnonymousUserAgent         = "anon"
+	OriginHeaderKey                   = "Origin"
 )
 
 // bodySaverResponseWriter implements the interface for http.ResponseWriter
@@ -162,6 +164,9 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			enrichedContext := requestHostnameContext
 
+			// parse the remote address of the request for use below
+			remoteAddressParts := strings.Split(r.RemoteAddr, ":")
+
 			// extract the ip of the client that made the request
 			requestIPHeaderValues := r.Header[LoadBalancerForwardedForHeaderKey]
 
@@ -173,19 +178,27 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 				enrichedContext = context.WithValue(enrichedContext, RequestIPContextKey, requestIPHeaderValues[0])
 
 			} else {
-				remoteAddressParts := strings.Split(r.RemoteAddr, ":")
 				enrichedContext = context.WithValue(enrichedContext, RequestIPContextKey, remoteAddressParts[0])
 			}
 
-			// similarly `RefererHeaderKey` will be set by the load balancer
+			// similarly `RefererHeaderKey`  will be set by the load balancer
 			// and should be used if present otherwise default to the requester's ip
 			requestRefererHeaderValues := r.Header[RefererHeaderKey]
 
 			if len(requestRefererHeaderValues) == 1 {
 				enrichedContext = context.WithValue(enrichedContext, RequestRefererContextKey, requestRefererHeaderValues[0])
 			} else {
-				remoteAddressParts := strings.Split(r.RemoteAddr, ":")
 				enrichedContext = context.WithValue(enrichedContext, RequestRefererContextKey, fmt.Sprintf("http://%s", remoteAddressParts[0]))
+			}
+
+			// `OriginHeaderKey` may be set by the load balancer
+			// and should be used if present otherwise default to the requester's ip
+			requestOriginHeaderValues := r.Header[OriginHeaderKey]
+
+			if len(requestOriginHeaderValues) == 1 {
+				enrichedContext = context.WithValue(enrichedContext, RequestOriginContextKey, requestOriginHeaderValues[0])
+			} else {
+				enrichedContext = context.WithValue(enrichedContext, RequestOriginContextKey, fmt.Sprintf("http://%s", remoteAddressParts[0]))
 			}
 
 			// extract the user agent of the requestor
@@ -272,6 +285,15 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			return
 		}
 
+		rawOrigin := r.Context().Value(RequestRefererContextKey)
+		origin, ok := rawOrigin.(string)
+
+		if !ok {
+			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawOrigin, RequestOriginContextKey))
+
+			return
+		}
+
 		// create a metric for the request
 		metric := database.ProxiedRequestMetric{
 			MethodName:                  decodedRequestBody.Method,
@@ -281,6 +303,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			RequestIP:                   requestIP,
 			UserAgent:                   &userAgent,
 			Referer:                     &referer,
+			Origin:                      &origin,
 		}
 
 		// save metric to database
