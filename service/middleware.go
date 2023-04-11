@@ -219,6 +219,10 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 	return handler(reverseProxyForHost)
 }
 
+// createAfterProxyFinalizer returns a middleware function that expects
+// to run after a request has been proxied and attempts to create a metric
+// for the request by parsing values in the context set by handlers
+// further up the middleware chain
 func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// parse values added to the context by handlers further up the middleware chain
@@ -294,6 +298,17 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			return
 		}
 
+		var blockNumber *int64
+		rawBlockNumber, err := decodedRequestBody.ExtractBlockNumberFromEVMRPCRequest()
+
+		if err != nil {
+			service.ServiceLogger.Debug().Msg(fmt.Sprintf("error %s parsing block number from request %+v", err, decodedRequestBody))
+
+			blockNumber = nil
+		} else {
+			blockNumber = &rawBlockNumber
+		}
+
 		// create a metric for the request
 		metric := database.ProxiedRequestMetric{
 			MethodName:                  decodedRequestBody.Method,
@@ -304,10 +319,11 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			UserAgent:                   &userAgent,
 			Referer:                     &referer,
 			Origin:                      &origin,
+			BlockNumber:                 blockNumber,
 		}
 
 		// save metric to database
-		err := metric.Save(r.Context(), service.Database.DB)
+		err = metric.Save(r.Context(), service.Database.DB)
 
 		if err != nil {
 			service.ServiceLogger.Error().Msg(fmt.Sprintf("error %s saving metric %+v using database %+v", err, metric, service.Database))
@@ -315,7 +331,5 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		}
 
 		service.ServiceLogger.Trace().Msg(fmt.Sprintf("created request metric"))
-	}
-}
 	}
 }
