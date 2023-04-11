@@ -96,6 +96,17 @@ The e2e tests won't pass if the proxy service and it's dependencies aren't fully
 make ready e2e-test
 ```
 
+### Running specific tests only
+
+Often during iterative development you want to run only a specific test (or group of tests), the `it` target will allow you to do just that:
+
+```bash
+# run a single test by name
+make it p=TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest
+# run all tests matching a pattern
+make it p=".*Eth_getBlockByNumberRequest"
+```
+
 ## Migrations
 
 On startup the proxy service will run any SQL based migration in the [migrations folder](./clients/database/migrations) that haven't already been run against the database being used.

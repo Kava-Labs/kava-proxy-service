@@ -44,6 +44,12 @@ unit-test:
 e2e-test:
 	go test -count=1 -v -cover --race ./... -run "^TestE2ETest*"
 
+.PHONY: it
+# run any test matching the provided pattern, can pass a regex or a string
+# of the exact test to run
+it : lint
+	go test -count=1 -v -cover --race ./... -run=".*${p}.*"
+
 .PHONY: test
 # run all tests
 test: unit-test e2e-test
