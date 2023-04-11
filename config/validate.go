@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	ValidLogLevels = [3]string{"DEBUG", "INFO", "ERROR"}
+	ValidLogLevels = [4]string{"TRACE", "DEBUG", "INFO", "ERROR"}
 )
 
 // Validate validates the provided config

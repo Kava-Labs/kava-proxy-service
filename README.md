@@ -8,10 +8,11 @@ L7 proxy that enables observability, routing, and scaling of kava APIs to the fa
 
 ### Environment Variables
 
-Many aspects of the service are configurable via environment variables:
+Many aspects of the service are configurable via environment variables, for example:
 
 - `LOG_LEVEL` - controls the amount of logs produced by the service, defaults to `INFO`, supported values in order from most verbose to least verbose are:
 
+  - TRACE
   - DEBUG
   - INFO
   - ERROR
@@ -19,6 +20,8 @@ Many aspects of the service are configurable via environment variables:
 -  `PROXY_BACKEND_HOST_URL_MAP` - comma delimited list of `HOSTNAME_TO_PROXY>BACKEND_PROXY_SERVER_FOR_HOSTNAME` controls what backend server the proxy service will proxy a request to based on the hostname of the request. `,` is used as a separator between entries in the map, `>` is used as a separator within an entry to delimit between the hostname to proxy for and the backend to proxy to. At least one entry must be present. The same backend can be used as the proxy for multiple hostnames by creating one entry for each of the hostnames to proxy for. Example value:
 
 > PROXY_BACKEND_HOST_URL_MAP=evm.app.internal.testnet.us-east.production.kava.io>https://evmrpc.internal.testnet.proxy.kava.io,evm.data.internal.testnet.us-east.production.kava.io>https://evmrpcdata.internal.testnet.proxy.kava.io
+
+For a full list of supported environment variables refer to the [code](./config/config.go) and [development environment file](./env)
 
 ### Logging
 
