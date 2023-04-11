@@ -19,6 +19,7 @@ var (
 		"DEBUG": zerolog.DebugLevel,
 		"INFO":  zerolog.InfoLevel,
 		"ERROR": zerolog.ErrorLevel,
+		"TRACE": zerolog.TraceLevel,
 	}
 )
 

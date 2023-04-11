@@ -102,7 +102,7 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 			return
 		}
 
-		serviceLogger.Debug().Msg(fmt.Sprintf("decoded request body %+v", decodedRequest))
+		serviceLogger.Trace().Msg(fmt.Sprintf("decoded request body %+v", decodedRequest))
 
 		decodedRequestBodyContext := context.WithValue(requestStartTimeContext, DecodedRequestContextKey, decodedRequest)
 
@@ -126,7 +126,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 	handler := func(proxies map[string]*httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 		return func(w http.ResponseWriter, r *http.Request) {
-			serviceLogger.Debug().Msg(fmt.Sprintf("proxying request %+v", r))
+			serviceLogger.Trace().Msg(fmt.Sprintf("proxying request %+v", r))
 
 			proxyRequestAt := time.Now()
 
@@ -150,12 +150,12 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			proxy.ServeHTTP(lrw, r)
 
-			serviceLogger.Debug().Msg(fmt.Sprintf("response %+v \nheaders %+v \nstatus %+v for request %+v", lrw.Status(), lrw.Header(), lrw.body, r))
+			serviceLogger.Trace().Msg(fmt.Sprintf("response %+v \nheaders %+v \nstatus %+v for request %+v", lrw.Status(), lrw.Header(), lrw.body, r))
 
 			// calculate how long it took to proxy the request
 			requestRoundtrip := time.Since(proxyRequestAt)
 
-			serviceLogger.Debug().Msg(fmt.Sprintf("proxy request latency %v for %+v", requestRoundtrip, r))
+			serviceLogger.Trace().Msg(fmt.Sprintf("proxy request latency %v for %+v", requestRoundtrip, r))
 
 			originRoundtripLatencyContext := context.WithValue(r.Context(), OriginRoundtripLatencyMillisecondsKey, requestRoundtrip.Milliseconds())
 
@@ -314,6 +314,8 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			return
 		}
 
-		service.ServiceLogger.Debug().Msg(fmt.Sprintf("created request metric"))
+		service.ServiceLogger.Trace().Msg(fmt.Sprintf("created request metric"))
+	}
+}
 	}
 }

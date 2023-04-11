@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/logging"
 )
@@ -23,6 +24,7 @@ type MetricCompactionRoutineConfig struct {
 // run a background routine on a configurable interval
 // to aggregate and prune historical request metrics
 type MetricCompactionRoutine struct {
+	id       string
 	interval time.Duration
 	*database.PostgresClient
 	logging.ServiceLogger
@@ -39,7 +41,7 @@ func (mcr *MetricCompactionRoutine) Run() (<-chan error, error) {
 
 	go func() {
 		for tick := range timer {
-			mcr.Debug().Msg(fmt.Sprintf("tick at %+v", tick))
+			mcr.Trace().Msg(fmt.Sprintf("%s tick at %+v", mcr.id, tick))
 		}
 	}()
 
@@ -50,6 +52,7 @@ func (mcr *MetricCompactionRoutine) Run() (<-chan error, error) {
 // using the provided config, returning the routine and error (if any)
 func NewMetricCompactionRoutine(config MetricCompactionRoutineConfig) (*MetricCompactionRoutine, error) {
 	return &MetricCompactionRoutine{
+		id:             uuid.New().String(),
 		interval:       config.Interval,
 		PostgresClient: config.Database,
 		ServiceLogger:  config.Logger,
