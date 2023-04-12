@@ -11,15 +11,74 @@ import (
 // Errors that might result from decoding parts or the whole of
 // an EVM RPC request
 var (
-	ErrInvalidEthAPIRequest  = errors.New("request is not valid for the eth api")
-	ErrUncachaebleEthRequest = fmt.Errorf("request is not cache-able, current cache-able requests are %s", CacheableEthMethods)
+	ErrInvalidEthAPIRequest               = errors.New("request is not valid for the eth api")
+	ErrUncachaebleEthRequest              = fmt.Errorf("request is not cache-able, current cache-able requests are %s", CacheableEthMethods)
+	ErrUncachaebleByBlockNumberEthRequest = fmt.Errorf("request is not cache-able by block number, current cache-able requests by block number are %s", CacheableByBlockNumberMethods)
 )
 
-// (IN-PROGRESS) list of evm methods that can potentially be cached
+// List of evm methods that can potentially be cached
 // and so are useful for tracking the block number associated with
 // any requests invoking those methods
-var CacheableEthMethods = []string{
+var CacheableByBlockNumberMethods = []string{
+	"eth_getBalance",
+	"eth_getStorageAt",
+	"eth_getTransactionCount",
+	"eth_getblocktransactioncountbynumber",
+	"eth_getUncleCountByBlockNumber",
+	"eth_getCode",
 	"eth_getBlockByNumber",
+	"eth_gettransactionbyblocknumberandindex",
+	"eth_getUncleByBlockNumberAndIndex",
+}
+
+// List of evm methods that can be cached independent
+// of block number (i.e. by block or transaction hash, filter id, or time period)
+// TODO: break these out into separate list for methods that can be cached using the same key type
+var OtherCacheableMethods = []string{
+	"web3_clientVersion",
+	"web3_sha3",
+	"net_version",
+	"net_listening",
+	"net_peerCount",
+	"eth_protocolVersion",
+	"eth_syncing",
+	"eth_coinbase",
+	"eth_mining",
+	"eth_hashrate",
+	"eth_gasPrice",
+	"eth_accounts",
+	"eth_blockNumber",
+	"eth_getBlockTransactionCountByHash",
+	"eth_getUncleCountByBlockHash",
+	"eth_getBlockByHash",
+	"eth_getTransactionByHash",
+	"eth_getTransactionByBlockHashAndIndex",
+	"eth_getTransactionReceipt",
+	"eth_getUncleByBlockHashAndIndex",
+	"eth_getCompilers",
+	"eth_getFilterChanges",
+	"eth_getFilterLogs",
+	"eth_getLogs",
+	"eth_getWork",
+}
+
+// List of evm methods that can be cached
+// and so are useful for tracking the params
+// associated with the request to help in making
+// caching decisions for future similar requests
+var CacheableEthMethods = append(CacheableByBlockNumberMethods, OtherCacheableMethods...)
+
+// Mapping of the position of the block number param for a given method name
+var MethodNameToBlockNumberParamIndex = map[string]int{
+	"eth_getBalance":                          1,
+	"eth_getStorageAt":                        2,
+	"eth_getTransactionCount":                 1,
+	"eth_getBlockTransactionCountByNumber":    0,
+	"eth_getUncleCountByBlockNumber":          0,
+	"eth_getCode":                             1,
+	"eth_getBlockByNumber":                    0,
+	"eth_getTransactionByBlockNumberAndIndex": 0,
+	"eth_getUncleByBlockNumberAndIndex":       1,
 }
 
 // Mapping of string tag values used in the eth api to
