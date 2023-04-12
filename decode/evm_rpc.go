@@ -23,11 +23,11 @@ var CacheableByBlockNumberMethods = []string{
 	"eth_getBalance",
 	"eth_getStorageAt",
 	"eth_getTransactionCount",
-	"eth_getblocktransactioncountbynumber",
+	"eth_getBlockTransactionCountByNumber",
 	"eth_getUncleCountByBlockNumber",
 	"eth_getCode",
 	"eth_getBlockByNumber",
-	"eth_gettransactionbyblocknumberandindex",
+	"eth_getTransactionByBlockNumberAndIndex",
 	"eth_getUncleByBlockNumberAndIndex",
 }
 
@@ -117,46 +117,62 @@ func DecodeEVMRPCRequest(body []byte) (*EVMRPCRequestEnvelope, error) {
 // - the method for the request supports specifying a block number
 // - the provided block number is a valid tag or number
 func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest() (int64, error) {
-	// only attempt to extract block number from a valid etherum api request
+	// only attempt to extract block number from a valid ethereum api request
 	if r.Method == "" {
 		return 0, ErrInvalidEthAPIRequest
+	}
+
+	// validate this is a request with a block number param
+	var cacheableByBlockNumber bool
+	for _, cacheableByBlockNumberMethod := range CacheableByBlockNumberMethods {
+		if r.Method == cacheableByBlockNumberMethod {
+			cacheableByBlockNumber = true
+			break
+		}
+	}
+
+	if !cacheableByBlockNumber {
+		return 0, ErrUncachaebleByBlockNumberEthRequest
 	}
 
 	// parse block number using heuristics so byzantine
 	// they require their own consensus engine 😅
 	// https://ethereum.org/en/developers/docs/apis/json-rpc
 	// or at least a healthy level of [code coverage](./evm_rpc_test.go) ;-)
-	var blockNumber int64
-	requestParams := r.Params
+	return parseBlockNumberFromParams(r.Method, r.Params)
 
-	switch r.Method {
-	case "eth_getBlockByNumber":
-		// https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbynumber
-		tag, isString := requestParams[0].(string)
+}
 
-		if !isString {
-			return 0, fmt.Errorf(fmt.Sprintf("error decoding block number param from params %+v", requestParams))
-		}
+// Generic method to parse the block number from a set of params
+func parseBlockNumberFromParams(methodName string, params []interface{}) (int64, error) {
+	paramIndex, exists := MethodNameToBlockNumberParamIndex[methodName]
 
-		tagEncoding, exists := BlockTagToNumberCodec[tag]
-
-		if !exists {
-			spaceint, valid := cosmosmath.NewIntFromString(tag)
-
-			if !valid {
-				return 0, fmt.Errorf(fmt.Sprintf("unable to parse tag %s to intege", tag))
-			}
-
-			blockNumber = spaceint.Int64()
-
-			break
-		}
-
-		blockNumber = tagEncoding
-
-	default:
-		return 0, ErrUncachaebleEthRequest
+	if !exists {
+		return 0, ErrUncachaebleByBlockNumberEthRequest
 	}
+
+	tag, isString := params[paramIndex].(string)
+
+	if !isString {
+		return 0, fmt.Errorf(fmt.Sprintf("error decoding block number param from params %+v at index %d", params, paramIndex))
+	}
+
+	var blockNumber int64
+	tagEncoding, exists := BlockTagToNumberCodec[tag]
+
+	if !exists {
+		spaceint, valid := cosmosmath.NewIntFromString(tag)
+
+		if !valid {
+			return 0, fmt.Errorf(fmt.Sprintf("unable to parse tag %s to integer", tag))
+		}
+
+		blockNumber = spaceint.Int64()
+
+		return blockNumber, nil
+	}
+
+	blockNumber = tagEncoding
 
 	return blockNumber, nil
 }

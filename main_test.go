@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/decode"
@@ -324,4 +325,113 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 	assert.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
 	assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
 	assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, decode.BlockTagToNumberCodec["latest"])
+}
+
+func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.T) {
+	testedmethods := decode.CacheableByBlockNumberMethods
+	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
+	testAddress := common.HexToAddress(testRandomAddressHex)
+	testRandomHash := common.HexToHash(testRandomAddressHex)
+
+	// create api and database clients
+	client, err := ethclient.Dial(proxyServiceURL)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	databaseClient, err := database.NewPostgresClient(databaseConfig)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// get the latest queryable block number
+	// need to do this dynamically since not all blocks
+	// are queryable for a given network
+	latestBlock, err := client.HeaderByNumber(testContext, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	requestBlockNumber := latestBlock.Number
+
+	// make requests to api and track start / end time of the request
+	// we don't check response errors because the proxy will create metrics
+	// for each request whether the kava node api returns an error or not
+	// and if it doesn't the test itself will fail due to missing metrics
+	startTime := time.Now()
+
+	// eth_getBalance
+	_, _ = client.BalanceAt(testContext, testAddress, requestBlockNumber)
+
+	// eth_getStorageAt
+	_, _ = client.StorageAt(testContext, testAddress, testRandomHash, requestBlockNumber)
+
+	// eth_getTransactionCount
+	_, _ = client.NonceAt(testContext, testAddress, requestBlockNumber)
+
+	// eth_getBlockTransactionCountByNumber
+	_, _ = client.PendingTransactionCount(testContext)
+
+	// eth_getCode
+	_, _ = client.CodeAt(testContext, testAddress, requestBlockNumber)
+
+	// eth_getBlockByNumber
+	_, _ = client.HeaderByNumber(testContext, requestBlockNumber)
+
+	endTime := time.Now()
+
+	// lookup all the request metrics in the database
+	// paging as necessary
+	var nextCursor int64
+	var proxiedRequestMetrics []database.ProxiedRequestMetric
+
+	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proxiedRequestMetrics = proxiedRequestMetricsPage
+
+	for nextCursor != 0 {
+		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
+
+	}
+
+	// search for any request metrics during the test timespan
+	// with the same method used by the test
+	var requestMetricsDuringRequestWindow []database.ProxiedRequestMetric
+	// iterate in reverse order to start checking the most recent request metrics first
+	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
+		requestMetric := proxiedRequestMetrics[i]
+		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
+			for _, testedMethod := range testedmethods {
+				if requestMetric.MethodName == testedMethod {
+					requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
+				}
+			}
+		}
+	}
+
+	// assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
+	// should be the above but geth doesn't implement client methods for all of them
+	assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 6)
+
+	for _, requestMetricDuringRequestWindow := range requestMetricsDuringRequestWindow {
+		assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
+		if requestMetricDuringRequestWindow.MethodName == "eth_getBlockTransactionCountByNumber" {
+			assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, decode.BlockTagToNumberCodec["pending"])
+			continue
+		}
+		assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber.Int64())
+	}
 }
