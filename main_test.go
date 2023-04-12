@@ -234,7 +234,7 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 	// search for any request metrics during the test timespan
 	// with the same method used by the test
 	var requestMetricsDuringRequestWindow []database.ProxiedRequestMetric
-	// iterate in reverse order to start checking the most request metrics first
+	// iterate in reverse order to start checking the most recent request metrics first
 	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
 		requestMetric := proxiedRequestMetrics[i]
 		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
