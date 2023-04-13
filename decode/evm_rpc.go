@@ -16,7 +16,7 @@ var (
 	ErrUncachaebleByBlockNumberEthRequest = fmt.Errorf("request is not cache-able by block number, current cache-able requests by block number are %s", CacheableByBlockNumberMethods)
 )
 
-// List of evm methods that can potentially be cached
+// List of evm methods that can be cached by block number
 // and so are useful for tracking the block number associated with
 // any requests invoking those methods
 var CacheableByBlockNumberMethods = []string{
@@ -29,6 +29,17 @@ var CacheableByBlockNumberMethods = []string{
 	"eth_getBlockByNumber",
 	"eth_getTransactionByBlockNumberAndIndex",
 	"eth_getUncleByBlockNumberAndIndex",
+}
+
+// List of evm methods that can be cached by block hash
+// and so are useful for converting and tracking the block hash associated with
+// any requests invoking those methods to the matching block number
+var CacheableByBlockHashMethods = []string{
+	"eth_getBlockTransactionCountByHash",
+	"eth_getUncleCountByBlockHash",
+	"eth_getBlockByHash",
+	"eth_getUncleByBlockHashAndIndex",
+	"eth_getTransactionByBlockHashAndIndex",
 }
 
 // List of evm methods that can be cached independent
@@ -48,13 +59,8 @@ var OtherCacheableMethods = []string{
 	"eth_gasPrice",
 	"eth_accounts",
 	"eth_blockNumber",
-	"eth_getBlockTransactionCountByHash",
-	"eth_getUncleCountByBlockHash",
-	"eth_getBlockByHash",
 	"eth_getTransactionByHash",
-	"eth_getTransactionByBlockHashAndIndex",
 	"eth_getTransactionReceipt",
-	"eth_getUncleByBlockHashAndIndex",
 	"eth_getCompilers",
 	"eth_getFilterChanges",
 	"eth_getFilterLogs",
@@ -66,7 +72,7 @@ var OtherCacheableMethods = []string{
 // and so are useful for tracking the params
 // associated with the request to help in making
 // caching decisions for future similar requests
-var CacheableEthMethods = append(CacheableByBlockNumberMethods, OtherCacheableMethods...)
+var CacheableEthMethods = append(append(CacheableByBlockNumberMethods, CacheableByBlockHashMethods...), OtherCacheableMethods...)
 
 // Mapping of the position of the block number param for a given method name
 var MethodNameToBlockNumberParamIndex = map[string]int{
@@ -79,6 +85,15 @@ var MethodNameToBlockNumberParamIndex = map[string]int{
 	"eth_getBlockByNumber":                    0,
 	"eth_getTransactionByBlockNumberAndIndex": 0,
 	"eth_getUncleByBlockNumberAndIndex":       1,
+}
+
+// Mapping of the position of the block hash param for a given method name
+var MethodNameToBlockHashParamIndex = map[string]int{
+	"eth_getBlockTransactionCountByHash":    0,
+	"eth_getUncleCountByBlockHash":          0,
+	"eth_getBlockByHash":                    0,
+	"eth_getUncleByBlockHashAndIndex":       0,
+	"eth_getTransactionByBlockHashAndIndex": 0,
 }
 
 // Mapping of string tag values used in the eth api to
