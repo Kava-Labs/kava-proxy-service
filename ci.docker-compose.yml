@@ -26,6 +26,7 @@ services:
       # to self-host a beefy Github Action runner
       # to build and run a kava node each execution
       PROXY_BACKEND_HOST_URL_MAP: localhost:7777>https://evmrpc.internal.testnet.proxy.kava.io,localhost:7778>https://evmrpcdata.internal.testnet.proxy.kava.io
+      EVM_QUERY_SERVICE_URL: https://evmrpc.internal.testnet.proxy.kava.io
     ports:
       - "${PROXY_HOST_PORT}:${PROXY_CONTAINER_PORT}"
       - "${PROXY_CONTAINER_EVM_RPC_DATA_PORT}:${PROXY_CONTAINER_PORT}"

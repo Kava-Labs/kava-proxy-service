@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/ethclient"
+
 	cosmosmath "cosmossdk.io/math"
 )
 
@@ -131,7 +133,7 @@ func DecodeEVMRPCRequest(body []byte) (*EVMRPCRequestEnvelope, error) {
 // - the request is a valid evm rpc request
 // - the method for the request supports specifying a block number
 // - the provided block number is a valid tag or number
-func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest() (int64, error) {
+func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(evmClient *ethclient.Client) (int64, error) {
 	// only attempt to extract block number from a valid ethereum api request
 	if r.Method == "" {
 		return 0, ErrInvalidEthAPIRequest

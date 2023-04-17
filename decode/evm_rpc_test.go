@@ -4,7 +4,15 @@ import (
 	"testing"
 
 	cosmosmath "cosmossdk.io/math"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/assert"
+)
+
+var (
+	dummyEthClient = func() *ethclient.Client {
+		client := ethclient.Client{}
+		return &client
+	}()
 )
 
 func TestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValidRequest(t *testing.T) {
@@ -22,7 +30,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValidRequest(
 		},
 	}
 
-	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest()
+	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(dummyEthClient)
 
 	assert.Nil(t, err)
 	assert.Equal(t, requestBlockNumber, blockNumber)
@@ -38,7 +46,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockNumberForTag(t *
 		},
 	}
 
-	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest()
+	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(dummyEthClient)
 
 	assert.Nil(t, err)
 	assert.Equal(t, BlockTagToNumberCodec[requestedBlockTag], blockNumber)
@@ -49,7 +57,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenRequestMethodEmpty(t
 		Method: "",
 	}
 
-	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest()
+	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(dummyEthClient)
 
 	assert.Equal(t, ErrInvalidEthAPIRequest, err)
 }
@@ -62,7 +70,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenInvalidTypeForBlockN
 		},
 	}
 
-	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest()
+	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(dummyEthClient)
 
 	assert.NotNil(t, err)
 }
@@ -75,7 +83,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenUnknownRequestMethod
 		},
 	}
 
-	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest()
+	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(dummyEthClient)
 
 	assert.Equal(t, ErrUncachaebleEthRequest, err)
 }

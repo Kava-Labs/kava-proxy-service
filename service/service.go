@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/clients/database/migrations"
 	"github.com/kava-labs/kava-proxy-service/config"
@@ -18,6 +19,7 @@ import (
 type ProxyService struct {
 	Database  *database.PostgresClient
 	httpProxy *http.Server
+	evmClient *ethclient.Client
 	*logging.ServiceLogger
 }
 
@@ -67,10 +69,18 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 		return ProxyService{}, err
 	}
 
+	// create evm api client
+	evmClient, err := ethclient.Dial(config.EvmQueryServiceURL)
+
+	if err != nil {
+		return ProxyService{}, err
+	}
+
 	service = ProxyService{
 		httpProxy:     server,
 		ServiceLogger: serviceLogger,
 		Database:      db,
+		evmClient:     evmClient,
 	}
 
 	return service, nil
