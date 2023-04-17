@@ -1,10 +1,12 @@
 package decode
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	cosmosmath "cosmossdk.io/math"
@@ -15,7 +17,8 @@ import (
 var (
 	ErrInvalidEthAPIRequest               = errors.New("request is not valid for the eth api")
 	ErrUncachaebleEthRequest              = fmt.Errorf("request is not cache-able, current cache-able requests are %s", CacheableEthMethods)
-	ErrUncachaebleByBlockNumberEthRequest = fmt.Errorf("request is not cache-able by block number, current cache-able requests by block number are %s", CacheableByBlockNumberMethods)
+	ErrUncachaebleByBlockNumberEthRequest = fmt.Errorf("request is not cache-able by block number, current cache-able requests by block number are %s or by hash %s", CacheableByBlockNumberMethods, CacheableByBlockHashMethods)
+	ErrUncachaebleByBlockHashEthRequest   = fmt.Errorf("request is not cache-able by block hash, current cache-able requests by block hash are  %s", CacheableByBlockHashMethods)
 )
 
 // List of evm methods that can be cached by block number
@@ -133,7 +136,7 @@ func DecodeEVMRPCRequest(body []byte) (*EVMRPCRequestEnvelope, error) {
 // - the request is a valid evm rpc request
 // - the method for the request supports specifying a block number
 // - the provided block number is a valid tag or number
-func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(evmClient *ethclient.Client) (int64, error) {
+func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(ctx context.Context, evmClient *ethclient.Client) (int64, error) {
 	// only attempt to extract block number from a valid ethereum api request
 	if r.Method == "" {
 		return 0, ErrInvalidEthAPIRequest
@@ -148,7 +151,15 @@ func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(evmClient *e
 		}
 	}
 
-	if !cacheableByBlockNumber {
+	var cacheableByBlockHash bool
+	for _, cacheableByBlockHashMethod := range CacheableByBlockHashMethods {
+		if r.Method == cacheableByBlockHashMethod {
+			cacheableByBlockHash = true
+			break
+		}
+	}
+
+	if !cacheableByBlockNumber && !cacheableByBlockHash {
 		return 0, ErrUncachaebleByBlockNumberEthRequest
 	}
 
@@ -156,8 +167,35 @@ func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(evmClient *e
 	// they require their own consensus engine 😅
 	// https://ethereum.org/en/developers/docs/apis/json-rpc
 	// or at least a healthy level of [code coverage](./evm_rpc_test.go) ;-)
-	return parseBlockNumberFromParams(r.Method, r.Params)
+	if cacheableByBlockNumber {
+		return parseBlockNumberFromParams(r.Method, r.Params)
+	}
 
+	return lookupBlockNumberFromHashParam(ctx, evmClient, r.Method, r.Params)
+}
+
+// Generic method to lookup the block number
+// based on the hash value in a set of params
+func lookupBlockNumberFromHashParam(ctx context.Context, evmClient *ethclient.Client, methodName string, params []interface{}) (int64, error) {
+	paramIndex, exists := MethodNameToBlockHashParamIndex[methodName]
+
+	if !exists {
+		return 0, ErrUncachaebleByBlockHashEthRequest
+	}
+
+	blockHash, isString := params[paramIndex].(string)
+
+	if !isString {
+		return 0, fmt.Errorf(fmt.Sprintf("error decoding block hash param from params %+v at index %d", params, paramIndex))
+	}
+
+	block, err := evmClient.BlockByHash(ctx, common.HexToHash(blockHash))
+
+	if err != nil {
+		return 0, err
+	}
+
+	return block.Number().Int64(), nil
 }
 
 // Generic method to parse the block number from a set of params

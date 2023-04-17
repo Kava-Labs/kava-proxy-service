@@ -1,6 +1,7 @@
 package decode
 
 import (
+	"context"
 	"testing"
 
 	cosmosmath "cosmossdk.io/math"
@@ -9,6 +10,7 @@ import (
 )
 
 var (
+	testContext    = context.TODO()
 	dummyEthClient = func() *ethclient.Client {
 		client := ethclient.Client{}
 		return &client
@@ -30,7 +32,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValidRequest(
 		},
 	}
 
-	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(dummyEthClient)
+	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
 
 	assert.Nil(t, err)
 	assert.Equal(t, requestBlockNumber, blockNumber)
@@ -46,7 +48,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockNumberForTag(t *
 		},
 	}
 
-	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(dummyEthClient)
+	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
 
 	assert.Nil(t, err)
 	assert.Equal(t, BlockTagToNumberCodec[requestedBlockTag], blockNumber)
@@ -57,7 +59,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenRequestMethodEmpty(t
 		Method: "",
 	}
 
-	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(dummyEthClient)
+	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
 
 	assert.Equal(t, ErrInvalidEthAPIRequest, err)
 }
@@ -70,7 +72,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenInvalidTypeForBlockN
 		},
 	}
 
-	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(dummyEthClient)
+	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
 
 	assert.NotNil(t, err)
 }
@@ -83,7 +85,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenUnknownRequestMethod
 		},
 	}
 
-	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(dummyEthClient)
+	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
 
 	assert.Equal(t, ErrUncachaebleEthRequest, err)
 }
