@@ -19,6 +19,7 @@ var (
 	databasePassword      = os.Getenv("DATABASE_PASSWORD")
 	databaseEndpointURL   = os.Getenv("DATABASE_ENDPOINT_URL")
 	testServiceLogLevel   = os.Getenv("TEST_SERVICE_LOG_LEVEL")
+	evmQueryServiceURL    = os.Getenv("TEST_EVM_QUERY_SERVICE_URL")
 
 	dummyConfig = func() config.Config {
 
@@ -35,6 +36,7 @@ var (
 			DatabaseUserName:             databaseUsername,
 			DatabasePassword:             databasePassword,
 			DatabaseEndpointURL:          databaseEndpointURL,
+			EvmQueryServiceURL:           evmQueryServiceURL,
 		}
 
 		return conf

@@ -17,6 +17,7 @@ type Config struct {
 	LogLevel                        string
 	ProxyBackendHostURLMapRaw       string
 	ProxyBackendHostURLMapParsed    map[string]url.URL
+	EvmQueryServiceURL              string
 	DatabaseName                    string
 	DatabaseEndpointURL             string
 	DatabaseUserName                string
@@ -48,6 +49,7 @@ const (
 	METRIC_COMPACTION_ROUTINE_INTERVAL_KEY         = "METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS"
 	// 60 seconds / minute * 60 minutes = 1 hour
 	DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS = 3600
+	EVM_QUERY_SERVICE_ENVIRONMENT_KEY                  = "EVM_QUERY_SERVICE_URL"
 )
 
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
@@ -163,5 +165,6 @@ func ReadConfig() Config {
 		HTTPReadTimeoutSeconds:          EnvOrDefaultInt64(HTTP_READ_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_READ_TIMEOUT),
 		HTTPWriteTimeoutSeconds:         EnvOrDefaultInt64(HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_WRITE_TIMEOUT),
 		MetricCompactionRoutineInterval: time.Duration(time.Duration(EnvOrDefaultInt(METRIC_COMPACTION_ROUTINE_INTERVAL_KEY, DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS)) * time.Second),
+		EvmQueryServiceURL:              os.Getenv(EVM_QUERY_SERVICE_ENVIRONMENT_KEY),
 	}
 }
