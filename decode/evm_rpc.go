@@ -34,6 +34,7 @@ var CacheableByBlockNumberMethods = []string{
 	"eth_getBlockByNumber",
 	"eth_getTransactionByBlockNumberAndIndex",
 	"eth_getUncleByBlockNumberAndIndex",
+	"eth_call",
 }
 
 // List of evm methods that can be cached by block hash
@@ -90,6 +91,7 @@ var MethodNameToBlockNumberParamIndex = map[string]int{
 	"eth_getBlockByNumber":                    0,
 	"eth_getTransactionByBlockNumberAndIndex": 0,
 	"eth_getUncleByBlockNumberAndIndex":       1,
+	"eth_call":                                1,
 }
 
 // Mapping of the position of the block hash param for a given method name

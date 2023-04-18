@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/kava-labs/kava-proxy-service/clients/database"
@@ -381,6 +382,9 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	// eth_getBlockByNumber
 	_, _ = client.HeaderByNumber(testContext, requestBlockNumber)
 
+	// eth_call
+	_, _ = client.CallContract(testContext, ethereum.CallMsg{}, requestBlockNumber)
+
 	endTime := time.Now()
 
 	// lookup all the request metrics in the database
@@ -424,7 +428,7 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 
 	// assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
 	// should be the above but geth doesn't implement client methods for all of them
-	assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 6)
+	assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 7)
 
 	for _, requestMetricDuringRequestWindow := range requestMetricsDuringRequestWindow {
 		assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
