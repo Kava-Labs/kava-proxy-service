@@ -230,7 +230,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		decodedRequestBody, ok := (rawDecodedRequestBody).(*decode.EVMRPCRequestEnvelope)
 
 		if !ok {
-			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawDecodedRequestBody, DecodedRequestContextKey))
+			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawDecodedRequestBody, DecodedRequestContextKey))
 
 			return
 		}
@@ -239,7 +239,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		originRoundtripLatencyMilliseconds, ok := rawOriginRoundtripLatencyMilliseconds.(int64)
 
 		if !ok {
-			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawOriginRoundtripLatencyMilliseconds, OriginRoundtripLatencyMillisecondsKey))
+			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawOriginRoundtripLatencyMilliseconds, OriginRoundtripLatencyMillisecondsKey))
 
 			return
 		}
@@ -248,7 +248,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		requestStartTime, ok := rawRequestStartTime.(time.Time)
 
 		if !ok {
-			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestStartTime, RequestStartTimeContextKey))
+			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestStartTime, RequestStartTimeContextKey))
 
 			return
 		}
@@ -257,7 +257,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		requestHostname, ok := rawRequestHostname.(string)
 
 		if !ok {
-			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestHostname, RequestHostnameContextKey))
+			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestHostname, RequestHostnameContextKey))
 
 			return
 		}
@@ -266,7 +266,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		requestIP, ok := rawRequestIP.(string)
 
 		if !ok {
-			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestIP, RequestIPContextKey))
+			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestIP, RequestIPContextKey))
 
 			return
 		}
@@ -275,7 +275,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		userAgent, ok := rawUserAgent.(string)
 
 		if !ok {
-			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawUserAgent, RequestUserAgentContextKey))
+			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawUserAgent, RequestUserAgentContextKey))
 
 			return
 		}
@@ -284,7 +284,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		referer, ok := rawReferer.(string)
 
 		if !ok {
-			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawReferer, RequestRefererContextKey))
+			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawReferer, RequestRefererContextKey))
 
 			return
 		}
@@ -293,7 +293,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		origin, ok := rawOrigin.(string)
 
 		if !ok {
-			service.ServiceLogger.Error().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawOrigin, RequestOriginContextKey))
+			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawOrigin, RequestOriginContextKey))
 
 			return
 		}
@@ -330,6 +330,6 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			return
 		}
 
-		service.ServiceLogger.Trace().Msg(fmt.Sprintf("created request metric"))
+		service.ServiceLogger.Trace().Msg("created request metric")
 	}
 }
