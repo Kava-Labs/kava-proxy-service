@@ -148,6 +148,16 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 				return
 			}
 
+			// ensure the last set value of LoadBalancerForwardedForHeaderKey wins
+			// to prevent clients from forging the value of the header in an attempt
+			// to bypass an ip based rate limit
+			requestIPHeaderValues := r.Header[LoadBalancerForwardedForHeaderKey]
+
+			if len(requestIPHeaderValues) > 1 {
+				serviceLogger.Trace().Msg(fmt.Sprintf("found more than value for %s header: %s, clearing all but the last", LoadBalancerForwardedForHeaderKey, requestIPHeaderValues))
+				r.Header.Set(LoadBalancerForwardedForHeaderKey, requestIPHeaderValues[len(requestIPHeaderValues)-1])
+			}
+
 			proxy.ServeHTTP(lrw, r)
 
 			serviceLogger.Trace().Msg(fmt.Sprintf("response %+v \nheaders %+v \nstatus %+v for request %+v", lrw.Status(), lrw.Header(), lrw.body, r))
@@ -168,15 +178,12 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 			remoteAddressParts := strings.Split(r.RemoteAddr, ":")
 
 			// extract the ip of the client that made the request
-			requestIPHeaderValues := r.Header[LoadBalancerForwardedForHeaderKey]
-
 			// when deployed in a production environment there will often
 			// be a load balancer in front of the proxy service that first handles
 			// the request, in which case the ip of the original request should be tracked
 			// otherwise the ip of the connecting client
 			if len(requestIPHeaderValues) == 1 {
 				enrichedContext = context.WithValue(enrichedContext, RequestIPContextKey, requestIPHeaderValues[0])
-
 			} else {
 				enrichedContext = context.WithValue(enrichedContext, RequestIPContextKey, remoteAddressParts[0])
 			}
