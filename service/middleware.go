@@ -330,7 +330,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		}
 
 		// save metric to database
-		err = metric.Save(r.Context(), service.Database.DB)
+		err = metric.Save(context.Background(), service.Database.DB)
 
 		if err != nil {
 			service.ServiceLogger.Error().Msg(fmt.Sprintf("error %s saving metric %+v using database %+v", err, metric, service.Database))
