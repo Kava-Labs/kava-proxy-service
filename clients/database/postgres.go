@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/kava-labs/kava-proxy-service/logging"
 	"github.com/uptrace/bun"
@@ -15,14 +16,17 @@ import (
 // PostgresDatabaseConfig contains values for creating a
 // new connection to a postgres database
 type PostgresDatabaseConfig struct {
-	DatabaseName          string
-	DatabaseEndpointURL   string
-	DatabaseUsername      string
-	DatabasePassword      string
-	SSLEnabled            bool
-	QueryLoggingEnabled   bool
-	RunDatabaseMigrations bool
-	Logger                *logging.ServiceLogger
+	DatabaseName                     string
+	DatabaseEndpointURL              string
+	DatabaseUsername                 string
+	DatabasePassword                 string
+	DatabaseMaxIdleConnections       int64
+	DatabaseConnectionMaxIdleSeconds int64
+	DatabaseMaxOpenConnections       int64
+	SSLEnabled                       bool
+	QueryLoggingEnabled              bool
+	RunDatabaseMigrations            bool
+	Logger                           *logging.ServiceLogger
 }
 
 // PostgresClient wraps a connection to a postgres database
@@ -62,6 +66,10 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 
 	// connect to the database
 	sqldb := sql.OpenDB(pgOptions)
+
+	sqldb.SetMaxIdleConns(int(config.DatabaseMaxIdleConnections))
+	sqldb.SetConnMaxIdleTime(time.Second * time.Duration(config.DatabaseConnectionMaxIdleSeconds))
+	sqldb.SetMaxOpenConns(int(config.DatabaseMaxOpenConnections))
 
 	db := bun.NewDB(sqldb, pgdialect.New())
 
