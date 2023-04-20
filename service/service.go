@@ -92,14 +92,17 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 // returning the database connection and error (if any)
 func createDatabaseClient(ctx context.Context, config config.Config, logger *logging.ServiceLogger) (*database.PostgresClient, error) {
 	databaseConfig := database.PostgresDatabaseConfig{
-		DatabaseName:          config.DatabaseName,
-		DatabaseEndpointURL:   config.DatabaseEndpointURL,
-		DatabaseUsername:      config.DatabaseUserName,
-		DatabasePassword:      config.DatabasePassword,
-		SSLEnabled:            config.DatabaseSSLEnabled,
-		QueryLoggingEnabled:   config.DatabaseQueryLoggingEnabled,
-		Logger:                logger,
-		RunDatabaseMigrations: config.RunDatabaseMigrations,
+		DatabaseName:                     config.DatabaseName,
+		DatabaseEndpointURL:              config.DatabaseEndpointURL,
+		DatabaseUsername:                 config.DatabaseUserName,
+		DatabasePassword:                 config.DatabasePassword,
+		SSLEnabled:                       config.DatabaseSSLEnabled,
+		QueryLoggingEnabled:              config.DatabaseQueryLoggingEnabled,
+		DatabaseMaxIdleConnections:       config.DatabaseMaxIdleConnections,
+		DatabaseConnectionMaxIdleSeconds: config.DatabaseConnectionMaxIdleSeconds,
+		DatabaseMaxOpenConnections:       config.DatabaseMaxOpenConnections,
+		Logger:                           logger,
+		RunDatabaseMigrations:            config.RunDatabaseMigrations,
 	}
 
 	serviceDatabase, err := database.NewPostgresClient(databaseConfig)
