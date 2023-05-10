@@ -31,6 +31,11 @@ type Config struct {
 	HTTPReadTimeoutSeconds           int64
 	HTTPWriteTimeoutSeconds          int64
 	MetricCompactionRoutineInterval  time.Duration
+
+	// Cache
+	RedisEndpointURL string
+	RedisPassword    string
+	CacheTTL         time.Duration
 }
 
 const (
@@ -59,6 +64,12 @@ const (
 	DEFAULT_DATABASE_CONNECTION_MAX_IDLE_SECONDS         = 5
 	DATABASE_MAX_OPEN_CONNECTIONS_ENVIRONMENT_KEY        = "DATABASE_MAX_OPEN_CONNECTIONS"
 	DEFAULT_DATABASE_MAX_OPEN_CONNECTIONS                = 100
+
+	// Cache
+	REDIS_ENDPOINT_URL_ENVIRONMENT_KEY = "REDIS_ENDPOINT_URL"
+	REDIS_PASSWORD_ENVIRONMENT_KEY     = "REDIS_PASSWORD"
+	CACHE_TTL_ENVIRONMENT_KEY          = "CACHE_TTL"
+	DEFAULT_CACHE_TTL_SECONDS          = 600
 )
 
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
@@ -178,5 +189,8 @@ func ReadConfig() Config {
 		HTTPWriteTimeoutSeconds:          EnvOrDefaultInt64(HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_WRITE_TIMEOUT),
 		MetricCompactionRoutineInterval:  time.Duration(time.Duration(EnvOrDefaultInt(METRIC_COMPACTION_ROUTINE_INTERVAL_KEY, DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS)) * time.Second),
 		EvmQueryServiceURL:               os.Getenv(EVM_QUERY_SERVICE_ENVIRONMENT_KEY),
+		RedisEndpointURL:                 os.Getenv(REDIS_ENDPOINT_URL_ENVIRONMENT_KEY),
+		RedisPassword:                    os.Getenv(REDIS_PASSWORD_ENVIRONMENT_KEY),
+		CacheTTL:                         time.Duration(time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, DEFAULT_CACHE_TTL_SECONDS)) * time.Second),
 	}
 }

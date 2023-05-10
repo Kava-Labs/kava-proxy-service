@@ -29,11 +29,14 @@ const (
 	RequestUserAgentContextKey            = "X-KAVA-PROXY-USER-AGENT"
 	RequestRefererContextKey              = "X-KAVA-PROXY-REFERER"
 	RequestOriginContextKey               = "X-KAVA-PROXY-ORIGIN"
+	CachedContextKey                      = "X-KAVA-PROXY-CACHED"
+
 	// Values defined by upstream services
 	LoadBalancerForwardedForHeaderKey = "X-Forwarded-For"
 	UserAgentHeaderkey                = "User-Agent"
 	RefererHeaderKey                  = "Referer"
 	OriginHeaderKey                   = "Origin"
+	CacheHitHeaderKey                 = "X-Cache"
 )
 
 // bodySaverResponseWriter implements the interface for http.ResponseWriter
@@ -110,6 +113,79 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 	}
 }
 
+func createCacheRequestMiddleware(
+	next http.Handler,
+	config config.Config,
+	service *ProxyService,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rawDecodedRequestBody := r.Context().Value(DecodedRequestContextKey)
+		decodedReq, ok := (rawDecodedRequestBody).(*decode.EVMRPCRequestEnvelope)
+		if !ok {
+			service.Logger.Debug().Msg(fmt.Sprintf("error asserting decoded request body %s", rawDecodedRequestBody))
+
+			// Skip caching if we can't decode the request body
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		key, err := GetCacheKey(r, decodedReq)
+		if err != nil {
+			service.Logger.Debug().Msg(fmt.Sprintf("error determining cache key %s", rawDecodedRequestBody))
+
+			// Skip caching if we can't decode the request body
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		cached, err := service.Cache.Get(context.Background(), key)
+		if err != nil {
+			// Not cached
+			service.Logger.Debug().Msg(fmt.Sprintf("request cache miss: %s", err))
+			w.Header().Add(CacheHitHeaderKey, "MISS")
+
+			// Write the responses to both the buffer and the original writer
+			lrw := &bodySaverResponseWriter{
+				ResponseWriter: negroni.NewResponseWriter(w),
+				body:           bytes.NewBufferString(""),
+			}
+
+			// Serve the request and cache the response
+			next.ServeHTTP(lrw, r)
+
+			// Check if the response is successful
+			if lrw.Status() != http.StatusOK {
+				return
+			}
+
+			service.Logger.Debug().Msg(fmt.Sprintf("caching response for key %s", key))
+
+			// Cache the response bytes
+			if err := service.Cache.Set(
+				context.Background(),
+				key,
+				lrw.body.Bytes(),
+				config.CacheTTL,
+			); err != nil {
+				service.Logger.Debug().Msg(fmt.Sprintf("error caching response %s", err))
+			}
+
+			return
+		}
+
+		service.Logger.Debug().Msg(fmt.Sprintf("found cached response for key %s", key))
+
+		// Serve the cached response
+		w.Header().Add(CacheHitHeaderKey, "HIT")
+		w.Write(cached)
+
+		// Make sure the next handler knows the response was served from cache
+		// and to not hit the origin server
+		cachedContext := context.WithValue(r.Context(), CachedContextKey, true)
+		next.ServeHTTP(w, r.WithContext(cachedContext))
+	}
+}
+
 // create the main service middleware for introspecting and transforming
 // the request and the backend origin server(s) response(s)
 func createProxyRequestMiddleware(next http.Handler, config config.Config, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
@@ -132,7 +208,10 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			// set up response writer for copying the response from the backend server
 			// for use out of band of the request-response cycle
-			lrw := &bodySaverResponseWriter{ResponseWriter: negroni.NewResponseWriter(w), body: bytes.NewBufferString("")}
+			lrw := &bodySaverResponseWriter{
+				ResponseWriter: negroni.NewResponseWriter(w),
+				body:           bytes.NewBufferString(""),
+			}
 
 			// proxy the request to the backend origin server
 			// based on the request host
@@ -158,7 +237,12 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 				r.Header.Set(LoadBalancerForwardedForHeaderKey, requestIPHeaderValues[len(requestIPHeaderValues)-1])
 			}
 
-			proxy.ServeHTTP(lrw, r)
+			// Only proxy the request if it's not cached
+			isCachedVal := r.Context().Value(CachedContextKey)
+			isCached := isCachedVal != nil && isCachedVal.(bool)
+			if !isCached {
+				proxy.ServeHTTP(lrw, r)
+			}
 
 			serviceLogger.Trace().Msg(fmt.Sprintf("response %+v \nheaders %+v \nstatus %+v for request %+v", lrw.Status(), lrw.Header(), lrw.body, r))
 
@@ -327,6 +411,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			Referer:                     &referer,
 			Origin:                      &origin,
 			BlockNumber:                 blockNumber,
+			// CacheHit:                    cacheHit,
 		}
 
 		// save metric to database

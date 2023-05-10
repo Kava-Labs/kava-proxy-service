@@ -176,6 +176,17 @@ func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(ctx context.
 	return lookupBlockNumberFromHashParam(ctx, evmClient, r.Method, r.Params)
 }
 
+// IsCacheable returns true if the request is for a method that can be cached.
+func (r *EVMRPCRequestEnvelope) IsCacheable() bool {
+	for _, cacheableMethod := range CacheableEthMethods {
+		if r.Method == cacheableMethod {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Generic method to lookup the block number
 // based on the hash value in a set of params
 func lookupBlockNumberFromHashParam(ctx context.Context, evmClient *ethclient.Client, methodName string, params []interface{}) (int64, error) {

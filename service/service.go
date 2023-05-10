@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/kava-labs/kava-proxy-service/clients/cache"
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/clients/database/migrations"
 	"github.com/kava-labs/kava-proxy-service/config"
@@ -18,6 +19,7 @@ import (
 // ProxyService represents an instance of the proxy service API
 type ProxyService struct {
 	Database  *database.PostgresClient
+	Cache     cache.Cache
 	httpProxy *http.Server
 	evmClient *ethclient.Client
 	*logging.ServiceLogger
@@ -39,9 +41,13 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	// create an http handler that will proxy any request to the specified URL
 	proxyMiddleware := createProxyRequestMiddleware(afterProxyFinalizer, config, serviceLogger)
 
+	// create an http handler that will respond with a cached response or fetch
+	// and cache the response if applicable.
+	cacheMiddleware := createCacheRequestMiddleware(proxyMiddleware, config, &service)
+
 	// create an http handler that will log the request to stdout
 	// this handler will run before the proxyMiddleware handler
-	requestLoggingMiddleware := createRequestLoggingMiddleware(proxyMiddleware, serviceLogger)
+	requestLoggingMiddleware := createRequestLoggingMiddleware(cacheMiddleware, serviceLogger)
 
 	// register healthcheck handler that can be used during deployment and operations
 	// to determine if the service is ready to receive requests
@@ -64,7 +70,12 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 
 	// create database client
 	db, err := createDatabaseClient(ctx, config, serviceLogger)
+	if err != nil {
+		return ProxyService{}, err
+	}
 
+	// create cache client
+	cache, err := createCacheClient(ctx, config, serviceLogger)
 	if err != nil {
 		return ProxyService{}, err
 	}
@@ -80,6 +91,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 		httpProxy:     server,
 		ServiceLogger: serviceLogger,
 		Database:      db,
+		Cache:         cache,
 		evmClient:     evmClient,
 	}
 
@@ -154,6 +166,27 @@ func createDatabaseClient(ctx context.Context, config config.Config, logger *log
 	}()
 
 	return &serviceDatabase, err
+}
+
+func createCacheClient(
+	ctx context.Context,
+	config config.Config,
+	logger *logging.ServiceLogger,
+) (cache.Cache, error) {
+	serviceCache, err := cache.NewRedisCache(
+		ctx,
+		logger,
+		config.RedisEndpointURL,
+		config.RedisPassword,
+		0,
+	)
+	if err != nil {
+		logger.Error().Msg(fmt.Sprintf("error %s creating cache using endpoint %+v", err, config.RedisEndpointURL))
+
+		return nil, err
+	}
+
+	return serviceCache, nil
 }
 
 // Run runs the proxy service, returning error (if any) in the event
