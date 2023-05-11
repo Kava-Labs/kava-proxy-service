@@ -62,6 +62,7 @@ func (rc *RedisCache) Get(
 	return rc.client.Get(ctx, key).Bytes()
 }
 
+// Delete deletes the value for the given key in the cache.
 func (rc *RedisCache) Delete(ctx context.Context, key string) error {
 	return rc.client.Del(ctx, key).Err()
 }

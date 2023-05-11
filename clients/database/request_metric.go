@@ -22,6 +22,7 @@ type ProxiedRequestMetric struct {
 	UserAgent                   *string
 	Referer                     *string
 	Origin                      *string
+	CacheHit                    bool
 }
 
 // Save saves the current ProxiedRequestMetric to

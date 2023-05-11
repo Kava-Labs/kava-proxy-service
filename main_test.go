@@ -533,3 +533,92 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 		assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber)
 	}
 }
+
+func TestE2ETestProxyCachesMethodsWithBlockNumberParam(t *testing.T) {
+	testEthMethodName := "eth_getBalance"
+	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
+	testAddress := common.HexToAddress(testRandomAddressHex)
+
+	// create api and database clients
+	client, err := ethclient.Dial(proxyServiceURL)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	databaseClient, err := database.NewPostgresClient(databaseConfig)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// get the latest queryable block number
+	// need to do this dynamically since not all blocks
+	// are queryable for a given network
+	latestBlock, err := client.HeaderByNumber(testContext, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	requestBlockNumber := latestBlock.Number
+
+	// make requests to api and track start / end time of the request
+	// we don't check response errors because the proxy will create metrics
+	// for each request whether the kava node api returns an error or not
+	// and if it doesn't the test itself will fail due to missing metrics
+	startTime := time.Now()
+
+	// eth_getBalance - cache MISS
+	_, _ = client.BalanceAt(testContext, testAddress, requestBlockNumber)
+
+	// eth_getBalance - cache HIT
+	_, _ = client.BalanceAt(testContext, testAddress, requestBlockNumber)
+
+	endTime := time.Now()
+
+	// lookup all the request metrics in the database
+	// paging as necessary
+	var nextCursor int64
+	var proxiedRequestMetrics []database.ProxiedRequestMetric
+
+	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proxiedRequestMetrics = proxiedRequestMetricsPage
+
+	for nextCursor != 0 {
+		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
+	}
+
+	// search for any request metrics during the test timespan
+	// with the same method used by the test
+	var requestMetricsDuringRequestWindow []database.ProxiedRequestMetric
+	// iterate in reverse order to start checking the most recent request metrics first
+	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
+		requestMetric := proxiedRequestMetrics[i]
+		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
+			if requestMetric.MethodName == testEthMethodName {
+				requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
+			}
+		}
+	}
+
+	assert.Equal(t, len(requestMetricsDuringRequestWindow), 2)
+
+	assert.NotEqual(
+		t,
+		requestMetricsDuringRequestWindow[0].CacheHit,
+		requestMetricsDuringRequestWindow[1].CacheHit,
+		"expected one cache hit and one cache miss",
+	)
+}

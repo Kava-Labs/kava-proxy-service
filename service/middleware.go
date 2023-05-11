@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/http/httputil"
 	"strings"
 	"time"
@@ -37,6 +38,10 @@ const (
 	RefererHeaderKey                  = "Referer"
 	OriginHeaderKey                   = "Origin"
 	CacheHitHeaderKey                 = "X-Cache"
+
+	// Values defined by this service
+	CacheHitHeaderValue  = "HIT"
+	CacheMissHeaderValue = "MISS"
 )
 
 // bodySaverResponseWriter implements the interface for http.ResponseWriter
@@ -121,50 +126,69 @@ func createCacheRequestMiddleware(
 	return func(w http.ResponseWriter, r *http.Request) {
 		rawDecodedRequestBody := r.Context().Value(DecodedRequestContextKey)
 		decodedReq, ok := (rawDecodedRequestBody).(*decode.EVMRPCRequestEnvelope)
+		uncachedContext := context.WithValue(r.Context(), CachedContextKey, false)
+
+		// Skip caching if no decoded request body
 		if !ok {
 			service.Logger.Debug().Msg(fmt.Sprintf("error asserting decoded request body %s", rawDecodedRequestBody))
 
-			// Skip caching if we can't decode the request body
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(uncachedContext))
 			return
 		}
 
+		// TODO: We may want to have a different set of cacheable methods
+		// that is a smaller list than ExtractBlockNumberFromEVMRPCRequest uses.
+		// Skip caching if we can't extract block number
+		_, err := decodedReq.ExtractBlockNumberFromEVMRPCRequest(r.Context(), service.evmClient)
+		if err != nil {
+			service.Logger.Debug().Msg(fmt.Sprintf("error extracting block number from request %s", rawDecodedRequestBody))
+
+			next.ServeHTTP(w, r.WithContext(uncachedContext))
+			return
+		}
+
+		// Build the cache key
 		key, err := GetCacheKey(r, decodedReq)
 		if err != nil {
 			service.Logger.Debug().Msg(fmt.Sprintf("error determining cache key %s", rawDecodedRequestBody))
 
 			// Skip caching if we can't decode the request body
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(uncachedContext))
 			return
 		}
 
+		// Check if the request is cached
 		cached, err := service.Cache.Get(context.Background(), key)
 		if err != nil {
-			// Not cached
+			// Not cached, only include the cache miss header if we were able
+			// to actually check the cache.
 			service.Logger.Debug().Msg(fmt.Sprintf("request cache miss: %s", err))
-			w.Header().Add(CacheHitHeaderKey, "MISS")
-
-			// Write the responses to both the buffer and the original writer
-			lrw := &bodySaverResponseWriter{
-				ResponseWriter: negroni.NewResponseWriter(w),
-				body:           bytes.NewBufferString(""),
-			}
+			w.Header().Add(CacheHitHeaderKey, CacheMissHeaderValue)
 
 			// Serve the request and cache the response
-			next.ServeHTTP(lrw, r)
+			rec := httptest.NewRecorder()
+			next.ServeHTTP(rec, r.WithContext(uncachedContext))
+			result := rec.Result()
 
 			// Check if the response is successful
-			if lrw.Status() != http.StatusOK {
+			if result.StatusCode != http.StatusOK {
 				return
 			}
 
-			service.Logger.Debug().Msg(fmt.Sprintf("caching response for key %s", key))
+			// Copy the response back to the original response
+			body := rec.Body.Bytes()
+			for k, v := range result.Header {
+				w.Header().Set(k, strings.Join(v, ","))
+			}
+			w.WriteHeader(result.StatusCode)
+			w.Write(body)
 
 			// Cache the response bytes
+			service.Logger.Debug().Msg(fmt.Sprintf("caching response for key %s", key))
 			if err := service.Cache.Set(
 				context.Background(),
 				key,
-				lrw.body.Bytes(),
+				body,
 				config.CacheTTL,
 			); err != nil {
 				service.Logger.Debug().Msg(fmt.Sprintf("error caching response %s", err))
@@ -173,14 +197,13 @@ func createCacheRequestMiddleware(
 			return
 		}
 
-		service.Logger.Debug().Msg(fmt.Sprintf("found cached response for key %s", key))
-
 		// Serve the cached response
-		w.Header().Add(CacheHitHeaderKey, "HIT")
+		service.Logger.Debug().Msg(fmt.Sprintf("found cached response for key %s", key))
+		w.Header().Add(CacheHitHeaderKey, CacheHitHeaderValue)
 		w.Write(cached)
 
 		// Make sure the next handler knows the response was served from cache
-		// and to not hit the origin server
+		// and to not hit the origin server. This does not use the uncachedContext
 		cachedContext := context.WithValue(r.Context(), CachedContextKey, true)
 		next.ServeHTTP(w, r.WithContext(cachedContext))
 	}
@@ -400,6 +423,14 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			blockNumber = &rawBlockNumber
 		}
 
+		rawIsCached := r.Context().Value(CachedContextKey)
+		isCachedVal, ok := rawIsCached.(bool)
+		if !ok {
+			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawIsCached, CachedContextKey))
+
+			return
+		}
+
 		// create a metric for the request
 		metric := database.ProxiedRequestMetric{
 			MethodName:                  decodedRequestBody.Method,
@@ -411,7 +442,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			Referer:                     &referer,
 			Origin:                      &origin,
 			BlockNumber:                 blockNumber,
-			// CacheHit:                    cacheHit,
+			CacheHit:                    isCachedVal,
 		}
 
 		// save metric to database
