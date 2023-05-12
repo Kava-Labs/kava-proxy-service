@@ -13,6 +13,7 @@ import (
 
 	"github.com/urfave/negroni"
 
+	"github.com/kava-labs/kava-proxy-service/cache"
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/decode"
@@ -139,8 +140,8 @@ func createCacheRequestMiddleware(
 		// TODO: We may want to have a different set of cacheable methods
 		// that is a smaller list than ExtractBlockNumberFromEVMRPCRequest uses.
 		// Skip caching if we can't extract block number
-		_, err := decodedReq.ExtractBlockNumberFromEVMRPCRequest(r.Context(), service.evmClient)
-		if err != nil {
+		blockNumber, err := decodedReq.ExtractBlockNumberFromEVMRPCRequest(r.Context(), service.evmClient)
+		if err != nil || blockNumber <= 0 {
 			service.Logger.Debug().Msg(fmt.Sprintf("error extracting block number from request %s", rawDecodedRequestBody))
 
 			next.ServeHTTP(w, r.WithContext(uncachedContext))
@@ -148,7 +149,7 @@ func createCacheRequestMiddleware(
 		}
 
 		// Build the cache key
-		key, err := GetCacheKey(r, decodedReq)
+		key, err := cache.GetQueryKey(r, decodedReq)
 		if err != nil {
 			service.Logger.Debug().Msg(fmt.Sprintf("error determining cache key %s", rawDecodedRequestBody))
 
@@ -183,7 +184,10 @@ func createCacheRequestMiddleware(
 			w.WriteHeader(result.StatusCode)
 			w.Write(body)
 
-			// Cache the response bytes
+			// TODO: Determine if the response should be cached or not.
+			// Requests for future blocks should not be cached.
+
+			// Cache the response bytes after writing response
 			service.Logger.Debug().Msg(fmt.Sprintf("caching response for key %s", key))
 			if err := service.Cache.Set(
 				context.Background(),
@@ -200,6 +204,7 @@ func createCacheRequestMiddleware(
 		// Serve the cached response
 		service.Logger.Debug().Msg(fmt.Sprintf("found cached response for key %s", key))
 		w.Header().Add(CacheHitHeaderKey, CacheHitHeaderValue)
+		w.Header().Add("Content-Type", http.DetectContentType(cached))
 		w.Write(cached)
 
 		// Make sure the next handler knows the response was served from cache

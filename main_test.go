@@ -570,19 +570,52 @@ func TestE2ETestProxyCachesMethodsWithBlockNumberParam(t *testing.T) {
 	startTime := time.Now()
 
 	// eth_getBalance - cache MISS
-	_, _ = client.BalanceAt(testContext, testAddress, requestBlockNumber)
+	bal1, err := client.BalanceAt(testContext, testAddress, requestBlockNumber)
+	assert.NoError(t, err)
 
 	// eth_getBalance - cache HIT
-	_, _ = client.BalanceAt(testContext, testAddress, requestBlockNumber)
+	bal2, err := client.BalanceAt(testContext, testAddress, requestBlockNumber)
+	assert.NoError(t, err)
 
 	endTime := time.Now()
 
-	// lookup all the request metrics in the database
-	// paging as necessary
+	assert.Equal(t, bal1, bal2, "balances should be the same")
+
+	requestMetricsDuringRequestWindow := getRequestMetricsBetween(
+		t,
+		databaseClient,
+		[]string{testEthMethodName},
+		startTime,
+		endTime,
+	)
+
+	assert.Equal(t, len(requestMetricsDuringRequestWindow), 2)
+
+	assert.NotEqual(
+		t,
+		requestMetricsDuringRequestWindow[0].CacheHit,
+		requestMetricsDuringRequestWindow[1].CacheHit,
+		"expected one cache hit and one cache miss",
+	)
+}
+
+func getRequestMetricsBetween(
+	t *testing.T,
+	databaseClient database.PostgresClient,
+	testedMethods []string,
+	startTime, endTime time.Time,
+) []database.ProxiedRequestMetric {
+	t.Helper()
+
 	var nextCursor int64
 	var proxiedRequestMetrics []database.ProxiedRequestMetric
 
-	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
+	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(
+		testContext,
+		databaseClient.DB,
+		nextCursor,
+		10000,
+	)
 
 	if err != nil {
 		t.Fatal(err)
@@ -591,7 +624,12 @@ func TestE2ETestProxyCachesMethodsWithBlockNumberParam(t *testing.T) {
 	proxiedRequestMetrics = proxiedRequestMetricsPage
 
 	for nextCursor != 0 {
-		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
+		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(
+			testContext,
+			databaseClient.DB,
+			nextCursor,
+			10000,
+		)
 
 		if err != nil {
 			t.Fatal(err)
@@ -607,18 +645,13 @@ func TestE2ETestProxyCachesMethodsWithBlockNumberParam(t *testing.T) {
 	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
 		requestMetric := proxiedRequestMetrics[i]
 		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
-			if requestMetric.MethodName == testEthMethodName {
-				requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
+			for _, testedMethod := range testedMethods {
+				if requestMetric.MethodName == testedMethod {
+					requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
+				}
 			}
 		}
 	}
 
-	assert.Equal(t, len(requestMetricsDuringRequestWindow), 2)
-
-	assert.NotEqual(
-		t,
-		requestMetricsDuringRequestWindow[0].CacheHit,
-		requestMetricsDuringRequestWindow[1].CacheHit,
-		"expected one cache hit and one cache miss",
-	)
+	return requestMetricsDuringRequestWindow
 }
