@@ -14,20 +14,43 @@ import (
 	"github.com/kava-labs/kava-proxy-service/clients/database/migrations"
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/logging"
+	"github.com/kava-labs/kava-proxy-service/service/cachemiddleware"
 )
 
 // ProxyService represents an instance of the proxy service API
 type ProxyService struct {
 	Database  *database.PostgresClient
-	Cache     cache.Cache
+	Cache     *cachemiddleware.CacheClient
 	httpProxy *http.Server
 	evmClient *ethclient.Client
 	*logging.ServiceLogger
 }
 
 // New returns a new ProxyService with the specified config and error (if any)
-func New(ctx context.Context, config config.Config, serviceLogger *logging.ServiceLogger) (ProxyService, error) {
+func New(
+	ctx context.Context,
+	config config.Config,
+	serviceLogger *logging.ServiceLogger,
+) (ProxyService, error) {
 	service := ProxyService{}
+
+	// create database client
+	db, err := createDatabaseClient(ctx, config, serviceLogger)
+	if err != nil {
+		return ProxyService{}, err
+	}
+
+	// create evm api client
+	evmClient, err := ethclient.Dial(config.EvmQueryServiceURL)
+	if err != nil {
+		return ProxyService{}, err
+	}
+
+	// create cache client
+	cacheClient, err := createCacheClient(ctx, config, serviceLogger, evmClient)
+	if err != nil {
+		return ProxyService{}, err
+	}
 
 	// create an http router for registering handlers for a given route
 	mux := http.NewServeMux()
@@ -43,7 +66,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 
 	// create an http handler that will respond with a cached response or fetch
 	// and cache the response if applicable.
-	cacheMiddleware := createCacheRequestMiddleware(proxyMiddleware, config, &service)
+	cacheMiddleware := cacheClient.Middleware(proxyMiddleware)
 
 	// create an http handler that will log the request to stdout
 	// this handler will run before the proxyMiddleware handler
@@ -68,30 +91,11 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 		ReadTimeout:  time.Duration(config.HTTPReadTimeoutSeconds) * time.Second,
 	}
 
-	// create database client
-	db, err := createDatabaseClient(ctx, config, serviceLogger)
-	if err != nil {
-		return ProxyService{}, err
-	}
-
-	// create cache client
-	cache, err := createCacheClient(ctx, config, serviceLogger)
-	if err != nil {
-		return ProxyService{}, err
-	}
-
-	// create evm api client
-	evmClient, err := ethclient.Dial(config.EvmQueryServiceURL)
-
-	if err != nil {
-		return ProxyService{}, err
-	}
-
 	service = ProxyService{
 		httpProxy:     server,
 		ServiceLogger: serviceLogger,
 		Database:      db,
-		Cache:         cache,
+		Cache:         cacheClient,
 		evmClient:     evmClient,
 	}
 
@@ -172,8 +176,9 @@ func createCacheClient(
 	ctx context.Context,
 	config config.Config,
 	logger *logging.ServiceLogger,
-) (cache.Cache, error) {
-	serviceCache, err := cache.NewRedisCache(
+	evmclient *ethclient.Client,
+) (*cachemiddleware.CacheClient, error) {
+	redisCache, err := cache.NewRedisCache(
 		ctx,
 		logger,
 		config.RedisEndpointURL,
@@ -186,7 +191,15 @@ func createCacheClient(
 		return nil, err
 	}
 
-	return serviceCache, nil
+	client := cachemiddleware.NewClient(
+		redisCache,
+		evmclient,
+		config.CacheTTL,
+		DecodedRequestContextKey,
+		logger,
+	)
+
+	return client, nil
 }
 
 // Run runs the proxy service, returning error (if any) in the event

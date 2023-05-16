@@ -6,18 +6,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/http/httputil"
 	"strings"
 	"time"
 
 	"github.com/urfave/negroni"
 
-	"github.com/kava-labs/kava-proxy-service/cache"
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
+	"github.com/kava-labs/kava-proxy-service/service/cachemiddleware"
 )
 
 const (
@@ -31,18 +30,12 @@ const (
 	RequestUserAgentContextKey            = "X-KAVA-PROXY-USER-AGENT"
 	RequestRefererContextKey              = "X-KAVA-PROXY-REFERER"
 	RequestOriginContextKey               = "X-KAVA-PROXY-ORIGIN"
-	CachedContextKey                      = "X-KAVA-PROXY-CACHED"
 
 	// Values defined by upstream services
 	LoadBalancerForwardedForHeaderKey = "X-Forwarded-For"
 	UserAgentHeaderkey                = "User-Agent"
 	RefererHeaderKey                  = "Referer"
 	OriginHeaderKey                   = "Origin"
-	CacheHitHeaderKey                 = "X-Cache"
-
-	// Values defined by this service
-	CacheHitHeaderValue  = "HIT"
-	CacheMissHeaderValue = "MISS"
 )
 
 // bodySaverResponseWriter implements the interface for http.ResponseWriter
@@ -119,101 +112,6 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 	}
 }
 
-func createCacheRequestMiddleware(
-	next http.Handler,
-	config config.Config,
-	service *ProxyService,
-) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		rawDecodedRequestBody := r.Context().Value(DecodedRequestContextKey)
-		decodedReq, ok := (rawDecodedRequestBody).(*decode.EVMRPCRequestEnvelope)
-		uncachedContext := context.WithValue(r.Context(), CachedContextKey, false)
-
-		// Skip caching if no decoded request body
-		if !ok {
-			service.Logger.Debug().Msg(fmt.Sprintf("error asserting decoded request body %s", rawDecodedRequestBody))
-
-			next.ServeHTTP(w, r.WithContext(uncachedContext))
-			return
-		}
-
-		// TODO: We may want to have a different set of cacheable methods
-		// that is a smaller list than ExtractBlockNumberFromEVMRPCRequest uses.
-		// Skip caching if we can't extract block number
-		blockNumber, err := decodedReq.ExtractBlockNumberFromEVMRPCRequest(r.Context(), service.evmClient)
-		if err != nil || blockNumber <= 0 {
-			service.Logger.Debug().Msg(fmt.Sprintf("error extracting block number from request %s", rawDecodedRequestBody))
-
-			next.ServeHTTP(w, r.WithContext(uncachedContext))
-			return
-		}
-
-		// Build the cache key
-		key, err := cache.GetQueryKey(r, decodedReq)
-		if err != nil {
-			service.Logger.Debug().Msg(fmt.Sprintf("error determining cache key %s", rawDecodedRequestBody))
-
-			// Skip caching if we can't decode the request body
-			next.ServeHTTP(w, r.WithContext(uncachedContext))
-			return
-		}
-
-		// Check if the request is cached
-		cached, err := service.Cache.Get(context.Background(), key)
-		if err != nil {
-			// Not cached, only include the cache miss header if we were able
-			// to actually check the cache.
-			service.Logger.Debug().Msg(fmt.Sprintf("request cache miss: %s", err))
-			w.Header().Add(CacheHitHeaderKey, CacheMissHeaderValue)
-
-			// Serve the request and cache the response
-			rec := httptest.NewRecorder()
-			next.ServeHTTP(rec, r.WithContext(uncachedContext))
-			result := rec.Result()
-
-			// Check if the response is successful
-			if result.StatusCode != http.StatusOK {
-				return
-			}
-
-			// Copy the response back to the original response
-			body := rec.Body.Bytes()
-			for k, v := range result.Header {
-				w.Header().Set(k, strings.Join(v, ","))
-			}
-			w.WriteHeader(result.StatusCode)
-			w.Write(body)
-
-			// TODO: Determine if the response should be cached or not.
-			// Requests for future blocks should not be cached.
-
-			// Cache the response bytes after writing response
-			service.Logger.Debug().Msg(fmt.Sprintf("caching response for key %s", key))
-			if err := service.Cache.Set(
-				context.Background(),
-				key,
-				body,
-				config.CacheTTL,
-			); err != nil {
-				service.Logger.Debug().Msg(fmt.Sprintf("error caching response %s", err))
-			}
-
-			return
-		}
-
-		// Serve the cached response
-		service.Logger.Debug().Msg(fmt.Sprintf("found cached response for key %s", key))
-		w.Header().Add(CacheHitHeaderKey, CacheHitHeaderValue)
-		w.Header().Add("Content-Type", http.DetectContentType(cached))
-		w.Write(cached)
-
-		// Make sure the next handler knows the response was served from cache
-		// and to not hit the origin server. This does not use the uncachedContext
-		cachedContext := context.WithValue(r.Context(), CachedContextKey, true)
-		next.ServeHTTP(w, r.WithContext(cachedContext))
-	}
-}
-
 // create the main service middleware for introspecting and transforming
 // the request and the backend origin server(s) response(s)
 func createProxyRequestMiddleware(next http.Handler, config config.Config, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
@@ -266,8 +164,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 			}
 
 			// Only proxy the request if it's not cached
-			isCachedVal := r.Context().Value(CachedContextKey)
-			isCached := isCachedVal != nil && isCachedVal.(bool)
+			isCached := cachemiddleware.IsRequestCached(r.Context())
 			if !isCached {
 				proxy.ServeHTTP(lrw, r)
 			}
@@ -428,13 +325,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			blockNumber = &rawBlockNumber
 		}
 
-		rawIsCached := r.Context().Value(CachedContextKey)
-		isCachedVal, ok := rawIsCached.(bool)
-		if !ok {
-			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawIsCached, CachedContextKey))
-
-			return
-		}
+		isCached := cachemiddleware.IsRequestCached(r.Context())
 
 		// create a metric for the request
 		metric := database.ProxiedRequestMetric{
@@ -447,7 +338,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 			Referer:                     &referer,
 			Origin:                      &origin,
 			BlockNumber:                 blockNumber,
-			CacheHit:                    isCachedVal,
+			CacheHit:                    isCached,
 		}
 
 		// save metric to database

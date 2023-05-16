@@ -58,8 +58,12 @@ func (rc *RedisCache) Set(
 func (rc *RedisCache) Get(
 	ctx context.Context,
 	key string,
-) ([]byte, error) {
-	return rc.client.Get(ctx, key).Bytes()
+) ([]byte, bool) {
+	val, err := rc.client.Get(ctx, key).Bytes()
+
+	// Mo error == found. This throws away any other errors that aren't "key not
+	// found" errors.
+	return val, err == nil
 }
 
 // Delete deletes the value for the given key in the cache.

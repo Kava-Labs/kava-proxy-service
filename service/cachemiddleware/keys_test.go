@@ -1,4 +1,4 @@
-package cache_test
+package cachemiddleware_test
 
 import (
 	"net/http"
@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kava-labs/kava-proxy-service/cache"
 	"github.com/kava-labs/kava-proxy-service/decode"
+	"github.com/kava-labs/kava-proxy-service/service/cachemiddleware"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,7 +52,7 @@ func TestUnitTestGetCacheKey(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			key, err := cache.GetQueryKey(tc.r, tc.chainID, tc.decodedReq)
+			key, err := cachemiddleware.GetQueryKey(tc.r, tc.chainID, tc.decodedReq)
 			if tc.wantShouldErr {
 				require.Error(t, err)
 				require.Equal(t, tc.wantErr, err)

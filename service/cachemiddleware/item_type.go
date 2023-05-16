@@ -1,4 +1,4 @@
-package cache
+package cachemiddleware
 
 // ItemType is the type of a cache item.
 type ItemType int

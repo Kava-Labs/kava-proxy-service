@@ -1,4 +1,4 @@
-package cache
+package cachemiddleware
 
 import (
 	"encoding/json"
@@ -22,13 +22,13 @@ func buildCacheKey(it ItemType, parts []string) string {
 	return strings.Join(fullParts, ":")
 }
 
-// GetChainKey returns the chain ID cache key for a given request.
+// GetChainKey returns the chain ID cache key for a given request host.
 // Mapping: chainkey -> chainID
 func GetChainKey(
-	r *http.Request,
+	host string,
 ) string {
 	parts := []string{
-		r.Host,
+		host,
 	}
 
 	return buildCacheKey(ItemTypeChain, parts)
@@ -54,8 +54,7 @@ func GetQueryKey(
 	byteHash := crypto.Keccak256Hash(reqBytes)
 
 	parts := []string{
-		// TODO: Use chain ID for key prefix
-		r.Host,
+		chainID,
 		byteHash.Hex(),
 	}
 
