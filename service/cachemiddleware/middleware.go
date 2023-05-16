@@ -22,6 +22,32 @@ const (
 	CacheMissHeaderValue = "MISS"
 )
 
+// shouldCacheBody returns true if the response body should be cached.
+// This is determined by checking if the response is a valid json-rpc response,
+// an error, or empty. This is done to avoid caching invalid responses.
+func (c *CacheClient) shouldCacheBody(body []byte) bool {
+	jsonMsg, err := UnmarshalJsonRpcMessage(body)
+	if err != nil {
+		c.logger.Debug().Err(err).Msg("error unmarshalling json rpc message")
+		return false
+	}
+
+	// Check if there was an error in response
+	if err := jsonMsg.Error(); err != nil {
+		c.logger.Debug().Err(err).Msg("response is error, not caching")
+		return false
+	}
+
+	// Check if the response is empty. This also includes blocks in the future,
+	// assuming the response for future blocks is empty.
+	if jsonMsg.IsResultEmpty() {
+		c.logger.Debug().Msg("response is empty, not caching")
+		return false
+	}
+
+	return true
+}
+
 // Middleware is a middleware that caches responses from the origin server
 // and serves them from the cache if they exist.
 func (c *CacheClient) Middleware(
@@ -46,7 +72,7 @@ func (c *CacheClient) Middleware(
 		//    This happens in uncacheable cases such as requesting the latest or
 		//    future block, or if the request mutates chain data.
 		// 3. The request is not cached and we should cache the response
-		cachedBytes, found, shouldCache := c.GetCachedRequest(r.Context(), r, decodedReq)
+		cachedBytes, found, shouldCache := c.GetCachedRequest(r.Context(), r.Host, decodedReq)
 		// 1. Serve the cached response
 		if found {
 			c.logger.Debug().Msg(fmt.Sprintf("found cached response for request %s", decodedReq.Method))
@@ -71,62 +97,42 @@ func (c *CacheClient) Middleware(
 		}
 
 		// 3. Cache-able request, serve the request and cache the response
-		if shouldCache {
-			// Not cached, only include the cache miss header if we were able
-			// to actually check the cache.
-			w.Header().Add(CacheHitHeaderKey, CacheMissHeaderValue)
 
-			// Serve the request and cache the response
-			rec := httptest.NewRecorder()
-			next.ServeHTTP(rec, r.WithContext(uncachedContext))
-			result := rec.Result()
+		// Not cached, only include the cache miss header if we were able
+		// to actually check the cache.
+		w.Header().Add(CacheHitHeaderKey, CacheMissHeaderValue)
 
-			// Check if the response is successful
-			if result.StatusCode != http.StatusOK {
-				return
-			}
+		// Serve the request and cache the response
+		rec := httptest.NewRecorder()
+		next.ServeHTTP(rec, r.WithContext(uncachedContext))
+		result := rec.Result()
 
-			// Copy the response back to the original response
-			body := rec.Body.Bytes()
-			for k, v := range result.Header {
-				w.Header().Set(k, strings.Join(v, ","))
-			}
-			w.WriteHeader(result.StatusCode)
-			w.Write(body)
-
-			// TODO: Determine if the response should be cached or not.
-			// Requests that should not be cached include:
-			// - blocks in future
-
-			jsonMsg, err := UnmarshalJsonRpcMessage(body)
-			if err != nil {
-				c.logger.Debug().Err(err).Msg("error unmarshalling json rpc message")
-				return
-			}
-
-			// Check if there was an error in response
-			if err := jsonMsg.Error(); err != nil {
-				c.logger.Debug().Err(err).Msg("response is error, not caching")
-				return
-			}
-
-			// Check if the response is empty
-			if jsonMsg.IsResultEmpty() {
-				c.logger.Debug().Msg("response is empty, not caching")
-				return
-			}
-
-			// Cache the response bytes after writing response
-			if err := c.SetCachedRequest(
-				context.Background(),
-				r,
-				decodedReq,
-				body,
-			); err != nil {
-				c.logger.Debug().Msg(fmt.Sprintf("error caching response %s", err))
-			}
-
+		// Check if the response is successful
+		if result.StatusCode != http.StatusOK {
 			return
+		}
+
+		// Copy the response back to the original response
+		body := rec.Body.Bytes()
+		for k, v := range result.Header {
+			w.Header().Set(k, strings.Join(v, ","))
+		}
+		w.WriteHeader(result.StatusCode)
+		w.Write(body)
+
+		// Check the response body if we should cache it
+		if !c.shouldCacheBody(body) {
+			return
+		}
+
+		// Cache the response bytes after writing response
+		if err := c.SetCachedRequest(
+			context.Background(),
+			r.Host,
+			decodedReq,
+			body,
+		); err != nil {
+			c.logger.Debug().Msg(fmt.Sprintf("error caching response %s", err))
 		}
 	}
 }

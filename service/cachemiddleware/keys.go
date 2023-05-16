@@ -3,7 +3,6 @@ package cachemiddleware
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -38,7 +37,6 @@ func GetChainKey(
 // request envelope.
 // Mapping: querykey -> request hash
 func GetQueryKey(
-	r *http.Request,
 	chainID string,
 	decodedReq *decode.EVMRPCRequestEnvelope,
 ) (string, error) {

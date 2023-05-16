@@ -1,8 +1,6 @@
 package cachemiddleware_test
 
 import (
-	"net/http"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -14,7 +12,7 @@ import (
 func TestUnitTestGetCacheKey(t *testing.T) {
 	tests := []struct {
 		name              string
-		r                 *http.Request
+		requestHost       string
 		chainID           string
 		decodedReq        *decode.EVMRPCRequestEnvelope
 		wantKeyStartsWith string
@@ -22,13 +20,9 @@ func TestUnitTestGetCacheKey(t *testing.T) {
 		wantErr           error
 	}{
 		{
-			name: "basic",
-			r: &http.Request{
-				URL: &url.URL{
-					Path: "/",
-				},
-			},
-			chainID: "7777",
+			name:        "basic",
+			requestHost: "localhost:7777",
+			chainID:     "7777",
 			decodedReq: &decode.EVMRPCRequestEnvelope{
 				JSONRPCVersion: "2.0",
 				ID:             1,
@@ -39,12 +33,8 @@ func TestUnitTestGetCacheKey(t *testing.T) {
 			wantShouldErr:     false,
 		},
 		{
-			name: "nil decoded request",
-			r: &http.Request{
-				URL: &url.URL{
-					Path: "/",
-				},
-			},
+			name:          "nil decoded request",
+			requestHost:   "localhost:7778",
 			decodedReq:    nil,
 			wantShouldErr: false,
 		},
@@ -52,7 +42,7 @@ func TestUnitTestGetCacheKey(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			key, err := cachemiddleware.GetQueryKey(tc.r, tc.chainID, tc.decodedReq)
+			key, err := cachemiddleware.GetQueryKey(tc.chainID, tc.decodedReq)
 			if tc.wantShouldErr {
 				require.Error(t, err)
 				require.Equal(t, tc.wantErr, err)
@@ -67,6 +57,33 @@ func TestUnitTestGetCacheKey(t *testing.T) {
 					key,
 				)
 			}
+		})
+	}
+}
+
+func TestUnitTestGetChainKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		giveHost string
+		wantKey  string
+	}{
+		{
+			name:     "port included",
+			giveHost: "localhost:7777",
+			wantKey:  "chain:localhost:7777",
+		},
+		{
+			name:     "api",
+			giveHost: "api.kava.io",
+			wantKey:  "chain:api.kava.io",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			key := cachemiddleware.GetChainKey(tc.giveHost)
+
+			require.Equal(t, tc.wantKey, key)
 		})
 	}
 }

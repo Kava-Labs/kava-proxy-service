@@ -3,7 +3,6 @@ package cachemiddleware
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -73,7 +72,7 @@ func (c *CacheClient) setChainIDForHost(
 // cache, and will return an error if the request is not found.
 func (c *CacheClient) GetCachedRequest(
 	ctx context.Context,
-	r *http.Request,
+	requestHost string,
 	decodedReq *decode.EVMRPCRequestEnvelope,
 ) (data []byte, found bool, shouldCache bool) {
 	// TODO: We may want to have a different set of cacheable methods
@@ -89,12 +88,12 @@ func (c *CacheClient) GetCachedRequest(
 		return nil, false, false
 	}
 
-	chainID, found := c.getChainIDFromHost(ctx, r.Host)
+	chainID, found := c.getChainIDFromHost(ctx, requestHost)
 	if !found {
 		return nil, false, true
 	}
 
-	key, err := GetQueryKey(r, chainID, decodedReq)
+	key, err := GetQueryKey(chainID, decodedReq)
 	if err != nil {
 		// Don't cache requests that fail to build a cache key
 		return nil, false, false
@@ -116,7 +115,7 @@ func (c *CacheClient) GetCachedRequest(
 // decoded request envelope.
 func (c *CacheClient) SetCachedRequest(
 	ctx context.Context,
-	r *http.Request,
+	requestHost string,
 	decodedReq *decode.EVMRPCRequestEnvelope,
 	resp []byte,
 ) error {
@@ -132,7 +131,7 @@ func (c *CacheClient) SetCachedRequest(
 		return fmt.Errorf("block number is not positive %d", blockNumber)
 	}
 
-	chainID, found := c.getChainIDFromHost(ctx, r.Host)
+	chainID, found := c.getChainIDFromHost(ctx, requestHost)
 	if !found {
 		// Fetch the chain ID for the host if it is not found in cache
 		rawChainID, err := c.evmClient.ChainID(ctx)
@@ -141,7 +140,7 @@ func (c *CacheClient) SetCachedRequest(
 		}
 
 		// Cache the chain ID for the host
-		err = c.setChainIDForHost(ctx, r.Host, rawChainID.String())
+		err = c.setChainIDForHost(ctx, requestHost, rawChainID.String())
 		if err != nil {
 			return fmt.Errorf("error setting chain ID for host: %w", err)
 		}
@@ -150,7 +149,7 @@ func (c *CacheClient) SetCachedRequest(
 		chainID = rawChainID.String()
 	}
 
-	key, err := GetQueryKey(r, chainID, decodedReq)
+	key, err := GetQueryKey(chainID, decodedReq)
 	if err != nil {
 		return err
 	}
