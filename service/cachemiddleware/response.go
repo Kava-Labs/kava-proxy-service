@@ -47,26 +47,31 @@ func (msg *JsonRpcMessage) IsResultEmpty() bool {
 		return true
 	}
 
-	// Check if the result is an empty array, 0x0, or false
 	var result interface{}
 	err := json.Unmarshal(msg.Result, &result)
 	if err != nil {
-		return false
+		// If we can't unmarshal the result, assume it's empty to prevent caching.
+		return true
 	}
 
 	switch r := result.(type) {
 	case []interface{}:
+		// []
 		return len(r) == 0
 	case string:
-		// Zero is represented as "0x0" in official json-rpc conventions. See:
+		// Matches:
+		// - "" - Empty string
+		// - "0x0" - Represents zero in official json-rpc conventions. See:
 		// https://ethereum.org/en/developers/docs/apis/json-rpc/#conventions
 		//
-		// 0x can be returned by some endpoints like getCode
+		// - "0x" - Empty response from some endpoints like getCode
+
 		return r == "" || r == "0x0" || r == "0x"
 	case bool:
+		// false
 		return !r
-	// Null is represented as nil in the json.RawMessage type
 	case nil:
+		// null represented as nil in the json.RawMessage type
 		return true
 	default:
 		return false

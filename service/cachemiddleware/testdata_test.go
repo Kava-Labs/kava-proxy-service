@@ -9,6 +9,7 @@ type testResponseName string
 
 const (
 	TestResponse_Web3ClientVersion         testResponseName = "web3_clientVersion"
+	TestResponse_EthGetAccounts_Empty      testResponseName = "eth_getAccounts/empty"
 	TestResponse_EthBlockByNumber_Specific testResponseName = "eth_getBlockByNumber"
 	TestResponse_EthBlockByNumber_Latest   testResponseName = "eth_getBlockByNumber/latest"
 	TestResponse_EthBlockByNumber_Future   testResponseName = "eth_getBlockByNumber/future"
@@ -32,6 +33,19 @@ var testResponses = map[testResponseName]testHttpRequestResponse{
 			"jsonrpc": "2.0",
 			"id": 1,
 			"result": "Version dev ()\nCompiled at  using Go go1.20.3 (amd64)"
+		}`,
+	},
+	TestResponse_EthGetAccounts_Empty: {
+		RequestBody: `{
+			"jsonrpc":"2.0",
+			"method":"eth_accounts",
+			"params":[],
+			"id":1
+		}`,
+		ResponseBody: `{
+			"jsonrpc": "2.0",
+			"id": 1,
+			"result": []
 		}`,
 	},
 	TestResponse_EthBlockByNumber_Specific: {

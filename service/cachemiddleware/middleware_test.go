@@ -47,6 +47,10 @@ func TestUnitTestIsBodyCacheable_EmptyResponse(t *testing.T) {
 			name: "0x",
 			body: testResponses[TestResponse_EthGetCode_Empty].ResponseBody,
 		},
+		{
+			name: "empty slice",
+			body: testResponses[TestResponse_EthGetAccounts_Empty].ResponseBody,
+		},
 	}
 
 	for _, tc := range tests {
