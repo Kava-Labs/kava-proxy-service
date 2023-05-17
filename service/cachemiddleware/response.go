@@ -60,7 +60,9 @@ func (msg *JsonRpcMessage) IsResultEmpty() bool {
 	case string:
 		// Zero is represented as "0x0" in official json-rpc conventions. See:
 		// https://ethereum.org/en/developers/docs/apis/json-rpc/#conventions
-		return r == "" || r == "0x0"
+		//
+		// 0x can be returned by some endpoints like getCode
+		return r == "" || r == "0x0" || r == "0x"
 	case bool:
 		return !r
 	// Null is represented as nil in the json.RawMessage type

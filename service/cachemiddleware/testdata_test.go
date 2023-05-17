@@ -13,6 +13,9 @@ const (
 	TestResponse_EthBlockByNumber_Latest   testResponseName = "eth_getBlockByNumber/latest"
 	TestResponse_EthBlockByNumber_Future   testResponseName = "eth_getBlockByNumber/future"
 	TestResponse_EthBlockByNumber_Error    testResponseName = "eth_getBlockByNumber/error"
+	TestResponse_EthGetBalance_Positive    testResponseName = "eth_getBalance/positive"
+	TestResponse_EthGetBalance_Zero        testResponseName = "eth_getBalance/zero"
+	TestResponse_EthGetCode_Empty          testResponseName = "eth_getCode/empty"
 )
 
 // testResponses is a map of testing json-rpc responses. These are copied from
@@ -229,5 +232,53 @@ var testResponses = map[testResponseName]testHttpRequestResponse{
 			  "message": "parse error"
 			}
 		  }`,
+	},
+	TestResponse_EthGetBalance_Positive: {
+		RequestBody: `{
+			"jsonrpc":"2.0",
+			"method":"eth_getBalance",
+			"params":[
+				"0x373CE80dd1e921506EC5603290AF444e60CeF61F", 
+				"0x49BCF0"
+			],
+			"id":1
+		}`,
+		ResponseBody: `{
+			"jsonrpc": "2.0",
+			"id": 1,
+			"result": "0xdfe3285d58c7e365"
+		}`,
+	},
+	TestResponse_EthGetBalance_Zero: {
+		RequestBody: `{
+			"jsonrpc":"2.0",
+			"method":"eth_getBalance",
+			"params":[
+				"0x1111111111111111111111111111111111111111",
+				"0x2"
+			],
+			"id":1
+		}`,
+		ResponseBody: `{
+			"jsonrpc": "2.0",
+			"id": 1,
+			"result": "0x0"
+		}`,
+	},
+	TestResponse_EthGetCode_Empty: {
+		RequestBody: `{
+			"jsonrpc":"2.0",
+			"method":"eth_getCode",
+			"params":[
+				"0x1111111111111111111111111111111111111111", 
+				"0x2"
+			],
+			"id":1
+		}`,
+		ResponseBody: `{
+			"jsonrpc": "2.0",
+			"id": 1,
+			"result": "0x"
+		}`,
 	},
 }
