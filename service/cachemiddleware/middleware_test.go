@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIsBodyCacheable_Valid(t *testing.T) {
+func TestUnitTestIsBodyCacheable_Valid(t *testing.T) {
 	body := testResponses[TestResponse_EthBlockByNumber_Specific].ResponseBody
 
 	isCacheable, err := cachemiddleware.IsBodyCacheable([]byte(body))
@@ -16,7 +16,7 @@ func TestIsBodyCacheable_Valid(t *testing.T) {
 	require.True(t, isCacheable)
 }
 
-func TestIsBodyCacheable_NullResponse(t *testing.T) {
+func TestUnitTestIsBodyCacheable_NullResponse(t *testing.T) {
 	// Result: null
 	body := testResponses[TestResponse_EthBlockByNumber_Future].ResponseBody
 	isCacheable, err := cachemiddleware.IsBodyCacheable([]byte(body))
@@ -26,7 +26,7 @@ func TestIsBodyCacheable_NullResponse(t *testing.T) {
 	require.False(t, isCacheable)
 }
 
-func TestIsBodyCacheable_ErrorResponse(t *testing.T) {
+func TestUnitTestIsBodyCacheable_ErrorResponse(t *testing.T) {
 	// Result: null
 	body := testResponses[TestResponse_EthBlockByNumber_Error].ResponseBody
 	isCacheable, err := cachemiddleware.IsBodyCacheable([]byte(body))

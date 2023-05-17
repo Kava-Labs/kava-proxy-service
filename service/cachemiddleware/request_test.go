@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIsRequestCached(t *testing.T) {
+func TestUnitTestIsRequestCached(t *testing.T) {
 	ctx := context.Background()
 	require.False(t, cachemiddleware.IsRequestCached(ctx))
 

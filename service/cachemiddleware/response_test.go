@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestJsonRpcMessage(t *testing.T) {
+func TestUnitTestJsonRpcMessage(t *testing.T) {
 	tests := []struct {
 		name               string
 		giveJsonString     string
@@ -67,7 +67,7 @@ func TestJsonRpcMessage(t *testing.T) {
 	}
 }
 
-func TestJsonRpcMessage_IsEmpty(t *testing.T) {
+func TestUnitTestJsonRpcMessage_IsEmpty(t *testing.T) {
 	tests := []struct {
 		name               string
 		giveJsonRpcMessage cachemiddleware.JsonRpcMessage
