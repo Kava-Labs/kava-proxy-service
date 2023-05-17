@@ -2,6 +2,7 @@ package cachemiddleware
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -22,30 +23,28 @@ const (
 	CacheMissHeaderValue = "MISS"
 )
 
-// shouldCacheBody returns true if the response body should be cached.
+// IsBodyCacheable returns true if the response body should be cached. It will
+// return an error as a reason for not caching the response body.
 // This is determined by checking if the response is a valid json-rpc response,
 // an error, or empty. This is done to avoid caching invalid responses.
-func (c *CacheClient) shouldCacheBody(body []byte) bool {
+func IsBodyCacheable(body []byte) (bool, error) {
 	jsonMsg, err := UnmarshalJsonRpcMessage(body)
 	if err != nil {
-		c.logger.Debug().Err(err).Msg("error unmarshalling json rpc message")
-		return false
+		return false, fmt.Errorf("error unmarshalling: %w", err)
 	}
 
 	// Check if there was an error in response
 	if err := jsonMsg.Error(); err != nil {
-		c.logger.Debug().Err(err).Msg("response is error, not caching")
-		return false
+		return false, fmt.Errorf("response has error: %w", err)
 	}
 
 	// Check if the response is empty. This also includes blocks in the future,
 	// assuming the response for future blocks is empty.
 	if jsonMsg.IsResultEmpty() {
-		c.logger.Debug().Msg("response is empty, not caching")
-		return false
+		return false, errors.New("response is empty")
 	}
 
-	return true
+	return true, nil
 }
 
 // Middleware is a middleware that caches responses from the origin server
@@ -121,7 +120,9 @@ func (c *CacheClient) Middleware(
 		w.Write(body)
 
 		// Check the response body if we should cache it
-		if !c.shouldCacheBody(body) {
+		shouldCache, err := IsBodyCacheable(body)
+		if !shouldCache || err != nil {
+			c.logger.Debug().Err(err).Msg("response not cacheable")
 			return
 		}
 

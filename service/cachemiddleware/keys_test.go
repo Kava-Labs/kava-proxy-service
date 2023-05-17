@@ -1,6 +1,8 @@
 package cachemiddleware_test
 
 import (
+	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -12,18 +14,16 @@ import (
 func TestUnitTestGetCacheKey(t *testing.T) {
 	tests := []struct {
 		name              string
-		requestHost       string
-		chainID           string
-		decodedReq        *decode.EVMRPCRequestEnvelope
+		giveChainID       string
+		giveDecodedReq    *decode.EVMRPCRequestEnvelope
 		wantKeyStartsWith string
 		wantShouldErr     bool
 		wantErr           error
 	}{
 		{
 			name:        "basic",
-			requestHost: "localhost:7777",
-			chainID:     "7777",
-			decodedReq: &decode.EVMRPCRequestEnvelope{
+			giveChainID: "7777",
+			giveDecodedReq: &decode.EVMRPCRequestEnvelope{
 				JSONRPCVersion: "2.0",
 				ID:             1,
 				Method:         "eth_getBlockByHash",
@@ -33,16 +33,18 @@ func TestUnitTestGetCacheKey(t *testing.T) {
 			wantShouldErr:     false,
 		},
 		{
-			name:          "nil decoded request",
-			requestHost:   "localhost:7778",
-			decodedReq:    nil,
-			wantShouldErr: false,
+			name:           "nil decoded request",
+			giveChainID:    "7654",
+			giveDecodedReq: nil,
+			wantShouldErr:  true,
+			wantErr:        errors.New("decoded request is nil"),
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			key, err := cachemiddleware.GetQueryKey(tc.chainID, tc.decodedReq)
+			key, err := cachemiddleware.GetQueryKey(tc.giveChainID, tc.giveDecodedReq)
+
 			if tc.wantShouldErr {
 				require.Error(t, err)
 				require.Equal(t, tc.wantErr, err)
@@ -63,25 +65,25 @@ func TestUnitTestGetCacheKey(t *testing.T) {
 
 func TestUnitTestGetChainKey(t *testing.T) {
 	tests := []struct {
-		name     string
-		giveHost string
-		wantKey  string
+		name        string
+		giveRequest *http.Request
+		wantKey     string
 	}{
 		{
-			name:     "port included",
-			giveHost: "localhost:7777",
-			wantKey:  "chain:localhost:7777",
+			name:        "port included",
+			giveRequest: mustNewRequest("GET", "http://localhost:7777/test/path"),
+			wantKey:     "chain:localhost:7777",
 		},
 		{
-			name:     "api",
-			giveHost: "api.kava.io",
-			wantKey:  "chain:api.kava.io",
+			name:        "api",
+			giveRequest: mustNewRequest("GET", "https://api.kava.io/test/path"),
+			wantKey:     "chain:api.kava.io",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			key := cachemiddleware.GetChainKey(tc.giveHost)
+			key := cachemiddleware.GetChainKey(tc.giveRequest.Host)
 
 			require.Equal(t, tc.wantKey, key)
 		})

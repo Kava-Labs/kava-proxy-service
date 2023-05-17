@@ -1,7 +1,6 @@
 package cachemiddleware_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/kava-labs/kava-proxy-service/service/cachemiddleware"
@@ -131,22 +130,4 @@ func TestJsonRpcMessage_IsEmpty(t *testing.T) {
 			)
 		})
 	}
-}
-
-func mustMarshalJsonRawMessage(t *testing.T, v json.RawMessage) string {
-	t.Helper()
-
-	bz, err := json.Marshal(v)
-	require.NoError(t, err)
-
-	return string(bz)
-}
-
-func toJsonRawMessage(t *testing.T, v any) json.RawMessage {
-	t.Helper()
-
-	bz, err := json.Marshal(v)
-	require.NoError(t, err)
-
-	return bz
 }

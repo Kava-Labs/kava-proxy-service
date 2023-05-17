@@ -56,5 +56,5 @@ func GetQueryKey(
 		byteHash.Hex(),
 	}
 
-	return buildCacheKey(ItemTypeChain, parts), nil
+	return buildCacheKey(ItemTypeQuery, parts), nil
 }
