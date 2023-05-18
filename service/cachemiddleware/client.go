@@ -38,10 +38,10 @@ func NewClient(
 	}
 }
 
-// getChainIDFromHost returns the chain ID for the given http request host. This
+// GetChainIDFromHost returns the chain ID for the given http request host. This
 // will attempt to fetch the chain ID from the cache. If the chain ID is not
 // found, an error will be returned.
-func (c *CacheClient) getChainIDFromHost(
+func (c *CacheClient) GetChainIDFromHost(
 	ctx context.Context,
 	host string,
 ) (chainID string, found bool) {
@@ -55,7 +55,7 @@ func (c *CacheClient) getChainIDFromHost(
 	return "", false
 }
 
-func (c *CacheClient) setChainIDForHost(
+func (c *CacheClient) SetChainIDForHost(
 	ctx context.Context,
 	host string,
 	chainID string,
@@ -75,8 +75,6 @@ func (c *CacheClient) GetCachedRequest(
 	requestHost string,
 	decodedReq *decode.EVMRPCRequestEnvelope,
 ) (data []byte, found bool, shouldCache bool) {
-	// TODO: We may want to have a different set of cacheable methods
-	// that is a smaller list than ExtractBlockNumberFromEVMRPCRequest uses.
 	// Skip caching if we can't extract block number
 	blockNumber, err := decodedReq.ExtractBlockNumberFromEVMRPCRequest(ctx, c.evmClient)
 	if err != nil {
@@ -88,7 +86,7 @@ func (c *CacheClient) GetCachedRequest(
 		return nil, false, false
 	}
 
-	chainID, found := c.getChainIDFromHost(ctx, requestHost)
+	chainID, found := c.GetChainIDFromHost(ctx, requestHost)
 	if !found {
 		return nil, false, true
 	}
@@ -116,6 +114,7 @@ func (c *CacheClient) GetCachedRequest(
 func (c *CacheClient) SetCachedRequest(
 	ctx context.Context,
 	requestHost string,
+	chainID string,
 	decodedReq *decode.EVMRPCRequestEnvelope,
 	resp []byte,
 ) error {
@@ -129,24 +128,6 @@ func (c *CacheClient) SetCachedRequest(
 
 	if blockNumber <= 0 {
 		return fmt.Errorf("block number is not positive %d", blockNumber)
-	}
-
-	chainID, found := c.getChainIDFromHost(ctx, requestHost)
-	if !found {
-		// Fetch the chain ID for the host if it is not found in cache
-		rawChainID, err := c.evmClient.ChainID(ctx)
-		if err != nil {
-			return fmt.Errorf("error getting chain ID: %w", err)
-		}
-
-		// Cache the chain ID for the host
-		err = c.setChainIDForHost(ctx, requestHost, rawChainID.String())
-		if err != nil {
-			return fmt.Errorf("error setting chain ID for host: %w", err)
-		}
-
-		// Update the chain ID
-		chainID = rawChainID.String()
 	}
 
 	key, err := GetQueryKey(chainID, decodedReq)

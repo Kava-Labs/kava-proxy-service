@@ -87,8 +87,19 @@ func (msg *JsonRpcMessage) Error() error {
 	return errors.New(msg.JsonError.String())
 }
 
-// ShouldCache returns true if the response should be cached
-func (msg *JsonRpcMessage) ShouldCache() bool {
+// CheckCacheable returns nil if the response should be cached
+func (msg *JsonRpcMessage) CheckCacheable() error {
 	// Only cache if the response has no error and a non-empty result
-	return msg.JsonError == nil && len(msg.Result) > 0
+	// Check if there was an error in response
+	if err := msg.Error(); err != nil {
+		return fmt.Errorf("message contains error: %w", err)
+	}
+
+	// Check if the response is empty. This also includes blocks in the future,
+	// assuming the response for future blocks is empty.
+	if msg.IsResultEmpty() {
+		return errors.New("empty result")
+	}
+
+	return nil
 }

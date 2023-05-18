@@ -2,7 +2,6 @@ package cachemiddleware
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -23,26 +22,53 @@ const (
 	CacheMissHeaderValue = "MISS"
 )
 
-// CheckBodyCacheable returns nil if the response body should be cached. It will
-// return an error as a reason if the response body should not be cached.
-//
-// This is determined by checking if the response is a valid json-rpc response,
-// an error, or empty. This is done to avoid caching invalid responses.
-func CheckBodyCacheable(body []byte) error {
+// UpdateCache updates the cache with the response from the origin server, along
+// with any required data such as the chain ID.
+func (c *CacheClient) UpdateCache(
+	ctx context.Context,
+	decodedReq *decode.EVMRPCRequestEnvelope,
+	host string,
+	body []byte,
+) error {
+	// Check the response body if we should cache it. This checks for errors
+	// or empty responses.
 	jsonMsg, err := UnmarshalJsonRpcMessage(body)
 	if err != nil {
-		return fmt.Errorf("error unmarshalling: %w", err)
+		return fmt.Errorf("could not unmarshal json rpc message: %w", err)
 	}
 
-	// Check if there was an error in response
-	if err := jsonMsg.Error(); err != nil {
-		return fmt.Errorf("response has error: %w", err)
+	if err := jsonMsg.CheckCacheable(); err != nil {
+		return fmt.Errorf("response not cacheable: %w", err)
 	}
 
-	// Check if the response is empty. This also includes blocks in the future,
-	// assuming the response for future blocks is empty.
-	if jsonMsg.IsResultEmpty() {
-		return errors.New("response is empty")
+	// Get chainID from cache or origin server
+	chainID, found := c.GetChainIDFromHost(ctx, host)
+	if !found {
+		// Fetch the chain ID for the host if it is not found in cache
+		rawChainID, err := c.evmClient.ChainID(ctx)
+		if err != nil {
+			return fmt.Errorf("error fetching chain ID: %w", err)
+		}
+
+		// Cache the chain ID for the host
+		err = c.SetChainIDForHost(ctx, host, rawChainID.String())
+		if err != nil {
+			return fmt.Errorf("error caching chain ID for host: %w", err)
+		}
+
+		// Update the chain ID
+		chainID = rawChainID.String()
+	}
+
+	// Cache the response bytes after writing response
+	if err := c.SetCachedRequest(
+		ctx,
+		host,
+		chainID,
+		decodedReq,
+		body,
+	); err != nil {
+		return fmt.Errorf("error caching response: %w", err)
 	}
 
 	return nil
@@ -75,13 +101,21 @@ func (c *CacheClient) Middleware(
 		cachedBytes, found, shouldCache := c.GetCachedRequest(r.Context(), r.Host, decodedReq)
 		// 1. Serve the cached response
 		if found {
-			c.logger.Debug().Msg(fmt.Sprintf("found cached response for request %s", decodedReq.Method))
+			c.logger.Debug().
+				Str("Method", decodedReq.Method).
+				Msg("found cached response for request")
+
+			// Add headers for cache hit and content type. This always uses
+			// application/json as the content type, using http.DetectContentType
+			// is unnecessary unless we want to support other content types.
 			w.Header().Add(CacheHitHeaderKey, CacheHitHeaderValue)
-			w.Header().Add("Content-Type", http.DetectContentType(cachedBytes))
+			w.Header().Add("Content-Type", "application/json")
 			w.Write(cachedBytes)
 
-			// Make sure the next handler knows the response was served from cache
-			// and to not hit the origin server. This does not use the uncachedContext
+			// Make sure the next handler knows the response was served from
+			// cache and to not hit the origin server. This continues to the
+			// next handlers as there may be metrics or logging that needs to be
+			// done.
 			cachedContext := context.WithValue(r.Context(), CachedContextKey, true)
 			next.ServeHTTP(w, r.WithContext(cachedContext))
 			return
@@ -89,7 +123,7 @@ func (c *CacheClient) Middleware(
 
 		// 2. This is an uncacheable request, skip any caching
 		if !shouldCache {
-			c.logger.Debug().Msg(fmt.Sprintf("error determining cache key %s", rawDecodedRequestBody))
+			c.logger.Debug().Msg("request not to be cached")
 
 			// Skip caching if we can't decode the request body
 			next.ServeHTTP(w, r.WithContext(uncachedContext))
@@ -120,21 +154,13 @@ func (c *CacheClient) Middleware(
 		w.WriteHeader(result.StatusCode)
 		w.Write(body)
 
-		// Check the response body if we should cache it. This checks for errors
-		// or empty responses.
-		if err := CheckBodyCacheable(body); err != nil {
-			c.logger.Debug().Err(err).Msg("response not cacheable")
-			return
-		}
-
-		// Cache the response bytes after writing response
-		if err := c.SetCachedRequest(
-			context.Background(),
-			r.Host,
+		if err := c.UpdateCache(
+			r.Context(),
 			decodedReq,
+			r.Host,
 			body,
 		); err != nil {
-			c.logger.Debug().Msg(fmt.Sprintf("error caching response %s", err))
+			c.logger.Error().Err(err).Msg("error updating cache")
 		}
 	}
 }

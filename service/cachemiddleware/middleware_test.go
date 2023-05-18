@@ -24,7 +24,10 @@ func TestUnitTestIsBodyCacheable_Valid(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := cachemiddleware.CheckBodyCacheable([]byte(tc.body))
+			jsonMsg, err := cachemiddleware.UnmarshalJsonRpcMessage([]byte(tc.body))
+			require.NoError(t, err)
+
+			err = jsonMsg.CheckCacheable()
 			require.NoError(t, err)
 		})
 	}
@@ -55,18 +58,33 @@ func TestUnitTestIsBodyCacheable_EmptyResponse(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := cachemiddleware.CheckBodyCacheable([]byte(tc.body))
+			jsonMsg, err := cachemiddleware.UnmarshalJsonRpcMessage([]byte(tc.body))
+			require.NoError(t, err)
+
+			err = jsonMsg.CheckCacheable()
+
 			require.Error(t, err)
-			require.Equal(t, "response is empty", err.Error())
+			require.Equal(t, "empty result", err.Error())
 		})
 	}
+}
+
+func TestUnitTestIsBodyCacheable_InvalidBody(t *testing.T) {
+	body := `this fails to unmarshal to a json-rpc message`
+	_, err := cachemiddleware.UnmarshalJsonRpcMessage([]byte(body))
+
+	require.Error(t, err)
+	require.Equal(t, "invalid character 'h' in literal true (expecting 'r')", err.Error())
 }
 
 func TestUnitTestIsBodyCacheable_ErrorResponse(t *testing.T) {
 	// Result: null
 	body := testResponses[TestResponse_EthBlockByNumber_Error].ResponseBody
-	err := cachemiddleware.CheckBodyCacheable([]byte(body))
+	jsonMsg, err := cachemiddleware.UnmarshalJsonRpcMessage([]byte(body))
+	require.NoError(t, err)
+
+	err = jsonMsg.CheckCacheable()
 
 	require.Error(t, err)
-	require.Equal(t, "response has error: parse error (code: -32700)", err.Error())
+	require.Equal(t, "message contains error: parse error (code: -32700)", err.Error())
 }
