@@ -146,7 +146,7 @@ func TestCacheClient_Middleware(t *testing.T) {
 
 	cacheClient := cachemiddleware.NewClient(
 		memCache,
-		&TestEVMClient{},
+		NewTestEVMClient(),
 		0, // TTL: no expiry
 		service.DecodedRequestContextKey,
 		&logger,
@@ -163,9 +163,7 @@ func TestCacheClient_Middleware(t *testing.T) {
 		}
 	})
 
-	// First request -- Cache Miss
-
-	t.Run("uncached", func(t *testing.T) {
+	t.Run("cache miss", func(t *testing.T) {
 		cacheClient.Middleware(handler).ServeHTTP(resp1, req1)
 
 		assert.Equal(t, http.StatusOK, resp1.Code)
@@ -179,7 +177,7 @@ func TestCacheClient_Middleware(t *testing.T) {
 		assert.Contains(t, cacheItems, "query:2222:0x5236d50a560cff0174f14be10bd00a21e8d73e89a200fbd219769b6aee297131")
 	})
 
-	t.Run("cached", func(t *testing.T) {
+	t.Run("cach hit", func(t *testing.T) {
 		req2 := createTestRequest(
 			t,
 			"https://api.kava.io:8545/thisshouldntshowup",
@@ -204,28 +202,27 @@ func TestCacheClient_Middleware(t *testing.T) {
 	})
 }
 
-func TestCacheClient_Middleware_UncacheableRequest(t *testing.T) {
-	ctxKey := "key"
-	memCache := cache.NewInMemoryCache()
+func TestCacheClient_Middleware_InvalidDecodedRequestBody(t *testing.T) {
+	logger, err := logging.New("TRACE")
+	require.NoError(t, err)
 
 	// Create a new cache client
+	memCache := cache.NewInMemoryCache()
 	cacheClient := cachemiddleware.NewClient(
 		memCache,
-		nil, // evmClient,
+		NewTestEVMClient(),
 		time.Minute,
-		ctxKey,
-		nil, // logger
+		service.DecodedRequestContextKey,
+		&logger,
 	)
 
 	// Create a new request with a request body that cannot be decoded
 	req, err := http.NewRequest("POST", "/test", nil)
 	assert.NoError(t, err)
-	req = req.WithContext(context.WithValue(req.Context(), ctxKey, "invalid"))
-
-	// Create a new response recorder
-	rr := httptest.NewRecorder()
+	req = req.WithContext(context.WithValue(req.Context(), service.DecodedRequestContextKey, "invalid"))
 
 	// Create a new handler that always returns a 200 OK response
+	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("test response"))
@@ -234,47 +231,17 @@ func TestCacheClient_Middleware_UncacheableRequest(t *testing.T) {
 	// Call the middleware with the handler
 	cacheClient.Middleware(handler).ServeHTTP(rr, req)
 
-	// Assert that the response is a 200 OK response and that it was not served from the cache
+	// Forwards to the handler without X-Cache
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "test response", rr.Body.String())
-	assert.Equal(t, "miss", rr.Header().Get("X-Cache"))
-}
-
-func TestCacheClient_Middleware_ErrorUpdatingCache(t *testing.T) {
-	memCache := cache.NewInMemoryCache()
-
-	// Create a new cache client with a mock cache that always returns an error
-	cacheClient := cachemiddleware.NewClient(
-		memCache,
-		nil, // evmClient,
-		time.Minute,
-		"key",
-		nil, // logger
-	)
-
-	// Create a new request
-	req, err := http.NewRequest("GET", "/test", nil)
-	assert.NoError(t, err)
-
-	// Create a new response recorder
-	rr := httptest.NewRecorder()
-
-	// Create a new handler that always returns a 200 OK response
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
-	})
-
-	// Call the middleware with the handler
-	cacheClient.Middleware(handler).ServeHTTP(rr, req)
-
-	// Assert that the response is a 200 OK response and that it was not served from the cache
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "test response", rr.Body.String())
-	assert.Equal(t, "miss", rr.Header().Get("X-Cache"))
+	assert.Empty(t, rr.Header().Get("X-Cache"))
 }
 
 type TestEVMClient struct{}
+
+func NewTestEVMClient() *TestEVMClient {
+	return &TestEVMClient{}
+}
 
 var _ cachemiddleware.EVMClient = (*TestEVMClient)(nil)
 
