@@ -3,20 +3,27 @@ package cachemiddleware
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/kava-labs/kava-proxy-service/clients/cache"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
 )
 
+// EVMClient is an interface for fetching the required EVM data.
+type EVMClient interface {
+	decode.EVMClient
+
+	ChainID(ctx context.Context) (*big.Int, error)
+}
+
 // CacheClient is a cache client for requesting cacheable data.
 type CacheClient struct {
-	cache                    cache.Cache       // cache is the cache implementation used to fetch cached data
-	evmClient                *ethclient.Client // evmClient is the eth client used to fetch required evm data for caching
-	cacheTTL                 time.Duration     // cacheTTL is the expiration duration for cached data
-	decodedRequestContextKey any               // decodedRequestContextKey is the context key for the decoded request
+	cache                    cache.Cache   // cache is the cache implementation used to fetch cached data
+	evmClient                EVMClient     // evmClient is the eth client used to fetch required evm data for caching
+	cacheTTL                 time.Duration // cacheTTL is the expiration duration for cached data
+	decodedRequestContextKey any           // decodedRequestContextKey is the context key for the decoded request
 
 	logger *logging.ServiceLogger
 }
@@ -24,7 +31,7 @@ type CacheClient struct {
 // NewClient returns a new CacheClient client.
 func NewClient(
 	cache cache.Cache,
-	evmClient *ethclient.Client,
+	evmClient EVMClient,
 	cacheTTL time.Duration,
 	decodedRequestContextKey any,
 	logger *logging.ServiceLogger,
@@ -78,35 +85,59 @@ func (c *CacheClient) GetCachedRequest(
 	// Skip caching if we can't extract block number
 	blockNumber, err := decodedReq.ExtractBlockNumberFromEVMRPCRequest(ctx, c.evmClient)
 	if err != nil {
+		c.logger.Debug().
+			Err(err).
+			Msg("error extracting block number from request")
+
 		return nil, false, false
 	}
 
+	// Don't cache requests that don't have a specific block number
 	if blockNumber <= 0 {
-		// Don't cache requests that don't have a block number
+		c.logger.Trace().
+			Int64("blockNumber", blockNumber).
+			Msg("block number not cacheable")
+
+		// not found, should NOT cache
 		return nil, false, false
 	}
 
 	chainID, found := c.GetChainIDFromHost(ctx, requestHost)
 	if !found {
+		c.logger.Trace().
+			Str("host", requestHost).
+			Msg("host not found in cache")
+
+		// not found, should cache
 		return nil, false, true
 	}
 
 	key, err := GetQueryKey(chainID, decodedReq)
 	if err != nil {
+		c.logger.Debug().
+			Err(err).
+			Msg("error getting query key")
+
 		// Don't cache requests that fail to build a cache key
 		return nil, false, false
 	}
 
 	bytes, found := c.cache.Get(ctx, key)
 	if !found {
+		c.logger.Trace().
+			Str("key", key).
+			Msg("key not found in cache")
+
 		// Cache requests that are not found
 		return nil, false, true
 	}
 
-	c.logger.Debug().Msg(fmt.Sprintf("found cached response for key %s", key))
+	c.logger.Debug().
+		Str("key", key).
+		Msg("found cached response")
 
-	// Not necessary to re-cache requests that are found in cache
-	return bytes, false, false
+	// Found, and not necessary to re-cache requests that are found in cache
+	return bytes, true, false
 }
 
 // SetCachedRequest sets the cached request for the given http request and

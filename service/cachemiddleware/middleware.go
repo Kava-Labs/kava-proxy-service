@@ -17,7 +17,7 @@ const (
 	CachedContextKey cacheContextKey = "X-KAVA-PROXY-CACHED"
 
 	// Headers used for caching
-	CacheHitHeaderKey    = "X-Cache"
+	CacheHeaderKey       = "X-Cache"
 	CacheHitHeaderValue  = "HIT"
 	CacheMissHeaderValue = "MISS"
 )
@@ -108,7 +108,7 @@ func (c *CacheClient) Middleware(
 			// Add headers for cache hit and content type. This always uses
 			// application/json as the content type, using http.DetectContentType
 			// is unnecessary unless we want to support other content types.
-			w.Header().Add(CacheHitHeaderKey, CacheHitHeaderValue)
+			w.Header().Add(CacheHeaderKey, CacheHitHeaderValue)
 			w.Header().Add("Content-Type", "application/json")
 			w.Write(cachedBytes)
 
@@ -121,9 +121,9 @@ func (c *CacheClient) Middleware(
 			return
 		}
 
-		// 2. This is an uncacheable request, skip any caching
+		// 2. It was not found AND is an uncacheable request, skip any caching.
 		if !shouldCache {
-			c.logger.Debug().Msg("request not to be cached")
+			c.logger.Debug().Msg("request is not cacheable")
 
 			// Skip caching if we can't decode the request body
 			next.ServeHTTP(w, r.WithContext(uncachedContext))
@@ -134,7 +134,7 @@ func (c *CacheClient) Middleware(
 
 		// Not cached, only include the cache miss header if we were able
 		// to actually check the cache.
-		w.Header().Add(CacheHitHeaderKey, CacheMissHeaderValue)
+		w.Header().Add(CacheHeaderKey, CacheMissHeaderValue)
 
 		// Serve the request and cache the response
 		rec := httptest.NewRecorder()

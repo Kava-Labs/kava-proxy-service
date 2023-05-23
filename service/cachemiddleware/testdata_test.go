@@ -5,23 +5,31 @@ type testHttpRequestResponse struct {
 	ResponseBody string
 }
 
-type testResponseName string
+type testReqName string
 
 const (
-	TestResponse_Web3ClientVersion         testResponseName = "web3_clientVersion"
-	TestResponse_EthGetAccounts_Empty      testResponseName = "eth_getAccounts/empty"
-	TestResponse_EthBlockByNumber_Specific testResponseName = "eth_getBlockByNumber"
-	TestResponse_EthBlockByNumber_Latest   testResponseName = "eth_getBlockByNumber/latest"
-	TestResponse_EthBlockByNumber_Future   testResponseName = "eth_getBlockByNumber/future"
-	TestResponse_EthBlockByNumber_Error    testResponseName = "eth_getBlockByNumber/error"
-	TestResponse_EthGetBalance_Positive    testResponseName = "eth_getBalance/positive"
-	TestResponse_EthGetBalance_Zero        testResponseName = "eth_getBalance/zero"
-	TestResponse_EthGetCode_Empty          testResponseName = "eth_getCode/empty"
+	TestResponse_Web3ClientVersion         testReqName = "web3_clientVersion"
+	TestResponse_EthGetAccounts_Empty      testReqName = "eth_getAccounts/empty"
+	TestResponse_EthBlockByNumber_Specific testReqName = "eth_getBlockByNumber"
+	TestResponse_EthBlockByNumber_Latest   testReqName = "eth_getBlockByNumber/latest"
+	TestResponse_EthBlockByNumber_Future   testReqName = "eth_getBlockByNumber/future"
+	TestResponse_EthBlockByNumber_Error    testReqName = "eth_getBlockByNumber/error"
+	TestResponse_EthGetBalance_Positive    testReqName = "eth_getBalance/positive"
+	TestResponse_EthGetBalance_Zero        testReqName = "eth_getBalance/zero"
+	TestResponse_EthGetCode_Empty          testReqName = "eth_getCode/empty"
 )
 
-// testResponses is a map of testing json-rpc responses. These are copied from
+func getTestRequestBody(name testReqName) string {
+	return testEVMQueries[name].RequestBody
+}
+
+func getTestResponseBody(name testReqName) string {
+	return testEVMQueries[name].ResponseBody
+}
+
+// testEVMQueries is a map of testing json-rpc responses. These are copied from
 // real requests to the Kava evm.
-var testResponses = map[testResponseName]testHttpRequestResponse{
+var testEVMQueries = map[testReqName]testHttpRequestResponse{
 	TestResponse_Web3ClientVersion: {
 		RequestBody: `{
 			"jsonrpc":"2.0",
