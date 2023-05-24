@@ -98,6 +98,7 @@ func createDatabaseClient(ctx context.Context, config config.Config, logger *log
 		DatabasePassword:                 config.DatabasePassword,
 		SSLEnabled:                       config.DatabaseSSLEnabled,
 		QueryLoggingEnabled:              config.DatabaseQueryLoggingEnabled,
+		ReadTimeoutSeconds:               config.DatabaseReadTimeoutSeconds,
 		DatabaseMaxIdleConnections:       config.DatabaseMaxIdleConnections,
 		DatabaseConnectionMaxIdleSeconds: config.DatabaseConnectionMaxIdleSeconds,
 		DatabaseMaxOpenConnections:       config.DatabaseMaxOpenConnections,
