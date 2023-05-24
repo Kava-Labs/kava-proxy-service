@@ -67,6 +67,8 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 	// connect to the database
 	sqldb := sql.OpenDB(pgOptions)
 
+	// configure connection limits
+	// https://go.dev/doc/database/manage-connections#connection_pool_properties
 	sqldb.SetMaxIdleConns(int(config.DatabaseMaxIdleConnections))
 	sqldb.SetConnMaxIdleTime(time.Second * time.Duration(config.DatabaseConnectionMaxIdleSeconds))
 	sqldb.SetMaxOpenConns(int(config.DatabaseMaxOpenConnections))
