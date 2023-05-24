@@ -226,7 +226,9 @@ make debug-cache
 
 ## Publishing
 
-To publish new versions of the docker image for use in a deployed environment, set up a docker buildx builder (for being able to build the image to run on different cpu architectures)
+Automatic publishing and deploying of new versions of the proxy service for Kava Labs operated infrastructure follows [this process](https://kava-labs.atlassian.net/wiki/spaces/ENG/pages/1235320861/Deploying+New+Versions+of+the+Proxy+Service)
+
+To manually publish new versions of the docker image for use in a deployed environment, set up a docker buildx builder (for being able to build the image to run on different cpu architectures)
 
 ```bash
 docker buildx create --use
@@ -235,13 +237,20 @@ docker buildx create --use
 log into the docker registry you will be publishing to
 
 ```bash
+# for pushing to an AWS ECR repo
 AWS_PROFILE=shared aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 843137275421.dkr.ecr.us-east-1.amazonaws.com
+# for pushing to a Dockerhub repo
+# create a personal access token first https://docs.docker.com/docker-hub/access-tokens/
+docker login -u kavaops
 ```
 
-then build and push the image
+then build and push the image to the desired repository
 
 ```bash
+# push to an AWS ECS repo
 docker buildx build -f ./production.Dockerfile  --platform linux/amd64,linux/arm64 --push -t 843137275421.dkr.ecr.us-east-1.amazonaws.com/kava-proxy-service:latest .
+# push to public docker repo
+docker buildx build -f ./production.Dockerfile  --platform linux/amd64,linux/arm64 --push -t kava/kava-proxy-service:latest .
 ```
 
 If the service is deployed on AWS ECS, to force ECS to start a new instance of the proxy service with the updated container run, replacing the values of cluster and service as appropriate for your deployment:
