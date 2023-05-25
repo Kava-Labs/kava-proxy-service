@@ -32,6 +32,7 @@ type Config struct {
 	HTTPReadTimeoutSeconds           int64
 	HTTPWriteTimeoutSeconds          int64
 	MetricCompactionRoutineInterval  time.Duration
+	MetricCollectionEnabled          bool
 }
 
 const (
@@ -51,6 +52,8 @@ const (
 	HTTP_READ_TIMEOUT_ENVIRONMENT_KEY              = "HTTP_READ_TIMEOUT_SECONDS"
 	HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY             = "HTTP_WRITE_TIMEOUT_SECONDS"
 	METRIC_COMPACTION_ROUTINE_INTERVAL_KEY         = "METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS"
+	METRIC_COLLECTION_ENABLED_ENVIRONMENT_KEY      = "METRIC_COLLECTION_ENABLED"
+	DEFAULT_METRIC_COLLECTION_ENABLED              = true
 	// 60 seconds / minute * 60 minutes = 1 hour
 	DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS   = 3600
 	EVM_QUERY_SERVICE_ENVIRONMENT_KEY                    = "EVM_QUERY_SERVICE_URL"
@@ -182,5 +185,6 @@ func ReadConfig() Config {
 		HTTPWriteTimeoutSeconds:          EnvOrDefaultInt64(HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_WRITE_TIMEOUT),
 		MetricCompactionRoutineInterval:  time.Duration(time.Duration(EnvOrDefaultInt(METRIC_COMPACTION_ROUTINE_INTERVAL_KEY, DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS)) * time.Second),
 		EvmQueryServiceURL:               os.Getenv(EVM_QUERY_SERVICE_ENVIRONMENT_KEY),
+		MetricCollectionEnabled:          EnvOrDefaultBool(METRIC_COLLECTION_ENABLED_ENVIRONMENT_KEY, DEFAULT_METRIC_COLLECTION_ENABLED),
 	}
 }
