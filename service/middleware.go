@@ -229,15 +229,21 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 // createAfterProxyFinalizer returns a middleware function that expects
 // to run after a request has been proxied and attempts to create a metric
 // for the request by parsing values in the context set by handlers
-// further up the middleware chain
-func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
+// further up the middleware chain if MetricCollectionEnabled
+func createAfterProxyFinalizer(service *ProxyService, config config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !config.MetricCollectionEnabled {
+			// create-no op middleware
+			service.ServiceLogger.Trace().Msg("skipping metric collection")
+			return
+		}
+
 		// parse values added to the context by handlers further up the middleware chain
 		rawDecodedRequestBody := r.Context().Value(DecodedRequestContextKey)
 		decodedRequestBody, ok := (rawDecodedRequestBody).(*decode.EVMRPCRequestEnvelope)
 
 		if !ok {
-			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawDecodedRequestBody, DecodedRequestContextKey))
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawDecodedRequestBody, DecodedRequestContextKey))
 
 			return
 		}
@@ -246,7 +252,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		originRoundtripLatencyMilliseconds, ok := rawOriginRoundtripLatencyMilliseconds.(int64)
 
 		if !ok {
-			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawOriginRoundtripLatencyMilliseconds, OriginRoundtripLatencyMillisecondsKey))
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawOriginRoundtripLatencyMilliseconds, OriginRoundtripLatencyMillisecondsKey))
 
 			return
 		}
@@ -255,7 +261,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		requestStartTime, ok := rawRequestStartTime.(time.Time)
 
 		if !ok {
-			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestStartTime, RequestStartTimeContextKey))
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestStartTime, RequestStartTimeContextKey))
 
 			return
 		}
@@ -264,7 +270,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		requestHostname, ok := rawRequestHostname.(string)
 
 		if !ok {
-			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestHostname, RequestHostnameContextKey))
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestHostname, RequestHostnameContextKey))
 
 			return
 		}
@@ -273,7 +279,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		requestIP, ok := rawRequestIP.(string)
 
 		if !ok {
-			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestIP, RequestIPContextKey))
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawRequestIP, RequestIPContextKey))
 
 			return
 		}
@@ -282,7 +288,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		userAgent, ok := rawUserAgent.(string)
 
 		if !ok {
-			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawUserAgent, RequestUserAgentContextKey))
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawUserAgent, RequestUserAgentContextKey))
 
 			return
 		}
@@ -291,7 +297,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		referer, ok := rawReferer.(string)
 
 		if !ok {
-			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawReferer, RequestRefererContextKey))
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawReferer, RequestRefererContextKey))
 
 			return
 		}
@@ -300,7 +306,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		origin, ok := rawOrigin.(string)
 
 		if !ok {
-			service.ServiceLogger.Debug().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawOrigin, RequestOriginContextKey))
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("invalid context value %+v for value %s", rawOrigin, RequestOriginContextKey))
 
 			return
 		}
@@ -309,7 +315,7 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		rawBlockNumber, err := decodedRequestBody.ExtractBlockNumberFromEVMRPCRequest(r.Context(), service.evmClient)
 
 		if err != nil {
-			service.ServiceLogger.Debug().Msg(fmt.Sprintf("error %s parsing block number from request %+v", err, decodedRequestBody))
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("error %s parsing block number from request %+v", err, decodedRequestBody))
 
 			blockNumber = nil
 		} else {
@@ -333,6 +339,11 @@ func createAfterProxyFinalizer(service *ProxyService) http.HandlerFunc {
 		err = metric.Save(context.Background(), service.Database.DB)
 
 		if err != nil {
+			// TODO: only log if it's not due to connection exhaustion, e.g.
+			// FATAL: remaining connection slots are reserved for non-replication
+			// superuser connections; SQLState: 53300
+			// OR
+			// FATAL: sorry, too many clients already; SQLState: 53300
 			service.ServiceLogger.Error().Msg(fmt.Sprintf("error %s saving metric %+v using database %+v", err, metric, service.Database))
 			return
 		}

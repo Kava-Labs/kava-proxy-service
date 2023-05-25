@@ -34,7 +34,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	// the final function called after all other middleware
 	// allowing it to access values added to the request context
 	// to do things like metric the response and cache the response
-	afterProxyFinalizer := createAfterProxyFinalizer(&service)
+	afterProxyFinalizer := createAfterProxyFinalizer(&service, config)
 
 	// create an http handler that will proxy any request to the specified URL
 	proxyMiddleware := createProxyRequestMiddleware(afterProxyFinalizer, config, serviceLogger)
