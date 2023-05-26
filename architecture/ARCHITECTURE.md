@@ -2,6 +2,8 @@
 
 This [directory](./) contains technical documentation and diagrams for developers and operators of the kava proxy service to use while running or developing the service as a reliable, scalable and observable proxy.
 
+The source for many of the diagrams found in the this documentation can be viewed /edited and updated using [this](https://miro.com/app/board/uXjVMdnhLLo=/?share_link_id=149701470304) miro board.
+
 ## Service Workflows
 
 ### Proxy
@@ -47,6 +49,7 @@ As [John Gruber](https://daringfireball.net/) notes often, it matters not just w
 1. [How the middleware stack works](./MIDDLEWARE.MD)
 1. [Database migrations](./MIGRATIONS.MD)
 1. [AWS network topology worked example](./NETWORK_TOPOLOGY.md)
+1. [Request Metrics Database Partitioning](./DATABASE_PARTITIONING.md)
 1. [Metric Compaction routine](./METRIC_COMPACTION_ROUTINE.md)
 
 ## Editable Diagrams

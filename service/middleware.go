@@ -339,7 +339,8 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 		err = metric.Save(context.Background(), service.Database.DB)
 
 		if err != nil {
-			// TODO: only log if it's not due to connection exhaustion, e.g.
+			// TODO: consider only logging
+			//  if it's not due to connection exhaustion, e.g.
 			// FATAL: remaining connection slots are reserved for non-replication
 			// superuser connections; SQLState: 53300
 			// OR
