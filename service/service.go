@@ -147,8 +147,8 @@ func createDatabaseClient(ctx context.Context, config config.Config, logger *log
 		migrations, err := database.Migrate(ctx, serviceDatabase.DB, *migrations.Migrations, logger)
 
 		if err != nil {
-			logger.Error().Msg(fmt.Sprintf("error %s running migrations on database, will retry in 1 second", err))
-
+			// TODO: retry based on config
+			logger.Error().Msg(fmt.Sprintf("error %s running migrations on database", err))
 		}
 
 		logger.Debug().Msg(fmt.Sprintf("run migrations %+v \n last group %+v \n unapplied %+v", migrations.Applied(), migrations.LastGroup(), migrations.Unapplied()))
