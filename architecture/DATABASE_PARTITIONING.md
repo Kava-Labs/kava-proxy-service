@@ -49,8 +49,6 @@ postgres=# \d+ proxied_request_metrics;
 
 # Partitioning Routines
 
-*Coming Soon*
-
 Partitions are great, but partitioning requires continuous maintenance.
 
 From the [Postgres docs](https://www.postgresql.org/docs/current/ddl-partitioning.html)
@@ -58,6 +56,25 @@ From the [Postgres docs](https://www.postgresql.org/docs/current/ddl-partitionin
 ```text
 Inserting data into the parent table that does not map to one of the existing partitions will cause an error; an appropriate partition must be added manually.
 ```
+
+While partitions can be created in an ad-hoc manual process (e.g. connecting to the database directly and running the below SQL statements to create and add a partition for request metrics captured on 6/1/2023)
+
+```sql
+CREATE TABLE IF NOT EXISTS proxied_request_metrics_year2023month6_day01
+    (LIKE proxied_request_metrics INCLUDING DEFAULTS INCLUDING CONSTRAINTS);
+ALTER TABLE proxied_request_metrics ATTACH PARTITION proxied_request_metrics_year2023month6_day01
+    FOR VALUES FROM ('2023-06-01 00:0:0.0') TO ('2023-06-02 00:0:0.0');
+```
+
+this is [toil](https://sre.google/sre-book/eliminating-toil/) better handled by background routines that run on a continuous interval (defined by the value of `METRIC_PARTITION_ROUTINE_INTERVAL_SECONDS`) to create partitions up to `METRIC_PARTITION_PREFILL_PERIOD_DAYS` days in advance (inclusive of the current day on each run of said routine).
+
+![Proxied Request Metrics Partitioning Routine Conceptual](./images/metric_partitioning_routine_conceptual.jpg)
+
+Note that while the [Postgres docs](https://www.postgresql.org/docs/current/ddl-partitioning.html) mention:
+
+> Before running the ATTACH PARTITION command, it is recommended to create a CHECK constraint on the table to be attached that matches the expected partition constraint, as illustrated above. That way, the system will be able to skip the scan which is otherwise needed to validate the implicit partition constraint. Without the CHECK constraint, the table will be scanned to validate the partition constraint while holding an ACCESS EXCLUSIVE lock on that partition. It is recommended to drop the now-redundant CHECK constraint after the ATTACH PARTITION is complete. If the table being attached is itself a partitioned table, then each of its sub-partitions will be recursively locked and scanned until either a suitable CHECK constraint is encountered or the leaf partitions are reached.
+
+we don't add check constraints because the partitions are created ahead of time, meaning they will be empty when attached to the main table, and as a result any indexing / check constraint overhead on the partition itself should be minimal.
 
 ## Monitoring Status of Partitioning
 
