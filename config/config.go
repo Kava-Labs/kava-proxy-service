@@ -13,58 +13,65 @@ import (
 )
 
 type Config struct {
-	ProxyServicePort                 string
-	LogLevel                         string
-	ProxyBackendHostURLMapRaw        string
-	ProxyBackendHostURLMapParsed     map[string]url.URL
-	EvmQueryServiceURL               string
-	DatabaseName                     string
-	DatabaseEndpointURL              string
-	DatabaseUserName                 string
-	DatabasePassword                 string
-	DatabaseReadTimeoutSeconds       int64
-	DatabaseSSLEnabled               bool
-	DatabaseQueryLoggingEnabled      bool
-	DatabaseMaxIdleConnections       int64
-	DatabaseConnectionMaxIdleSeconds int64
-	DatabaseMaxOpenConnections       int64
-	RunDatabaseMigrations            bool
-	HTTPReadTimeoutSeconds           int64
-	HTTPWriteTimeoutSeconds          int64
-	MetricCompactionRoutineInterval  time.Duration
-	MetricCollectionEnabled          bool
+	ProxyServicePort                    string
+	LogLevel                            string
+	ProxyBackendHostURLMapRaw           string
+	ProxyBackendHostURLMapParsed        map[string]url.URL
+	EvmQueryServiceURL                  string
+	DatabaseName                        string
+	DatabaseEndpointURL                 string
+	DatabaseUserName                    string
+	DatabasePassword                    string
+	DatabaseReadTimeoutSeconds          int64
+	DatabaseSSLEnabled                  bool
+	DatabaseQueryLoggingEnabled         bool
+	DatabaseMaxIdleConnections          int64
+	DatabaseConnectionMaxIdleSeconds    int64
+	DatabaseMaxOpenConnections          int64
+	RunDatabaseMigrations               bool
+	HTTPReadTimeoutSeconds              int64
+	HTTPWriteTimeoutSeconds             int64
+	MetricCompactionRoutineInterval     time.Duration
+	MetricCollectionEnabled             bool
+	MetricPartitioningRoutineInterval   time.Duration
+	MetricPartitioningPrefillPeriodDays int
 }
 
 const (
-	LOG_LEVEL_ENVIRONMENT_KEY                      = "LOG_LEVEL"
-	DEFAULT_LOG_LEVEL                              = "INFO"
-	PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY     = "PROXY_BACKEND_HOST_URL_MAP"
-	PROXY_SERVICE_PORT_ENVIRONMENT_KEY             = "PROXY_SERVICE_PORT"
-	DATABASE_NAME_ENVIRONMENT_KEY                  = "DATABASE_NAME"
-	DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY          = "DATABASE_ENDPOINT_URL"
-	DATABASE_USERNAME_ENVIRONMENT_KEY              = "DATABASE_USERNAME"
-	DATABASE_PASSWORD_ENVIRONMENT_KEY              = "DATABASE_PASSWORD"
-	DATABASE_SSL_ENABLED_ENVIRONMENT_KEY           = "DATABASE_SSL_ENABLED"
-	DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY = "DATABASE_QUERY_LOGGING_ENABLED"
-	RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY        = "RUN_DATABASE_MIGRATIONS"
-	DEFAULT_HTTP_READ_TIMEOUT                      = 30
-	DEFAULT_HTTP_WRITE_TIMEOUT                     = 60
-	HTTP_READ_TIMEOUT_ENVIRONMENT_KEY              = "HTTP_READ_TIMEOUT_SECONDS"
-	HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY             = "HTTP_WRITE_TIMEOUT_SECONDS"
-	METRIC_COMPACTION_ROUTINE_INTERVAL_KEY         = "METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS"
-	METRIC_COLLECTION_ENABLED_ENVIRONMENT_KEY      = "METRIC_COLLECTION_ENABLED"
-	DEFAULT_METRIC_COLLECTION_ENABLED              = true
+	LOG_LEVEL_ENVIRONMENT_KEY                          = "LOG_LEVEL"
+	DEFAULT_LOG_LEVEL                                  = "INFO"
+	PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY         = "PROXY_BACKEND_HOST_URL_MAP"
+	PROXY_SERVICE_PORT_ENVIRONMENT_KEY                 = "PROXY_SERVICE_PORT"
+	DATABASE_NAME_ENVIRONMENT_KEY                      = "DATABASE_NAME"
+	DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY              = "DATABASE_ENDPOINT_URL"
+	DATABASE_USERNAME_ENVIRONMENT_KEY                  = "DATABASE_USERNAME"
+	DATABASE_PASSWORD_ENVIRONMENT_KEY                  = "DATABASE_PASSWORD"
+	DATABASE_SSL_ENABLED_ENVIRONMENT_KEY               = "DATABASE_SSL_ENABLED"
+	DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY     = "DATABASE_QUERY_LOGGING_ENABLED"
+	RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY            = "RUN_DATABASE_MIGRATIONS"
+	DEFAULT_HTTP_READ_TIMEOUT                          = 30
+	DEFAULT_HTTP_WRITE_TIMEOUT                         = 60
+	HTTP_READ_TIMEOUT_ENVIRONMENT_KEY                  = "HTTP_READ_TIMEOUT_SECONDS"
+	HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY                 = "HTTP_WRITE_TIMEOUT_SECONDS"
+	METRIC_COMPACTION_ROUTINE_INTERVAL_ENVIRONMENT_KEY = "METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS"
+	METRIC_COLLECTION_ENABLED_ENVIRONMENT_KEY          = "METRIC_COLLECTION_ENABLED"
+	DEFAULT_METRIC_COLLECTION_ENABLED                  = true
 	// 60 seconds / minute * 60 minutes = 1 hour
-	DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS   = 3600
-	EVM_QUERY_SERVICE_ENVIRONMENT_KEY                    = "EVM_QUERY_SERVICE_URL"
-	DATABASE_MAX_IDLE_CONNECTIONS_ENVIRONMENT_KEY        = "DATABASE_MAX_IDLE_CONNECTIONS"
-	DEFAULT_DATABASE_MAX_IDLE_CONNECTIONS                = 20
-	DATABASE_CONNECTION_MAX_IDLE_SECONDS_ENVIRONMENT_KEY = "DATABASE_CONNECTION_MAX_IDLE_SECONDS"
-	DEFAULT_DATABASE_CONNECTION_MAX_IDLE_SECONDS         = 5
-	DATABASE_MAX_OPEN_CONNECTIONS_ENVIRONMENT_KEY        = "DATABASE_MAX_OPEN_CONNECTIONS"
-	DEFAULT_DATABASE_MAX_OPEN_CONNECTIONS                = 100
-	DATABASE_READ_TIMEOUT_SECONDS_ENVIRONMENT_KEY        = "DATABASE_READ_TIMEOUT_SECONDS"
-	DEFAULT_DATABASE_READ_TIMEOUT_SECONDS                = 60
+	DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS           = 3600
+	METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS_ENVIRONMENT_KEY = "METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS"
+	// 24 hours
+	DEFAULT_METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS    = 86400
+	METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY = "METRIC_PARTITIONING_PREFILL_PERIOD_DAYS"
+	DEFAULT_METRIC_PARTITIONING_PREFILL_PERIOD_DAYS         = 7
+	EVM_QUERY_SERVICE_ENVIRONMENT_KEY                       = "EVM_QUERY_SERVICE_URL"
+	DATABASE_MAX_IDLE_CONNECTIONS_ENVIRONMENT_KEY           = "DATABASE_MAX_IDLE_CONNECTIONS"
+	DEFAULT_DATABASE_MAX_IDLE_CONNECTIONS                   = 20
+	DATABASE_CONNECTION_MAX_IDLE_SECONDS_ENVIRONMENT_KEY    = "DATABASE_CONNECTION_MAX_IDLE_SECONDS"
+	DEFAULT_DATABASE_CONNECTION_MAX_IDLE_SECONDS            = 5
+	DATABASE_MAX_OPEN_CONNECTIONS_ENVIRONMENT_KEY           = "DATABASE_MAX_OPEN_CONNECTIONS"
+	DEFAULT_DATABASE_MAX_OPEN_CONNECTIONS                   = 100
+	DATABASE_READ_TIMEOUT_SECONDS_ENVIRONMENT_KEY           = "DATABASE_READ_TIMEOUT_SECONDS"
+	DEFAULT_DATABASE_READ_TIMEOUT_SECONDS                   = 60
 )
 
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
@@ -166,25 +173,27 @@ func ReadConfig() Config {
 	parsedProxyBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyBackendHostURLMap)
 
 	return Config{
-		ProxyServicePort:                 os.Getenv(PROXY_SERVICE_PORT_ENVIRONMENT_KEY),
-		LogLevel:                         EnvOrDefault(LOG_LEVEL_ENVIRONMENT_KEY, DEFAULT_LOG_LEVEL),
-		ProxyBackendHostURLMapRaw:        rawProxyBackendHostURLMap,
-		ProxyBackendHostURLMapParsed:     parsedProxyBackendHostURLMap,
-		DatabaseName:                     os.Getenv(DATABASE_NAME_ENVIRONMENT_KEY),
-		DatabaseEndpointURL:              os.Getenv(DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY),
-		DatabaseUserName:                 os.Getenv(DATABASE_USERNAME_ENVIRONMENT_KEY),
-		DatabasePassword:                 os.Getenv(DATABASE_PASSWORD_ENVIRONMENT_KEY),
-		DatabaseSSLEnabled:               EnvOrDefaultBool(DATABASE_SSL_ENABLED_ENVIRONMENT_KEY, false),
-		DatabaseReadTimeoutSeconds:       EnvOrDefaultInt64(DATABASE_READ_TIMEOUT_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_READ_TIMEOUT_SECONDS),
-		DatabaseQueryLoggingEnabled:      EnvOrDefaultBool(DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY, true),
-		RunDatabaseMigrations:            EnvOrDefaultBool(RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY, false),
-		DatabaseMaxIdleConnections:       EnvOrDefaultInt64(DATABASE_MAX_IDLE_CONNECTIONS_ENVIRONMENT_KEY, DEFAULT_DATABASE_MAX_IDLE_CONNECTIONS),
-		DatabaseConnectionMaxIdleSeconds: EnvOrDefaultInt64(DATABASE_CONNECTION_MAX_IDLE_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_CONNECTION_MAX_IDLE_SECONDS),
-		DatabaseMaxOpenConnections:       EnvOrDefaultInt64(DATABASE_MAX_OPEN_CONNECTIONS_ENVIRONMENT_KEY, DEFAULT_DATABASE_MAX_OPEN_CONNECTIONS),
-		HTTPReadTimeoutSeconds:           EnvOrDefaultInt64(HTTP_READ_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_READ_TIMEOUT),
-		HTTPWriteTimeoutSeconds:          EnvOrDefaultInt64(HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_WRITE_TIMEOUT),
-		MetricCompactionRoutineInterval:  time.Duration(time.Duration(EnvOrDefaultInt(METRIC_COMPACTION_ROUTINE_INTERVAL_KEY, DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS)) * time.Second),
-		EvmQueryServiceURL:               os.Getenv(EVM_QUERY_SERVICE_ENVIRONMENT_KEY),
-		MetricCollectionEnabled:          EnvOrDefaultBool(METRIC_COLLECTION_ENABLED_ENVIRONMENT_KEY, DEFAULT_METRIC_COLLECTION_ENABLED),
+		ProxyServicePort:                    os.Getenv(PROXY_SERVICE_PORT_ENVIRONMENT_KEY),
+		LogLevel:                            EnvOrDefault(LOG_LEVEL_ENVIRONMENT_KEY, DEFAULT_LOG_LEVEL),
+		ProxyBackendHostURLMapRaw:           rawProxyBackendHostURLMap,
+		ProxyBackendHostURLMapParsed:        parsedProxyBackendHostURLMap,
+		DatabaseName:                        os.Getenv(DATABASE_NAME_ENVIRONMENT_KEY),
+		DatabaseEndpointURL:                 os.Getenv(DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY),
+		DatabaseUserName:                    os.Getenv(DATABASE_USERNAME_ENVIRONMENT_KEY),
+		DatabasePassword:                    os.Getenv(DATABASE_PASSWORD_ENVIRONMENT_KEY),
+		DatabaseSSLEnabled:                  EnvOrDefaultBool(DATABASE_SSL_ENABLED_ENVIRONMENT_KEY, false),
+		DatabaseReadTimeoutSeconds:          EnvOrDefaultInt64(DATABASE_READ_TIMEOUT_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_READ_TIMEOUT_SECONDS),
+		DatabaseQueryLoggingEnabled:         EnvOrDefaultBool(DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY, true),
+		RunDatabaseMigrations:               EnvOrDefaultBool(RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY, false),
+		DatabaseMaxIdleConnections:          EnvOrDefaultInt64(DATABASE_MAX_IDLE_CONNECTIONS_ENVIRONMENT_KEY, DEFAULT_DATABASE_MAX_IDLE_CONNECTIONS),
+		DatabaseConnectionMaxIdleSeconds:    EnvOrDefaultInt64(DATABASE_CONNECTION_MAX_IDLE_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_CONNECTION_MAX_IDLE_SECONDS),
+		DatabaseMaxOpenConnections:          EnvOrDefaultInt64(DATABASE_MAX_OPEN_CONNECTIONS_ENVIRONMENT_KEY, DEFAULT_DATABASE_MAX_OPEN_CONNECTIONS),
+		HTTPReadTimeoutSeconds:              EnvOrDefaultInt64(HTTP_READ_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_READ_TIMEOUT),
+		HTTPWriteTimeoutSeconds:             EnvOrDefaultInt64(HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_WRITE_TIMEOUT),
+		MetricCompactionRoutineInterval:     time.Duration(time.Duration(EnvOrDefaultInt(METRIC_COMPACTION_ROUTINE_INTERVAL_ENVIRONMENT_KEY, DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS)) * time.Second),
+		EvmQueryServiceURL:                  os.Getenv(EVM_QUERY_SERVICE_ENVIRONMENT_KEY),
+		MetricCollectionEnabled:             EnvOrDefaultBool(METRIC_COLLECTION_ENABLED_ENVIRONMENT_KEY, DEFAULT_METRIC_COLLECTION_ENABLED),
+		MetricPartitioningRoutineInterval:   time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS)) * time.Second),
+		MetricPartitioningPrefillPeriodDays: EnvOrDefaultInt(METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_PREFILL_PERIOD_DAYS),
 	}
 }

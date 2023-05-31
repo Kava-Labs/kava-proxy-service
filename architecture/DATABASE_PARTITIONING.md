@@ -70,6 +70,8 @@ this is [toil](https://sre.google/sre-book/eliminating-toil/) better handled by 
 
 ![Proxied Request Metrics Partitioning Routine Conceptual](./images/metric_partitioning_routine_conceptual.jpg)
 
+Note that we create the partitions as separate tables and then attach versus directly creating as a partition of the main table in order to avoid locking the entire table when attaching the partition. Instead only the rows which belong to the partition itself will be locked during the time it takes to attach.
+
 Note that while the [Postgres docs](https://www.postgresql.org/docs/current/ddl-partitioning.html) mention:
 
 > Before running the ATTACH PARTITION command, it is recommended to create a CHECK constraint on the table to be attached that matches the expected partition constraint, as illustrated above. That way, the system will be able to skip the scan which is otherwise needed to validate the implicit partition constraint. Without the CHECK constraint, the table will be scanned to validate the partition constraint while holding an ACCESS EXCLUSIVE lock on that partition. It is recommended to drop the now-redundant CHECK constraint after the ATTACH PARTITION is complete. If the table being attached is itself a partitioned table, then each of its sub-partitions will be recursively locked and scanned until either a suitable CHECK constraint is encountered or the leaf partitions are reached.

@@ -36,6 +36,62 @@ func init() {
 	}
 }
 
+func startMetricPartitioningRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
+	metricPartitioningRoutineConfig := routines.MetricPartitioningRoutineConfig{
+		Interval: serviceConfig.MetricPartitioningRoutineInterval,
+		Database: service.Database,
+		Logger:   serviceLogger,
+	}
+
+	metricPartitioningRoutine, err := routines.NewMetricPartitioningRoutine(metricPartitioningRoutineConfig)
+
+	if err != nil {
+		serviceLogger.Error().Msg(fmt.Sprintf("error %s creating metric partitioning routine with config %+v", err, metricPartitioningRoutineConfig))
+
+		return nil
+	}
+
+	errChan, err := metricPartitioningRoutine.Run()
+
+	if err != nil {
+		serviceLogger.Error().Msg(fmt.Sprintf("error %s starting metric partitioning routine with config %+v", err, metricPartitioningRoutineConfig))
+
+		return nil
+	}
+
+	serviceLogger.Debug().Msg(fmt.Sprintf("started metric partitioning routine with config %+v", metricPartitioningRoutineConfig))
+
+	return errChan
+}
+
+func startMetricCompactionRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
+	metricCompactionRoutineConfig := routines.MetricCompactionRoutineConfig{
+		Interval: serviceConfig.MetricCompactionRoutineInterval,
+		Database: service.Database,
+		Logger:   serviceLogger,
+	}
+
+	metricCompactionRoutine, err := routines.NewMetricCompactionRoutine(metricCompactionRoutineConfig)
+
+	if err != nil {
+		serviceLogger.Error().Msg(fmt.Sprintf("error %s creating metric compaction routine with config %+v", err, metricCompactionRoutineConfig))
+
+		return nil
+	}
+
+	errChan, err := metricCompactionRoutine.Run()
+
+	if err != nil {
+		serviceLogger.Error().Msg(fmt.Sprintf("error %s starting metric compaction routine with config %+v", err, metricCompactionRoutineConfig))
+
+		return nil
+	}
+
+	serviceLogger.Debug().Msg(fmt.Sprintf("started metric compaction routine with config %+v", metricCompactionRoutineConfig))
+
+	return errChan
+}
+
 func main() {
 	serviceLogger.Debug().Msg(fmt.Sprintf("initial config: %+v", serviceConfig))
 
@@ -47,32 +103,20 @@ func main() {
 	}
 
 	// configure and run background routines
+	// metric partitioning routine
 	go func() {
-		metricCompactionRoutineConfig := routines.MetricCompactionRoutineConfig{
-			Interval: serviceConfig.MetricCompactionRoutineInterval,
-			Database: service.Database,
-			Logger:   serviceLogger,
+		metricPartitioningErrs := startMetricPartitioningRoutine(serviceConfig, service, serviceLogger)
+
+		for routineErr := range metricPartitioningErrs {
+			serviceLogger.Error().Msg(fmt.Sprintf("metric partitioning routine encountered error %s", routineErr))
 		}
+	}()
 
-		metricCompactionRoutine, err := routines.NewMetricCompactionRoutine(metricCompactionRoutineConfig)
+	// metric compaction routine
+	go func() {
+		metricCompactionErrs := startMetricCompactionRoutine(serviceConfig, service, serviceLogger)
 
-		if err != nil {
-			serviceLogger.Error().Msg(fmt.Sprintf("error %s creating metric compaction routine with config %+v", err, metricCompactionRoutineConfig))
-
-			return
-		}
-
-		errChan, err := metricCompactionRoutine.Run()
-
-		if err != nil {
-			serviceLogger.Error().Msg(fmt.Sprintf("error %s starting metric compaction routine with config %+v", err, metricCompactionRoutineConfig))
-
-			return
-		}
-
-		serviceLogger.Debug().Msg(fmt.Sprintf("started metric compaction routine with config %+v", metricCompactionRoutineConfig))
-
-		for routineErr := range errChan {
+		for routineErr := range metricCompactionErrs {
 			serviceLogger.Error().Msg(fmt.Sprintf("metric compaction routine encountered error %s", routineErr))
 		}
 	}()
