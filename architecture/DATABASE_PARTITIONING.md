@@ -66,7 +66,7 @@ ALTER TABLE proxied_request_metrics ATTACH PARTITION proxied_request_metrics_yea
     FOR VALUES FROM ('2023-06-01 00:0:0.0') TO ('2023-06-02 00:0:0.0');
 ```
 
-this is [toil](https://sre.google/sre-book/eliminating-toil/) better handled by background routines that run on a continuous interval (defined by the value of `METRIC_PARTITION_ROUTINE_INTERVAL_SECONDS`) to create partitions up to `METRIC_PARTITION_PREFILL_PERIOD_DAYS` days in advance (inclusive of the current day on each run of said routine).
+this is [toil](https://sre.google/sre-book/eliminating-toil/) better handled by background routines that run on a continuous interval (defined by the value of `METRIC_PARTITION_ROUTINE_INTERVAL_SECONDS`) to create partitions up to `METRIC_PARTITION_PREFILL_PERIOD_DAYS` days in advance (inclusive of the current day on each run of said routine). At most 28 days of partitions can be pre-filled to guarantee constraint that metric partitioning routine never needs to create partitions spanning more than 2 calendar months.
 
 ![Proxied Request Metrics Partitioning Routine Conceptual](./images/metric_partitioning_routine_conceptual.jpg)
 

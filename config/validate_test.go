@@ -62,3 +62,12 @@ func TestUnitTestValidateConfigReturnsErrorIfInvalidProxyServicePort(t *testing.
 
 	assert.NotNil(t, err)
 }
+
+func TestUnitTestValidateConfigReturnsErrorIfInvalidMetricPartitioningPrefillPeriodDays(t *testing.T) {
+	testConfig := defaultConfig
+	testConfig.MetricPartitioningPrefillPeriodDays = config.MaxMetricPartitioningPrefillPeriodDays + 1
+
+	err := config.Validate(testConfig)
+
+	assert.NotNil(t, err)
+}

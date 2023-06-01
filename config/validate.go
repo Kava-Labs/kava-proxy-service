@@ -8,6 +8,10 @@ import (
 
 var (
 	ValidLogLevels = [4]string{"TRACE", "DEBUG", "INFO", "ERROR"}
+	// restrict to max 1 month to guarantee constraint that
+	// metric partitioning routine never needs to create partitions
+	// spanning more than 2 calendar months
+	MaxMetricPartitioningPrefillPeriodDays = 28
 )
 
 // Validate validates the provided config
@@ -38,6 +42,10 @@ func Validate(config Config) error {
 
 	if err != nil {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_SERVICE_PORT_ENVIRONMENT_KEY, config.ProxyServicePort))
+	}
+
+	if config.MetricPartitioningPrefillPeriodDays > MaxMetricPartitioningPrefillPeriodDays || config.MetricPartitioningPrefillPeriodDays < 1 {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %d, must be non-zero and less than %d", METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY, config.MetricPartitioningPrefillPeriodDays, MaxMetricPartitioningPrefillPeriodDays))
 	}
 
 	return allErrs
