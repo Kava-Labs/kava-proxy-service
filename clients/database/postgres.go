@@ -21,6 +21,7 @@ type PostgresDatabaseConfig struct {
 	DatabaseUsername                 string
 	DatabasePassword                 string
 	ReadTimeoutSeconds               int64
+	WriteTimeousSeconds              int64
 	DatabaseMaxIdleConnections       int64
 	DatabaseConnectionMaxIdleSeconds int64
 	DatabaseMaxOpenConnections       int64
@@ -53,6 +54,7 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 				pgdriver.WithPassword(config.DatabasePassword),
 				pgdriver.WithDatabase(config.DatabaseName),
 				pgdriver.WithReadTimeout(time.Second*time.Duration(config.ReadTimeoutSeconds)),
+				pgdriver.WithWriteTimeout(time.Second*time.Duration(config.WriteTimeousSeconds)),
 			)
 	} else {
 		pgOptions = pgdriver.NewConnector(
@@ -62,6 +64,7 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 			pgdriver.WithPassword(config.DatabasePassword),
 			pgdriver.WithDatabase(config.DatabaseName),
 			pgdriver.WithReadTimeout(time.Second*time.Duration(config.ReadTimeoutSeconds)),
+			pgdriver.WithWriteTimeout(time.Second*time.Duration(config.WriteTimeousSeconds)),
 		)
 	}
 

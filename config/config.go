@@ -23,6 +23,7 @@ type Config struct {
 	DatabaseUserName                    string
 	DatabasePassword                    string
 	DatabaseReadTimeoutSeconds          int64
+	DatabaseWriteTimeoutSeconds         int64
 	DatabaseSSLEnabled                  bool
 	DatabaseQueryLoggingEnabled         bool
 	DatabaseMaxIdleConnections          int64
@@ -72,6 +73,8 @@ const (
 	DEFAULT_DATABASE_MAX_OPEN_CONNECTIONS                   = 100
 	DATABASE_READ_TIMEOUT_SECONDS_ENVIRONMENT_KEY           = "DATABASE_READ_TIMEOUT_SECONDS"
 	DEFAULT_DATABASE_READ_TIMEOUT_SECONDS                   = 60
+	DATABASE_WRITE_TIMEOUT_SECONDS_ENVIRONMENT_KEY          = "DATABASE_WRITE_TIMEOUT_SECONDS"
+	DEFAULT_DATABASE_WRITE_TIMEOUT_SECONDS                  = 10
 )
 
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
@@ -183,6 +186,7 @@ func ReadConfig() Config {
 		DatabasePassword:                    os.Getenv(DATABASE_PASSWORD_ENVIRONMENT_KEY),
 		DatabaseSSLEnabled:                  EnvOrDefaultBool(DATABASE_SSL_ENABLED_ENVIRONMENT_KEY, false),
 		DatabaseReadTimeoutSeconds:          EnvOrDefaultInt64(DATABASE_READ_TIMEOUT_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_READ_TIMEOUT_SECONDS),
+		DatabaseWriteTimeoutSeconds:         EnvOrDefaultInt64(DATABASE_WRITE_TIMEOUT_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_WRITE_TIMEOUT_SECONDS),
 		DatabaseQueryLoggingEnabled:         EnvOrDefaultBool(DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY, true),
 		RunDatabaseMigrations:               EnvOrDefaultBool(RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY, false),
 		DatabaseMaxIdleConnections:          EnvOrDefaultInt64(DATABASE_MAX_IDLE_CONNECTIONS_ENVIRONMENT_KEY, DEFAULT_DATABASE_MAX_IDLE_CONNECTIONS),
