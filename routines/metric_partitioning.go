@@ -21,6 +21,7 @@ const (
 // for creating a new metric partitioning routine
 type MetricPartitioningRoutineConfig struct {
 	Interval          time.Duration
+	DelayFirstRun     time.Duration
 	PrefillPeriodDays int
 	Database          *database.PostgresClient
 	Logger            logging.ServiceLogger
@@ -32,6 +33,7 @@ type MetricPartitioningRoutineConfig struct {
 type MetricPartitioningRoutine struct {
 	id                string
 	interval          time.Duration
+	delayFirstRun     time.Duration
 	prefillPeriodDays int
 	*database.PostgresClient
 	logging.ServiceLogger
@@ -42,8 +44,18 @@ type MetricPartitioningRoutine struct {
 // from starting the routine and an error channel which any errors
 // encountered during running will be sent on
 func (mcr *MetricPartitioningRoutine) Run() (<-chan error, error) {
+	// do first run
 	errorChannel := make(chan error)
 
+	time.Sleep(mcr.delayFirstRun)
+
+	err := mcr.partition()
+
+	if err != nil {
+		errorChannel <- err
+	}
+
+	// do subsequent runs every configured interval
 	timer := time.Tick(mcr.interval)
 
 	go func() {
@@ -67,6 +79,7 @@ func NewMetricPartitioningRoutine(config MetricPartitioningRoutineConfig) (*Metr
 	return &MetricPartitioningRoutine{
 		id:                uuid.New().String(),
 		interval:          config.Interval,
+		delayFirstRun:     config.DelayFirstRun,
 		prefillPeriodDays: config.PrefillPeriodDays,
 		PostgresClient:    config.Database,
 		ServiceLogger:     config.Logger,
