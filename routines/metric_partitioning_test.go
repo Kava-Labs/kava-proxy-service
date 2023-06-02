@@ -1,14 +1,50 @@
 package routines
 
 import (
+	"context"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/kava-labs/kava-proxy-service/config"
+	"github.com/kava-labs/kava-proxy-service/service"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestE2ETestPartitioningRoutineRunsOnConfiguredInterval(t *testing.T) {
+var (
+	testCtx                                       = context.Background()
+	MetricPartitioningRoutineDelayFirstRunSeconds = config.EnvOrDefaultInt(config.METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS_ENVIRONMENT_KEY, config.DEFAULT_METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS)
+	proxyServiceURL                               = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
+	configuredPrefillDays                         = config.EnvOrDefaultInt64(config.METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY, config.DEFAULT_METRIC_PARTITIONING_PREFILL_PERIOD_DAYS)
+
+	proxyServiceClient = func() *service.ProxyServiceClient {
+		client, err := service.NewProxyServiceClient(service.ProxyServiceClientConfig{
+			ProxyServiceHostname: proxyServiceURL,
+		})
+
+		if err != nil {
+			panic(err)
+		}
+
+		return client
+	}()
+)
+
+func TestE2ETestMetricPartitioningRoutinePrefillsExpectedPartitionsAfterStartupDelay(t *testing.T) {
+	// prepare
+	time.Sleep(time.Duration(MetricPartitioningRoutineDelayFirstRunSeconds) * time.Second)
+
+	expectedPartitions, err := partitionsForPeriod(time.Now(), int(configuredPrefillDays))
+
+	assert.Nil(t, err)
+
+	// execute
+	databaseStatus, err := proxyServiceClient.GetDatabaseStatus(testCtx)
+
+	// assert
+	assert.Nil(t, err)
+	assert.GreaterOrEqual(t, databaseStatus.TotalProxiedRequestMetricPartitions, configuredPrefillDays)
+	assert.Equal(t, expectedPartitions[len(expectedPartitions)-1].TableName, databaseStatus.LatestProxiedRequestMetricPartitionTableName)
 }
 
 func TestUnitTestpartitionsForPeriodReturnsErrWhenTooManyPrefillDays(t *testing.T) {

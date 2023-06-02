@@ -125,7 +125,7 @@ func partitionsForPeriod(start time.Time, numDaysToPrefill int) ([]PartitionPeri
 	// generate partitions for current month
 	for partitionIndex := 0; partitionsToGenerateForCurrentMonth > 0; partitionIndex++ {
 		partitionPeriod := PartitionPeriod{
-			TableName:            fmt.Sprintf("%s_year%d_month_%d_day%d", PartitionBaseTableName, currentYear, currentMonth, currentDay+partitionIndex),
+			TableName:            fmt.Sprintf("%s_year_%d_month_%d_day_%d", PartitionBaseTableName, currentYear, currentMonth, currentDay+partitionIndex),
 			InclusiveStartPeriod: start.Add(time.Duration(partitionIndex) * 24 * time.Hour).Truncate(24 * time.Hour),
 			ExclusiveEndPeriod:   start.Add(time.Duration(partitionIndex+1) * 24 * time.Hour).Truncate(24 * time.Hour),
 		}
@@ -260,7 +260,7 @@ func (mcr *MetricPartitioningRoutine) partition() error {
 
 			// but check if it is attached
 			partitionIsAttachedQuery := fmt.Sprintf(`
-			SELECT
+		SELECT
 			nmsp_parent.nspname AS parent_schema,
 			parent.relname      AS parent,
 			nmsp_child.nspname  AS child_schema,
@@ -274,7 +274,7 @@ func (mcr *MetricPartitioningRoutine) partition() error {
 			result, err := mcr.DB.Query(partitionIsAttachedQuery)
 
 			if err != nil {
-				mcr.Error().Msg(fmt.Sprintf("error %s querying to see if partition %+v is already attached", err, partitionToCreate))
+				mcr.Error().Msg(fmt.Sprintf("error %s querying %s to see if partition %+v is already attached", err, partitionIsAttachedQuery, partitionToCreate))
 
 				continue
 			}

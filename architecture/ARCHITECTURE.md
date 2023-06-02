@@ -55,3 +55,7 @@ As [John Gruber](https://daringfireball.net/) notes often, it matters not just w
 ## Editable Diagrams
 
 The images present in this documentation can be [edited and re-exported](https://miro.com/app/board/uXjVMdnhLLo=/?share_link_id=721643155727) as changes are made to the proxy service.
+
+## Technology Specific Development Notes
+
+1. [Postgres Development](./POSTGRES_DEVELOPMENT_FAQ.md)

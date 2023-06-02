@@ -42,7 +42,7 @@ See [Development.md](./DEVELOPMENT.md).
 
 ## Architecture
 
-See [architecture docs](./architecture/).
+See [architecture docs](./architecture/ARCHITECTURE.md).
 
 ## Feedback
 

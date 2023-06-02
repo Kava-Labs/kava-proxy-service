@@ -2,9 +2,14 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/uptrace/bun"
+)
+
+const (
+	ProxiedRequestMetricsTableName = "proxied_request_metrics"
 )
 
 // ProxiedRequestMetric contains request metrics for
@@ -49,4 +54,56 @@ func ListProxiedRequestMetricsWithPagination(ctx context.Context, db *bun.DB, cu
 
 	// otherwise leave nextCursor as 0 to signal no more rows
 	return proxiedRequestMetrics, nextCursor, err
+}
+
+// CountAttachedProxiedRequestMetricPartitions returns the current
+// count of attached partitions for the ProxiedRequestMetricsTableName
+// and error (if any)
+func CountAttachedProxiedRequestMetricPartitions(ctx context.Context, db *bun.DB) (int64, error) {
+	var count int64
+
+	countPartitionsQuery := fmt.Sprintf(`
+	SELECT COUNT (*)
+	FROM pg_inherits
+		JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+		JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+		JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+		JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+	WHERE parent.relname='%s';`, ProxiedRequestMetricsTableName)
+
+	row := db.QueryRow(countPartitionsQuery)
+	err := row.Scan(&count)
+
+	if err != nil {
+		return 0, fmt.Errorf("error %s querying %s count of partitions", err, countPartitionsQuery)
+
+	}
+
+	return count, nil
+}
+
+// GetLastCreatedAttachedProxiedRequestMetricsPartitionName gets the table name
+// for the last created (and attached) proxied request metrics partition
+func GetLastCreatedAttachedProxiedRequestMetricsPartitionName(ctx context.Context, db *bun.DB) (string, error) {
+	var lastCreatedAttachedPartitionName string
+
+	lastCreatedAttachedPartitionNameQuery := fmt.Sprintf(`
+SELECT
+	child.relname       AS child
+FROM pg_inherits
+	JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+	JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+	JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+	JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+WHERE parent.relname='%s' order by child.oid desc limit 1;`, ProxiedRequestMetricsTableName)
+
+	row := db.QueryRow(lastCreatedAttachedPartitionNameQuery)
+	err := row.Scan(&lastCreatedAttachedPartitionName)
+
+	if err != nil {
+		return lastCreatedAttachedPartitionName, fmt.Errorf("error %s querying %s latest proxied request metrics partition name", err, lastCreatedAttachedPartitionNameQuery)
+
+	}
+
+	return lastCreatedAttachedPartitionName, nil
 }

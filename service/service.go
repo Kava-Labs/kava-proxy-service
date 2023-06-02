@@ -69,6 +69,13 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 		return ProxyService{}, err
 	}
 
+	// register database status handler
+	// for responding to requests for the status
+	// of database related operations such as
+	// proxied request metrics compaction and
+	// partitioning
+	mux.HandleFunc("/status/database", createDatabaseStatusHandler(&service, db))
+
 	// create evm api client
 	evmClient, err := ethclient.Dial(config.EvmQueryServiceURL)
 
