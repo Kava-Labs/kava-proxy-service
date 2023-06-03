@@ -193,7 +193,7 @@ func (mcr *MetricPartitioningRoutine) partition() error {
 		}
 
 		// check to see if partition already exists
-		_, err = tx.Query(fmt.Sprintf("select * from %s", partitionToCreate.TableName))
+		_, err = tx.Exec(fmt.Sprintf("select * from %s limit 1;", partitionToCreate.TableName))
 
 		if err != nil {
 			if !strings.Contains(err.Error(), "42P01") {
@@ -228,7 +228,7 @@ func (mcr *MetricPartitioningRoutine) partition() error {
 			ALTER TABLE proxied_request_metrics ATTACH PARTITION %s
 			FOR VALUES FROM ('%s') TO ('%s');
 			`, partitionToCreate.TableName, partitionToCreate.InclusiveStartPeriod.Format("2006-01-02 15:04:05"), partitionToCreate.ExclusiveEndPeriod.Format("2006-01-02 15:04:05"))
-			_, err = mcr.DB.Query(attachPartitionStatement)
+			_, err = mcr.DB.Exec(attachPartitionStatement)
 
 			if err != nil {
 				mcr.Debug().Msg(fmt.Sprintf("error %s attaching partition %+v using statement %s", err,
@@ -286,7 +286,7 @@ func (mcr *MetricPartitioningRoutine) partition() error {
 				ALTER TABLE proxied_request_metrics ATTACH PARTITION %s
 				FOR VALUES FROM ('%s') TO ('%s');
 				`, partitionToCreate.TableName, partitionToCreate.InclusiveStartPeriod.Format("2006-01-02 15:04:05"), partitionToCreate.ExclusiveEndPeriod.Format("2006-01-02 15:04:05"))
-				_, err = mcr.DB.Query(attachPartitionStatement)
+				_, err = mcr.DB.Exec(attachPartitionStatement)
 
 				if err != nil {
 					mcr.Debug().Msg(fmt.Sprintf("error %s attaching partition %+v using statement %s", err,
@@ -313,6 +313,8 @@ func (mcr *MetricPartitioningRoutine) partition() error {
 
 				continue
 			}
+
+			result.Close()
 
 			mcr.Trace().Msg(fmt.Sprintf("not attaching partition %+v as it is already attached", partitionToCreate))
 

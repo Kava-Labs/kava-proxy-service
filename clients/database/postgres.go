@@ -94,6 +94,5 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 // HealthCheck returns an error if the database can not
 // be connected to and queried, nil otherwise
 func (pg *PostgresClient) HealthCheck() error {
-	_, err := pg.Query(`SELECT 1;`)
-	return err
+	return pg.Ping()
 }
