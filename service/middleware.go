@@ -41,18 +41,47 @@ const (
 // after the response has been read
 type bodySaverResponseWriter struct {
 	negroni.ResponseWriter
-	body *bytes.Buffer
+	body                     *bytes.Buffer
+	afterRequestInterceptors []RequestInterceptor
+	serviceLogger            *logging.ServiceLogger
 }
 
 // Write writes the response from the origin server to the response
 // and copies the response for later use by the proxy service
 func (w bodySaverResponseWriter) Write(b []byte) (int, error) {
+	// copy the original response body for proxy service
 	w.body.Write(b)
 
 	if !w.Written() {
 		// The status will be StatusOK if WriteHeader has not been called yet
 		w.WriteHeader(http.StatusOK)
 	}
+
+	if len(b) > 0 {
+		// run before request interceptors
+
+		var modifiedRequestBody = b
+		var err error
+
+		for _, afterRequestInterceptor := range w.afterRequestInterceptors {
+			beforeModifiedRequestBody := modifiedRequestBody
+			modifiedRequestBody, err = afterRequestInterceptor(modifiedRequestBody)
+
+			if err != nil {
+				w.serviceLogger.Debug().Msg(fmt.Sprintf("error %s running after request interceptor %+v on body %+v", err, afterRequestInterceptor, beforeModifiedRequestBody))
+				// degrade gracefully, response interceptors
+				// are best effort
+				continue
+			}
+		}
+
+		// update the request body to the modified version
+		// after all before request interceptors have run
+		b = modifiedRequestBody
+	} else {
+		w.serviceLogger.Trace().Msg("response body is empty, skipping after request interceptors")
+	}
+
 	size, err := w.ResponseWriter.Write(b)
 
 	return size, err
@@ -138,7 +167,12 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			// set up response writer for copying the response from the backend server
 			// for use out of band of the request-response cycle
-			lrw := &bodySaverResponseWriter{ResponseWriter: negroni.NewResponseWriter(w), body: bytes.NewBufferString("")}
+			lrw := &bodySaverResponseWriter{
+				ResponseWriter:           negroni.NewResponseWriter(w),
+				body:                     bytes.NewBufferString(""),
+				afterRequestInterceptors: afterRequestInterceptors,
+				serviceLogger:            serviceLogger,
+			}
 
 			// proxy the request to the backend origin server
 			// based on the request host
