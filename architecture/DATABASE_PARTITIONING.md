@@ -86,11 +86,13 @@ we don't add check constraints because the partitions are created ahead of time,
 
 ops, ci and local tests need partitions for the current week and to be able to query the status of those processes for
 
-```text
-migration_status:enum
-last_pruned:timestamp
-pruning_status:enum
-partitioning_status:enum
-rolling_error_rate:float
-rolling_error_count:int
+https://service.public.testnet.proxy.kava.io/status/database
+
+`/status/database`
+
+```json
+{
+    "latest_proxied_request_metric_partition_table_name":"proxied_request_metrics_year_2023_month_6_day_11",
+    "total_proxied_request_metric_partitions":40
+}
 ```

@@ -110,9 +110,15 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 	}
 }
 
-// create the main service middleware for introspecting and transforming
-// the request and the backend origin server(s) response(s)
-func createProxyRequestMiddleware(next http.Handler, config config.Config, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
+// create the main service middleware for
+// introspecting and transforming the original request
+// and the backend origin server(s) response(s)
+// all beforeRequestInterceptors will be iterated (in slice order)
+// through and executed on the original request before this method
+// forwards the request to the backend origin server
+// all afterRequestInterceptors will be iterated (in slice order)
+// through and executed before the response is written to the caller
+func createProxyRequestMiddleware(next http.Handler, config config.Config, serviceLogger *logging.ServiceLogger, beforeRequestInterceptors []RequestInterceptor, afterRequestInterceptors []RequestInterceptor) http.HandlerFunc {
 	// create an http handler that will proxy any request to the specified URL
 	reverseProxyForHost := make(map[string]*httputil.ReverseProxy)
 
@@ -158,6 +164,37 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 				r.Header.Set(LoadBalancerForwardedForHeaderKey, requestIPHeaderValues[len(requestIPHeaderValues)-1])
 			}
 
+			// run before request interceptors
+			if r.Body != nil {
+				originalRequestBody, err := io.ReadAll(r.Body)
+
+				if err != nil {
+					serviceLogger.Debug().Msg(fmt.Sprintf("error %s reading request body %s while executing before request interceptors", err, r.Body))
+
+				}
+
+				var modifiedRequestBody = originalRequestBody
+
+				for _, beforeRequestInterceptor := range beforeRequestInterceptors {
+					beforeModifiedRequestBody := modifiedRequestBody
+					modifiedRequestBody, err = beforeRequestInterceptor(modifiedRequestBody)
+
+					if err != nil {
+						serviceLogger.Debug().Msg(fmt.Sprintf("error %s running before request interceptor %+v on body %+v", err, beforeRequestInterceptor, beforeModifiedRequestBody))
+						// degrade gracefully, response interceptors
+						// are best effort
+						continue
+					}
+				}
+
+				// update the request body to the modified version
+				// after all before request interceptors have run
+				r.Body = io.NopCloser(bytes.NewBuffer(modifiedRequestBody))
+			} else {
+				serviceLogger.Trace().Msg("request body is empty, skipping before request interceptors")
+			}
+
+			// proxy request to backend origin servers
 			proxy.ServeHTTP(lrw, r)
 
 			serviceLogger.Trace().Msg(fmt.Sprintf("response %+v \nheaders %+v \nstatus %+v for request %+v", lrw.Status(), lrw.Header(), lrw.body, r))

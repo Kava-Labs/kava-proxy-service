@@ -36,8 +36,10 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	// to do things like metric the response and cache the response
 	afterProxyFinalizer := createAfterProxyFinalizer(&service, config)
 
+	// set up before and after request interceptors (a.k.a. raptors 🦖🦖)
+
 	// create an http handler that will proxy any request to the specified URL
-	proxyMiddleware := createProxyRequestMiddleware(afterProxyFinalizer, config, serviceLogger)
+	proxyMiddleware := createProxyRequestMiddleware(afterProxyFinalizer, config, serviceLogger, []RequestInterceptor{}, []RequestInterceptor{})
 
 	// create an http handler that will log the request to stdout
 	// this handler will run before the proxyMiddleware handler
