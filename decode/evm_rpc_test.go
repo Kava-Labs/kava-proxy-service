@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	cosmosmath "cosmossdk.io/math"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/assert"
 )
@@ -19,11 +18,7 @@ var (
 
 func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValidRequest(t *testing.T) {
 	requestedBlockNumberHexEncoding := "0x2"
-	requestBlockNumber, valid := cosmosmath.NewIntFromString(requestedBlockNumberHexEncoding)
-
-	if !valid {
-		t.Fatalf("failed to convert %s to cosmos sdk int", requestedBlockNumberHexEncoding)
-	}
+	expectedBlockNumber := int64(2)
 
 	validRequest := EVMRPCRequestEnvelope{
 		Method: "eth_getBlockByNumber",
@@ -35,7 +30,7 @@ func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValid
 	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
 
 	assert.Nil(t, err)
-	assert.Equal(t, requestBlockNumber, blockNumber)
+	assert.Equal(t, expectedBlockNumber, blockNumber)
 }
 
 func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockNumberForTag(t *testing.T) {
@@ -87,5 +82,5 @@ func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenUnknownReque
 
 	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
 
-	assert.Equal(t, ErrUncachaebleEthRequest, err)
+	assert.Equal(t, ErrUncachaebleByBlockNumberEthRequest, err)
 }
