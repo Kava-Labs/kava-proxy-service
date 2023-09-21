@@ -37,22 +37,28 @@ publish: lint
 .PHONY: unit-test
 # run all unit tests
 unit-test:
-	go test -count=1 -v -cover --race ./... -run "^TestUnitTest*"
+	go test -count=1 -v -cover -coverprofile cover.out --race ./... -run "^TestUnitTest*"
 
 .PHONY: e2e-test
 # run tests that execute against a local or remote instance of the API
 e2e-test:
-	go test -count=1 -v -cover --race ./... -run "^TestE2ETest*"
+	go test -count=1 -v -cover -coverprofile cover.out --race ./... -run "^TestE2ETest*"
 
 .PHONY: it
 # run any test matching the provided pattern, can pass a regex or a string
 # of the exact test to run
 it : lint
-	go test -count=1 -v -cover --race ./... -run=".*${p}.*"
+	go test -count=1 -v -cover -coverprofile cover.out --race ./... -run=".*${p}.*"
+
+.PHONY: show-coverage
+# convert test coverage report to html & open in browser
+show-coverage:
+	go tool cover -html cover.out -o cover.html && open cover.html
 
 .PHONY: test
 # run all tests
-test: unit-test e2e-test
+test:
+	go test -count=1 -v -cover -coverprofile cover.out --race ./...
 
 .PHONY: up
 # start dockerized versions of the service and it's dependencies
