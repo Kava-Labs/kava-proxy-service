@@ -51,6 +51,20 @@ func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockNumberFo
 	}
 }
 
+func TestUnitTestExtractBlockNumberFromEVMRPCRequestFailsForInvalidTag(t *testing.T) {
+	requestedBlockTag := "invalid-block-tag"
+	validRequest := EVMRPCRequestEnvelope{
+		Method: "eth_getBlockByNumber",
+		Params: []interface{}{
+			requestedBlockTag, false,
+		},
+	}
+
+	_, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
+
+	assert.ErrorContains(t, err, "unable to parse tag")
+}
+
 func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenRequestMethodEmpty(t *testing.T) {
 	invalidRequest := EVMRPCRequestEnvelope{
 		Method: "",
