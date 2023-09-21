@@ -34,19 +34,21 @@ func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValid
 }
 
 func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockNumberForTag(t *testing.T) {
-	requestedBlockTag := "latest"
+	tags := []string{"latest", "pending", "earliest", "finalized", "safe"}
 
-	validRequest := EVMRPCRequestEnvelope{
-		Method: "eth_getBlockByNumber",
-		Params: []interface{}{
-			requestedBlockTag, false,
-		},
+	for _, requestedBlockTag := range tags {
+		validRequest := EVMRPCRequestEnvelope{
+			Method: "eth_getBlockByNumber",
+			Params: []interface{}{
+				requestedBlockTag, false,
+			},
+		}
+
+		blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
+
+		assert.Nil(t, err)
+		assert.Equal(t, BlockTagToNumberCodec[requestedBlockTag], blockNumber)
 	}
-
-	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
-
-	assert.Nil(t, err)
-	assert.Equal(t, BlockTagToNumberCodec[requestedBlockTag], blockNumber)
 }
 
 func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenRequestMethodEmpty(t *testing.T) {

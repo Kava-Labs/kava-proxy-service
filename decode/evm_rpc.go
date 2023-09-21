@@ -106,10 +106,13 @@ var MethodNameToBlockHashParamIndex = map[string]int{
 // Mapping of string tag values used in the eth api to
 // normalized int values that can be stored as the block number
 // for the proxied request metric
+// see https://ethereum.org/en/developers/docs/apis/json-rpc/#default-block
 var BlockTagToNumberCodec = map[string]int64{
-	"latest":   -1,
-	"pending":  -2,
-	"earliest": -3,
+	"latest":    -1,
+	"pending":   -2,
+	"earliest":  -3,
+	"finalized": -4,
+	"safe":      -5,
 }
 
 // EVMRPCRequest wraps expected values present in a request
@@ -214,22 +217,16 @@ func parseBlockNumberFromParams(methodName string, params []interface{}) (int64,
 		return 0, fmt.Errorf(fmt.Sprintf("error decoding block number param from params %+v at index %d", params, paramIndex))
 	}
 
-	var blockNumber int64
-	tagEncoding, exists := BlockTagToNumberCodec[tag]
+	blockNumber, exists := BlockTagToNumberCodec[tag]
 
 	if !exists {
 		spaceint, valid := cosmosmath.NewIntFromString(tag)
-
 		if !valid {
 			return 0, fmt.Errorf(fmt.Sprintf("unable to parse tag %s to integer", tag))
 		}
 
 		blockNumber = spaceint.Int64()
-
-		return blockNumber, nil
 	}
-
-	blockNumber = tagEncoding
 
 	return blockNumber, nil
 }
