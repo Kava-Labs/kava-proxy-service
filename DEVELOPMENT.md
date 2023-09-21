@@ -96,6 +96,14 @@ The e2e tests won't pass if the proxy service and it's dependencies aren't fully
 make ready e2e-test
 ```
 
+## Test Coverage Report
+
+The test commands `make test`, `make unit-test`, and `make e2e-test` generate a `cover.out` raw test coverage report. The coverage can be converted into a user-friendly webpage:
+
+```bash
+make show-coverage
+```
+
 ### Running specific tests only
 
 Often during iterative development you want to run only a specific test (or group of tests), the `it` target will allow you to do just that:

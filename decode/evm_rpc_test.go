@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	cosmosmath "cosmossdk.io/math"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,13 +16,9 @@ var (
 	}()
 )
 
-func TestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValidRequest(t *testing.T) {
+func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValidRequest(t *testing.T) {
 	requestedBlockNumberHexEncoding := "0x2"
-	requestBlockNumber, valid := cosmosmath.NewIntFromString(requestedBlockNumberHexEncoding)
-
-	if !valid {
-		t.Fatalf("failed to convert %s to cosmos sdk int", requestedBlockNumberHexEncoding)
-	}
+	expectedBlockNumber := int64(2)
 
 	validRequest := EVMRPCRequestEnvelope{
 		Method: "eth_getBlockByNumber",
@@ -35,10 +30,10 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValidRequest(
 	blockNumber, err := validRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
 
 	assert.Nil(t, err)
-	assert.Equal(t, requestBlockNumber, blockNumber)
+	assert.Equal(t, expectedBlockNumber, blockNumber)
 }
 
-func TestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockNumberForTag(t *testing.T) {
+func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockNumberForTag(t *testing.T) {
 	requestedBlockTag := "latest"
 
 	validRequest := EVMRPCRequestEnvelope{
@@ -54,7 +49,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockNumberForTag(t *
 	assert.Equal(t, BlockTagToNumberCodec[requestedBlockTag], blockNumber)
 }
 
-func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenRequestMethodEmpty(t *testing.T) {
+func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenRequestMethodEmpty(t *testing.T) {
 	invalidRequest := EVMRPCRequestEnvelope{
 		Method: "",
 	}
@@ -64,7 +59,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenRequestMethodEmpty(t
 	assert.Equal(t, ErrInvalidEthAPIRequest, err)
 }
 
-func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenInvalidTypeForBlockNumber(t *testing.T) {
+func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenInvalidTypeForBlockNumber(t *testing.T) {
 	invalidRequest := EVMRPCRequestEnvelope{
 		Method: "eth_getBlockByNumber",
 		Params: []interface{}{
@@ -77,7 +72,7 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenInvalidTypeForBlockN
 	assert.NotNil(t, err)
 }
 
-func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenUnknownRequestMethod(t *testing.T) {
+func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenUnknownRequestMethod(t *testing.T) {
 	invalidRequest := EVMRPCRequestEnvelope{
 		Method: "eth_web4",
 		Params: []interface{}{
@@ -87,5 +82,5 @@ func TestExtractBlockNumberFromEVMRPCRequestReturnsErrorWhenUnknownRequestMethod
 
 	_, err := invalidRequest.ExtractBlockNumberFromEVMRPCRequest(testContext, dummyEthClient)
 
-	assert.Equal(t, ErrUncachaebleEthRequest, err)
+	assert.Equal(t, ErrUncachaebleByBlockNumberEthRequest, err)
 }
