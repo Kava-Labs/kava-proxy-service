@@ -91,7 +91,8 @@ refresh:
 .PHONY: ready
 ready:
 	./scripts/wait-for-kava-node-running.sh && \
-	./scripts/wait-for-proxy-service-running.sh
+	./scripts/wait-for-proxy-service-running.sh && \
+	./scripts/wait-for-proxy-service-database-metric-partitions.sh
 
 .PHONY: logs
 # follow the logs from all the dockerized services

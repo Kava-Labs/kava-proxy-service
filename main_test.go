@@ -13,6 +13,7 @@ import (
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -54,14 +55,10 @@ var (
 func TestE2ETestProxyReturnsNonZeroLatestBlockHeader(t *testing.T) {
 	client, err := ethclient.Dial(proxyServiceURL)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	header, err := client.HeaderByNumber(testContext, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	assert.Greater(t, int(header.Number.Int64()), 0)
 }
@@ -69,27 +66,19 @@ func TestE2ETestProxyReturnsNonZeroLatestBlockHeader(t *testing.T) {
 func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
 	client, err := ethclient.Dial(proxyServiceURL)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	header, err := client.HeaderByNumber(testContext, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	assert.Greater(t, int(header.Number.Int64()), 0)
 
 	dataClient, err := ethclient.Dial(proxyServiceDataURL)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	header, err = dataClient.HeaderByNumber(testContext, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	assert.Greater(t, int(header.Number.Int64()), 0)
 }
@@ -99,15 +88,11 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 	// create api and database clients
 	client, err := ethclient.Dial(proxyServiceURL)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	databaseClient, err := database.NewPostgresClient(databaseConfig)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// make request to api and track start / end time of the request to
 	startTime := time.Now()
@@ -116,9 +101,7 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	endTime := time.Now()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// lookup all the request metrics in the database
 	// paging as necessary
@@ -127,18 +110,14 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	proxiedRequestMetrics = proxiedRequestMetricsPage
 
 	for nextCursor != 0 {
 		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
 
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
 
@@ -177,24 +156,18 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 	// create api and database clients
 	client, err := ethclient.Dial(proxyServiceURL)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	databaseClient, err := database.NewPostgresClient(databaseConfig)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// get the latest queryable block number
 	// need to do this dynamically since not all blocks
 	// are queryable for a given network
 	response, err := client.HeaderByNumber(testContext, nil)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	requestBlockNumber := response.Number
 
@@ -205,9 +178,7 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	endTime := time.Now()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// lookup all the request metrics in the database
 	// paging as necessary
@@ -216,18 +187,14 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	proxiedRequestMetrics = proxiedRequestMetricsPage
 
 	for nextCursor != 0 {
 		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
 
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
 
@@ -260,15 +227,11 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 	// create api and database clients
 	client, err := ethclient.Dial(proxyServiceURL)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	databaseClient, err := database.NewPostgresClient(databaseConfig)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// make request to api and track start / end time of the request to
 	startTime := time.Now()
@@ -278,9 +241,7 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 
 	endTime := time.Now()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// lookup all the request metrics in the database
 	// paging as necessary
@@ -289,18 +250,14 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 
 	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	proxiedRequestMetrics = proxiedRequestMetricsPage
 
 	for nextCursor != 0 {
 		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
 
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
 
@@ -336,25 +293,17 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 
 	// create api and database clients
 	client, err := ethclient.Dial(proxyServiceURL)
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	databaseClient, err := database.NewPostgresClient(databaseConfig)
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// get the latest queryable block number
 	// need to do this dynamically since not all blocks
 	// are queryable for a given network
 	latestBlock, err := client.HeaderByNumber(testContext, nil)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	requestBlockNumber := latestBlock.Number
 
@@ -385,7 +334,8 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	// eth_call
 	_, _ = client.CallContract(testContext, ethereum.CallMsg{}, requestBlockNumber)
 
-	endTime := time.Now()
+	// plus a buffer for slower connections (amd64 lol) :)
+	endTime := time.Now().Add(10)
 
 	// lookup all the request metrics in the database
 	// paging as necessary
@@ -394,18 +344,14 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 
 	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	proxiedRequestMetrics = proxiedRequestMetricsPage
 
 	for nextCursor != 0 {
 		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
 
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
 
@@ -446,24 +392,18 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 	// create api and database clients
 	client, err := ethclient.Dial(proxyServiceURL)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	databaseClient, err := database.NewPostgresClient(databaseConfig)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// get the latest queryable block number
 	// need to do this dynamically since not all blocks
 	// are queryable for a given network
 	latestBlock, err := client.HeaderByNumber(testContext, nil)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	requestBlockHash := latestBlock.ParentHash
 	// minus one since we are looking up the parent block
@@ -492,18 +432,14 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 
 	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	proxiedRequestMetrics = proxiedRequestMetricsPage
 
 	for nextCursor != 0 {
 		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
 
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
 
