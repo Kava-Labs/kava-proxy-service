@@ -37,6 +37,10 @@ type Config struct {
 	MetricPartitioningRoutineInterval      time.Duration
 	MetricPartitioningRoutineDelayFirstRun time.Duration
 	MetricPartitioningPrefillPeriodDays    int
+	RedisEndpointURL                       string
+	RedisPassword                          string
+	CacheTTL                               time.Duration
+	ChainID                                string
 }
 
 const (
@@ -79,6 +83,11 @@ const (
 	DEFAULT_DATABASE_READ_TIMEOUT_SECONDS                       = 60
 	DATABASE_WRITE_TIMEOUT_SECONDS_ENVIRONMENT_KEY              = "DATABASE_WRITE_TIMEOUT_SECONDS"
 	DEFAULT_DATABASE_WRITE_TIMEOUT_SECONDS                      = 10
+	REDIS_ENDPOINT_URL_ENVIRONMENT_KEY                          = "REDIS_ENDPOINT_URL"
+	REDIS_PASSWORD_ENVIRONMENT_KEY                              = "REDIS_PASSWORD"
+	CACHE_TTL_ENVIRONMENT_KEY                                   = "CACHE_TTL"
+	DEFAULT_CACHE_TTL_SECONDS                                   = 600
+	CHAIN_ID_ENVIRONMENT_KEY                                    = "CHAIN_ID"
 )
 
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
@@ -204,5 +213,9 @@ func ReadConfig() Config {
 		MetricPartitioningRoutineInterval:      time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS)) * time.Second),
 		MetricPartitioningRoutineDelayFirstRun: time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS)) * time.Second),
 		MetricPartitioningPrefillPeriodDays:    EnvOrDefaultInt(METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_PREFILL_PERIOD_DAYS),
+		RedisEndpointURL:                       os.Getenv(REDIS_ENDPOINT_URL_ENVIRONMENT_KEY),
+		RedisPassword:                          os.Getenv(REDIS_PASSWORD_ENVIRONMENT_KEY),
+		CacheTTL:                               time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, DEFAULT_CACHE_TTL_SECONDS)) * time.Second,
+		ChainID:                                os.Getenv(CHAIN_ID_ENVIRONMENT_KEY),
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
+	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
 )
 
 const (
@@ -228,8 +229,35 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 				serviceLogger.Trace().Msg("request body is empty, skipping before request interceptors")
 			}
 
-			// proxy request to backend origin servers
-			proxy.ServeHTTP(lrw, r)
+			isCached := cachemdw.IsRequestCached(r.Context())
+			response := r.Context().Value(cachemdw.ResponseContextKey)
+			typedResponse, ok := response.([]byte)
+
+			// if request is cached and response is present in context - serve the request from the cache
+			// otherwise proxy to the actual backend
+			if isCached && ok {
+				serviceLogger.Logger.Trace().
+					Str("method", r.Method).
+					Str("url", r.URL.String()).
+					Str("host", r.Host).
+					Msg("cache hit")
+
+				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheHitHeaderValue)
+				w.Header().Add("Content-Type", "application/json")
+				_, err := w.Write(typedResponse)
+				if err != nil {
+					serviceLogger.Logger.Error().Msg(fmt.Sprintf("can't write cached response: %v", err))
+				}
+			} else {
+				serviceLogger.Logger.Trace().
+					Str("method", r.Method).
+					Str("url", r.URL.String()).
+					Str("host", r.Host).
+					Msg("cache miss")
+
+				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheMissHeaderValue)
+				proxy.ServeHTTP(lrw, r)
+			}
 
 			serviceLogger.Trace().Msg(fmt.Sprintf("response %+v \nheaders %+v \nstatus %+v for request %+v", lrw.Status(), lrw.Header(), lrw.body, r))
 
@@ -243,7 +271,20 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 			// extract the original hostname the request was sent to
 			requestHostnameContext := context.WithValue(originRoundtripLatencyContext, RequestHostnameContextKey, r.Host)
 
-			enrichedContext := requestHostnameContext
+			var bodyCopy bytes.Buffer
+			tee := io.TeeReader(lrw.body, &bodyCopy)
+			// read all body from reader into bodyBytes, and copy into bodyCopy
+			bodyBytes, err := io.ReadAll(tee)
+			if err != nil {
+				serviceLogger.Error().Err(err).Msg("can't read lrw.body")
+			}
+
+			// replace empty body reader with fresh copy
+			lrw.body = &bodyCopy
+			// set body in context
+			responseContext := context.WithValue(requestHostnameContext, cachemdw.ResponseContextKey, bodyBytes)
+
+			enrichedContext := responseContext
 
 			// parse the remote address of the request for use below
 			remoteAddressParts := strings.Split(r.RemoteAddr, ":")
@@ -383,6 +424,7 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 		}
 
 		var blockNumber *int64
+		// TODO: Redundant ExtractBlockNumberFromEVMRPCRequest call here if request is cached
 		rawBlockNumber, err := decodedRequestBody.ExtractBlockNumberFromEVMRPCRequest(r.Context(), service.evmClient)
 
 		if err != nil {

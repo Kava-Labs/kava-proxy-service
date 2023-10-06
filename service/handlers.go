@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,9 +21,19 @@ func createHealthcheckHandler(service *ProxyService) func(http.ResponseWriter, *
 
 		// check that the database is reachable
 		err := service.Database.HealthCheck()
-
 		if err != nil {
 			errMsg := fmt.Errorf("proxy service unable to connect to database")
+			combinedErrors = errors.Join(combinedErrors, errMsg)
+		}
+
+		// check that the cache is reachable
+		err = service.Cache.Healthcheck(context.Background())
+		if err != nil {
+			service.Logger.Error().
+				Err(err).
+				Msg("cache healthcheck failed")
+
+			errMsg := fmt.Errorf("proxy service unable to connect to cache")
 			combinedErrors = errors.Join(combinedErrors, errMsg)
 		}
 

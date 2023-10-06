@@ -1,7 +1,14 @@
 package main_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"math/big"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -9,11 +16,14 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/redis/go-redis/v9"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
 )
 
 const (
@@ -50,6 +60,9 @@ var (
 		Logger:                &testServiceLogger,
 		RunDatabaseMigrations: false,
 	}
+
+	redisHostPort = os.Getenv("REDIS_HOST_PORT")
+	redisPassword = os.Getenv("REDIS_PASSWORD")
 )
 
 func TestE2ETestProxyReturnsNonZeroLatestBlockHeader(t *testing.T) {
@@ -468,4 +481,177 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 		assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
 		assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber)
 	}
+}
+
+func TestE2ETestProxyCachesMethodsWithBlockNumberParam(t *testing.T) {
+	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
+	testAddress := common.HexToAddress(testRandomAddressHex)
+
+	// create api and database clients
+	client, err := ethclient.Dial(proxyServiceURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%v", redisHostPort),
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	for _, tc := range []struct {
+		desc    string
+		method  string
+		params  []interface{}
+		keysNum int
+	}{
+		{
+			desc:    "test case #1",
+			method:  "eth_getTransactionCount",
+			params:  []interface{}{testAddress, "0x1"},
+			keysNum: 1,
+		},
+		{
+			desc:    "test case #2",
+			method:  "eth_getBlockByNumber",
+			params:  []interface{}{"0x1", true},
+			keysNum: 2,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			// test cache MISS and cache HIT scenarios for specified method
+			// check corresponding values in cachemdw.CacheMissHeaderValue HTTP header
+			// check that cached and non-cached responses are equal
+
+			// eth_getBlockByNumber - cache MISS
+			resp1 := mkJsonRpcRequest(t, proxyServiceURL, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(resp1.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body1)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+
+			// eth_getBlockByNumber - cache HIT
+			resp2 := mkJsonRpcRequest(t, proxyServiceURL, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheHitHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(resp2.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body2)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+
+			require.JSONEq(t, string(body1), string(body2), "blocks should be the same")
+		})
+	}
+
+	// test cache MISS and cache HIT scenarios for eth_getTransactionCount method
+	// check that cached and non-cached responses are equal
+	{
+		// eth_getTransactionCount - cache MISS
+		bal1, err := client.NonceAt(testContext, testAddress, big.NewInt(2))
+		require.NoError(t, err)
+		expectKeysNum(t, redisClient, 3)
+
+		// eth_getTransactionCount - cache HIT
+		bal2, err := client.NonceAt(testContext, testAddress, big.NewInt(2))
+		require.NoError(t, err)
+		expectKeysNum(t, redisClient, 3)
+
+		require.Equal(t, bal1, bal2, "balances should be the same")
+	}
+
+	// test cache MISS and cache HIT scenarios for eth_getBlockByNumber method
+	// check that cached and non-cached responses are equal
+	{
+		// eth_getBlockByNumber - cache MISS
+		block1, err := client.BlockByNumber(testContext, big.NewInt(2))
+		require.NoError(t, err)
+		expectKeysNum(t, redisClient, 4)
+
+		// eth_getBlockByNumber - cache HIT
+		block2, err := client.BlockByNumber(testContext, big.NewInt(2))
+		require.NoError(t, err)
+		expectKeysNum(t, redisClient, 4)
+
+		require.Equal(t, block1, block2, "blocks should be the same")
+	}
+
+	cleanUpRedis(t, redisClient)
+}
+
+func expectKeysNum(t *testing.T, redisClient *redis.Client, keysNum int) {
+	keys, err := redisClient.Keys(context.Background(), "*").Result()
+	require.NoError(t, err)
+
+	require.Equal(t, keysNum, len(keys))
+}
+
+func cleanUpRedis(t *testing.T, redisClient *redis.Client) {
+	keys, err := redisClient.Keys(context.Background(), "*").Result()
+	require.NoError(t, err)
+
+	for _, key := range keys {
+		fmt.Printf("key: %v\n", key)
+	}
+
+	if len(keys) != 0 {
+		_, err = redisClient.Del(context.Background(), keys...).Result()
+		require.NoError(t, err)
+	}
+}
+
+func mkJsonRpcRequest(t *testing.T, proxyServiceURL, method string, params []interface{}) *http.Response {
+	req := newJsonRpcRequest(method, params)
+	reqInJSON, err := json.Marshal(req)
+	require.NoError(t, err)
+	reqReader := bytes.NewBuffer(reqInJSON)
+	resp, err := http.Post(proxyServiceURL, "application/json", reqReader)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	return resp
+}
+
+type jsonRpcRequest struct {
+	JsonRpc string        `json:"jsonrpc"`
+	Method  string        `json:"method"`
+	Params  []interface{} `json:"params"`
+	Id      int           `json:"id"`
+}
+
+func newJsonRpcRequest(method string, params []interface{}) *jsonRpcRequest {
+	return &jsonRpcRequest{
+		JsonRpc: "2.0",
+		Method:  method,
+		Params:  params,
+		Id:      1,
+	}
+}
+
+type jsonRpcResponse struct {
+	Jsonrpc string      `json:"jsonrpc"`
+	Id      int         `json:"id"`
+	Result  interface{} `json:"result"`
+	Error   string      `json:"error"`
+}
+
+func checkJsonRpcErr(body []byte) error {
+	var resp jsonRpcResponse
+	err := json.Unmarshal(body, &resp)
+	if err != nil {
+		return err
+	}
+
+	if resp.Error != "" {
+		return errors.New(resp.Error)
+	}
+
+	if resp.Result == "" {
+		return errors.New("result is empty")
+	}
+
+	return nil
 }

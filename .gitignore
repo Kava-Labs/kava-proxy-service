@@ -17,7 +17,8 @@ kava-proxy-service
 cover.html
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+vendor/
 
 # ignore editor files
 .vscode/
+.idea/

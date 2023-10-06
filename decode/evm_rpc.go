@@ -6,11 +6,16 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
-
 	cosmosmath "cosmossdk.io/math"
+	"github.com/ethereum/go-ethereum/common"
+	ethctypes "github.com/ethereum/go-ethereum/core/types"
 )
+
+// EVMBlockGetter defines an interface which can be implemented by any client capable of getting ethereum block by hash
+type EVMBlockGetter interface {
+	// BlockByHash returns ethereum block by hash
+	BlockByHash(ctx context.Context, hash common.Hash) (*ethctypes.Block, error)
+}
 
 // Errors that might result from decoding parts or the whole of
 // an EVM RPC request
@@ -138,7 +143,7 @@ func DecodeEVMRPCRequest(body []byte) (*EVMRPCRequestEnvelope, error) {
 // - the request is a valid evm rpc request
 // - the method for the request supports specifying a block number
 // - the provided block number is a valid tag or number
-func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(ctx context.Context, evmClient *ethclient.Client) (int64, error) {
+func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(ctx context.Context, blockGetter EVMBlockGetter) (int64, error) {
 	// only attempt to extract block number from a valid ethereum api request
 	if r.Method == "" {
 		return 0, ErrInvalidEthAPIRequest
@@ -173,12 +178,12 @@ func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(ctx context.
 		return parseBlockNumberFromParams(r.Method, r.Params)
 	}
 
-	return lookupBlockNumberFromHashParam(ctx, evmClient, r.Method, r.Params)
+	return lookupBlockNumberFromHashParam(ctx, blockGetter, r.Method, r.Params)
 }
 
 // Generic method to lookup the block number
 // based on the hash value in a set of params
-func lookupBlockNumberFromHashParam(ctx context.Context, evmClient *ethclient.Client, methodName string, params []interface{}) (int64, error) {
+func lookupBlockNumberFromHashParam(ctx context.Context, blockGetter EVMBlockGetter, methodName string, params []interface{}) (int64, error) {
 	paramIndex, exists := MethodNameToBlockHashParamIndex[methodName]
 
 	if !exists {
@@ -191,7 +196,7 @@ func lookupBlockNumberFromHashParam(ctx context.Context, evmClient *ethclient.Cl
 		return 0, fmt.Errorf(fmt.Sprintf("error decoding block hash param from params %+v at index %d", params, paramIndex))
 	}
 
-	block, err := evmClient.BlockByHash(ctx, common.HexToHash(blockHash))
+	block, err := blockGetter.BlockByHash(ctx, common.HexToHash(blockHash))
 
 	if err != nil {
 		return 0, err
