@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -15,6 +16,36 @@ var (
 		return &client
 	}()
 )
+
+func TestUnitTest_CacheableParamValidation(t *testing.T) {
+	blockNumReq := EVMRPCRequestEnvelope{
+		Method: "eth_getBlockByNumber",
+		Params: []interface{}{"latest", false},
+	}
+	require.True(t, blockNumReq.HasBlockNumberParam())
+	require.False(t, blockNumReq.HasBlockHashParam())
+
+	blockHashReq := EVMRPCRequestEnvelope{
+		Method: "eth_getBlockByHash",
+		Params: []interface{}{"0x7d79bac29793ff9b430debd43309875766afaa61e6f49841d33019b1502fea47", false},
+	}
+	require.True(t, blockHashReq.HasBlockHashParam())
+	require.False(t, blockHashReq.HasBlockNumberParam())
+
+	invalidReq := EVMRPCRequestEnvelope{
+		Method: "eth_notRealMethod",
+		Params: []interface{}{},
+	}
+	require.False(t, invalidReq.HasBlockNumberParam())
+	require.False(t, invalidReq.HasBlockHashParam())
+
+	emptyReq := EVMRPCRequestEnvelope{
+		Method: "",
+		Params: []interface{}{},
+	}
+	require.False(t, emptyReq.HasBlockNumberParam())
+	require.False(t, emptyReq.HasBlockHashParam())
+}
 
 func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValidRequest(t *testing.T) {
 	requestedBlockNumberHexEncoding := "0x2"
