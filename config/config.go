@@ -17,6 +17,9 @@ type Config struct {
 	LogLevel                               string
 	ProxyBackendHostURLMapRaw              string
 	ProxyBackendHostURLMapParsed           map[string]url.URL
+	EnableHeightBasedRouting               bool
+	ProxyPruningBackendHostURLMapRaw       string
+	ProxyPruningBackendHostURLMap          map[string]url.URL
 	EvmQueryServiceURL                     string
 	DatabaseName                           string
 	DatabaseEndpointURL                    string
@@ -43,6 +46,8 @@ const (
 	LOG_LEVEL_ENVIRONMENT_KEY                          = "LOG_LEVEL"
 	DEFAULT_LOG_LEVEL                                  = "INFO"
 	PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY         = "PROXY_BACKEND_HOST_URL_MAP"
+	PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY             = "PROXY_HEIGHT_BASED_ROUTING_ENABLED"
+	PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY = "PROXY_PRUNING_BACKEND_HOST_URL_MAP"
 	PROXY_SERVICE_PORT_ENVIRONMENT_KEY                 = "PROXY_SERVICE_PORT"
 	DATABASE_NAME_ENVIRONMENT_KEY                      = "DATABASE_NAME"
 	DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY              = "DATABASE_ENDPOINT_URL"
@@ -175,15 +180,20 @@ func ParseRawProxyBackendHostURLMap(raw string) (map[string]url.URL, error) {
 // function of the Config package before use
 func ReadConfig() Config {
 	rawProxyBackendHostURLMap := os.Getenv(PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY)
-	// best effort to pares, callers are responsible for validating
+	rawProxyPruningBackendHostURLMap := os.Getenv(PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY)
+	// best effort to parse, callers are responsible for validating
 	// before using any values read
 	parsedProxyBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyBackendHostURLMap)
+	parsedProxyPruningBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyPruningBackendHostURLMap)
 
 	return Config{
 		ProxyServicePort:                       os.Getenv(PROXY_SERVICE_PORT_ENVIRONMENT_KEY),
 		LogLevel:                               EnvOrDefault(LOG_LEVEL_ENVIRONMENT_KEY, DEFAULT_LOG_LEVEL),
 		ProxyBackendHostURLMapRaw:              rawProxyBackendHostURLMap,
 		ProxyBackendHostURLMapParsed:           parsedProxyBackendHostURLMap,
+		EnableHeightBasedRouting:               EnvOrDefaultBool(PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY, false),
+		ProxyPruningBackendHostURLMapRaw:       rawProxyPruningBackendHostURLMap,
+		ProxyPruningBackendHostURLMap:          parsedProxyPruningBackendHostURLMap,
 		DatabaseName:                           os.Getenv(DATABASE_NAME_ENVIRONMENT_KEY),
 		DatabaseEndpointURL:                    os.Getenv(DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY),
 		DatabaseUserName:                       os.Getenv(DATABASE_USERNAME_ENVIRONMENT_KEY),

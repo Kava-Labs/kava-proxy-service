@@ -38,6 +38,11 @@ func Validate(config Config) error {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyBackendHostURLMapRaw))
 	}
 
+	_, err = ParseRawProxyBackendHostURLMap(config.ProxyPruningBackendHostURLMapRaw)
+	if err != nil {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyPruningBackendHostURLMapRaw))
+	}
+
 	_, err = strconv.Atoi(config.ProxyServicePort)
 
 	if err != nil {
