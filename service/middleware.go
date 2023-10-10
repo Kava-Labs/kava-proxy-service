@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"strings"
 	"time"
 
@@ -149,17 +148,9 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 // through and executed before the response is written to the caller
 func createProxyRequestMiddleware(next http.Handler, config config.Config, serviceLogger *logging.ServiceLogger, beforeRequestInterceptors []RequestInterceptor, afterRequestInterceptors []RequestInterceptor) http.HandlerFunc {
 	// create an http handler that will proxy any request to the specified URL
-	reverseProxyForHost := make(map[string]*httputil.ReverseProxy)
+	reverseProxyForHost := NewProxies(config, serviceLogger)
 
-	for host, proxyBackendURL := range config.ProxyBackendHostURLMapParsed {
-		serviceLogger.Debug().Msg(fmt.Sprintf("creating reverse proxy for host %s to %+v", host, proxyBackendURL))
-
-		targetURL := config.ProxyBackendHostURLMapParsed[host]
-
-		reverseProxyForHost[host] = httputil.NewSingleHostReverseProxy(&targetURL)
-	}
-
-	handler := func(proxies map[string]*httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+	handler := func(proxies Proxies) func(http.ResponseWriter, *http.Request) {
 		return func(w http.ResponseWriter, r *http.Request) {
 			serviceLogger.Trace().Msg(fmt.Sprintf("proxying request %+v", r))
 
@@ -176,7 +167,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			// proxy the request to the backend origin server
 			// based on the request host
-			proxy, ok := proxies[r.Host]
+			proxy, ok := proxies.ProxyForRequest(r)
 
 			if !ok {
 				serviceLogger.Error().Msg(fmt.Sprintf("no matching proxy for host %s for request %+v\n configured proxies %+v", r.Host, r, proxies))
