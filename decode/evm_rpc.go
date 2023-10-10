@@ -136,6 +136,32 @@ func DecodeEVMRPCRequest(body []byte) (*EVMRPCRequestEnvelope, error) {
 	return &request, err
 }
 
+// HasBlockNumberParam checks if the request includes a block number param
+// If it does, one can safely call parseBlockNumberFromParams on the request
+func (r *EVMRPCRequestEnvelope) HasBlockNumberParam() bool {
+	var includesBlockNumberParam bool
+	for _, cacheableByBlockNumberMethod := range CacheableByBlockNumberMethods {
+		if r.Method == cacheableByBlockNumberMethod {
+			includesBlockNumberParam = true
+			break
+		}
+	}
+	return includesBlockNumberParam
+}
+
+// HasBlockNumberParam checks if the request includes a block hash param
+// If it does, one can safely call lookupBlockNumberFromHashParam on the request
+func (r *EVMRPCRequestEnvelope) HasBlockHashParam() bool {
+	var includesBlockHashParam bool
+	for _, cacheableByBlockHashMethod := range CacheableByBlockHashMethods {
+		if r.Method == cacheableByBlockHashMethod {
+			includesBlockHashParam = true
+			break
+		}
+	}
+	return includesBlockHashParam
+}
+
 // ExtractBlockNumberFromEVMRPCRequest attempts to extract the block number
 // associated with a request if
 // - the request is a valid evm rpc request
@@ -146,37 +172,16 @@ func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(ctx context.
 	if r.Method == "" {
 		return 0, ErrInvalidEthAPIRequest
 	}
-
-	// validate this is a request with a block number param
-	var cacheableByBlockNumber bool
-	for _, cacheableByBlockNumberMethod := range CacheableByBlockNumberMethods {
-		if r.Method == cacheableByBlockNumberMethod {
-			cacheableByBlockNumber = true
-			break
-		}
+	// handle cacheable by block number
+	if r.HasBlockNumberParam() {
+		return ParseBlockNumberFromParams(r.Method, r.Params)
 	}
-
-	var cacheableByBlockHash bool
-	for _, cacheableByBlockHashMethod := range CacheableByBlockHashMethods {
-		if r.Method == cacheableByBlockHashMethod {
-			cacheableByBlockHash = true
-			break
-		}
+	// handle cacheable by block hash
+	if r.HasBlockHashParam() {
+		return lookupBlockNumberFromHashParam(ctx, evmClient, r.Method, r.Params)
 	}
-
-	if !cacheableByBlockNumber && !cacheableByBlockHash {
-		return 0, ErrUncachaebleByBlockNumberEthRequest
-	}
-
-	// parse block number using heuristics so byzantine
-	// they require their own consensus engine 😅
-	// https://ethereum.org/en/developers/docs/apis/json-rpc
-	// or at least a healthy level of [code coverage](./evm_rpc_test.go) ;-)
-	if cacheableByBlockNumber {
-		return parseBlockNumberFromParams(r.Method, r.Params)
-	}
-
-	return lookupBlockNumberFromHashParam(ctx, evmClient, r.Method, r.Params)
+	// handle unable to cached
+	return 0, ErrUncachaebleByBlockNumberEthRequest
 }
 
 // Generic method to lookup the block number
@@ -204,7 +209,7 @@ func lookupBlockNumberFromHashParam(ctx context.Context, evmClient *ethclient.Cl
 }
 
 // Generic method to parse the block number from a set of params
-func parseBlockNumberFromParams(methodName string, params []interface{}) (int64, error) {
+func ParseBlockNumberFromParams(methodName string, params []interface{}) (int64, error) {
 	paramIndex, exists := MethodNameToBlockNumberParamIndex[methodName]
 
 	if !exists {
