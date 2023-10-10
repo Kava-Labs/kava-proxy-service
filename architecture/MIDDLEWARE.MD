@@ -61,6 +61,28 @@ server := &http.Server{
 
 1. Times the roundtrip latency for the response from the backend origin server and stores the latency in the context key `X-KAVA-PROXY-ORIGIN-ROUNDTRIP-LATENCY-MILLISECONDS` for use by other middleware.
 
+#### Configuration
+
+The proxy is configured to route requests based on their incoming Host. These are controlled via the
+`PROXY_BACKEND_HOST_URL_MAP` environment variable.
+
+As an example, consider a value of `localhost:7777>http://kava:8545,localhost:7778>http://kava:8545`.
+This value is parsed into a map that looks like the following:
+```
+{
+    "localhost:7777" => "http://kava:8545",
+    "localhost:7778" => "http://kava:8545",
+}
+```
+Any request to the service will be routed according to this map.
+ie. all requests to local ports 7777 & 7778 get forwarded to `http://kava:8545`
+
+Implementations of the [`Proxies` interface](../service/proxy.go#L13) contain logic for deciding
+the backend host url to which a request is routed. This is used in the ProxyRequestMiddleware to
+route requests.
+
+Any request made to a host not in the map responds 502 Bad Gateway.
+
 ### After Proxy Middleware
 
 1. Parses the request body and latency from context key values and creates a request metric for the proxied request.
