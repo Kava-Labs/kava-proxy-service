@@ -86,7 +86,13 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (proxy *httput
 	decodedReq, ok := (req).(*decode.EVMRPCRequestEnvelope)
 	if !ok {
 		hsp.Error().Msg("HeightShardingProxies failed to find & cast the decoded request envelope from the request context")
-		return nil, false
+		return hsp.defaultProxies.ProxyForRequest(r)
+	}
+
+	// some RPC methods can always be routed to the latest block
+	if decode.IsAlwaysLatestHeightMethod(decodedReq.Method) {
+		hsp.Debug().Msg(fmt.Sprintf("request method %s can always use latest block. routing to pruning proxy", decodedReq.Method))
+		return hsp.pruningProxies.ProxyForRequest(r)
 	}
 
 	// short circuit if requesting a method that doesn't include block height number
