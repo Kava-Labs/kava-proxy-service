@@ -48,6 +48,40 @@ var CacheableByBlockHashMethods = []string{
 	"eth_getTransactionByBlockHashAndIndex",
 }
 
+// List of evm methods that can always be safely routed to an up-to-date pruning cluster.
+// These are methods that rely only on the present state of the chain.
+var AlwaysLatestHeightMethods = []string{
+	"web3_clientVersion",
+	"web3_sha3",
+	"net_version",
+	"net_listening",
+	"net_peerCount",
+	"eth_protocolVersion",
+	"eth_syncing",
+	"eth_coinbase",
+	"eth_chainId",
+	"eth_mining",
+	"eth_hashrate",
+	"eth_gasPrice",
+	"eth_accounts",
+	"eth_sign",
+	"eth_signTransaction",
+	"eth_sendTransaction",
+	"eth_sendRawTransaction",
+}
+
+// IsAlwaysLatestHeightMethod returns true when a JSON-RPC method always functions correctly
+// when sent to the latest block.
+// This is useful for determining if a request can be made to a pruning cluster.
+func IsAlwaysLatestHeightMethod(method string) bool {
+	for _, alwaysLatestMethod := range AlwaysLatestHeightMethods {
+		if method == alwaysLatestMethod {
+			return true
+		}
+	}
+	return false
+}
+
 // List of evm methods that can be cached independent
 // of block number (i.e. by block or transaction hash, filter id, or time period)
 // TODO: break these out into separate list for methods that can be cached using the same key type
@@ -214,6 +248,12 @@ func ParseBlockNumberFromParams(methodName string, params []interface{}) (int64,
 
 	if !exists {
 		return 0, ErrUncachaebleByBlockNumberEthRequest
+	}
+
+	// TODO: IS THIS TRUE?
+	// an empty block tag is the equivalent of requesting latest.
+	if params[paramIndex] == nil {
+		return BlockTagToNumberCodec["latest"], nil
 	}
 
 	tag, isString := params[paramIndex].(string)
