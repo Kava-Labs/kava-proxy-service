@@ -147,6 +147,11 @@ var BlockTagToNumberCodec = map[string]int64{
 	"earliest":  -3,
 	"finalized": -4,
 	"safe":      -5,
+	// "empty" is not part of the evm json-rpc spec
+	// it is our encoding for when no parameter is passed in as a block tag param
+	// usually, clients interpret an empty block tag to mean "latest"
+	// we track it separately here to more accurately track how users make requests
+	"empty": -6,
 }
 
 // EVMRPCRequest wraps expected values present in a request
@@ -250,10 +255,9 @@ func ParseBlockNumberFromParams(methodName string, params []interface{}) (int64,
 		return 0, ErrUncachaebleByBlockNumberEthRequest
 	}
 
-	// TODO: IS THIS TRUE?
-	// an empty block tag is the equivalent of requesting latest.
+	// capture requests made with empty block tag params
 	if params[paramIndex] == nil {
-		return BlockTagToNumberCodec["latest"], nil
+		return BlockTagToNumberCodec["empty"], nil
 	}
 
 	tag, isString := params[paramIndex].(string)
