@@ -60,9 +60,9 @@ var CacheableByBlockHashMethods = []string{
 	"eth_getTransactionByBlockHashAndIndex",
 }
 
-// List of evm methods that can always be safely routed to an up-to-date pruning cluster.
-// These are methods that rely only on the present state of the chain.
-var AlwaysLatestHeightMethods = []string{
+// NoHistoryMethods is a list of JSON-RPC methods that rely only on the present state of the chain.
+// They can always be safely routed to an up-to-date pruning cluster.
+var NoHistoryMethods = []string{
 	"web3_clientVersion",
 	"web3_sha3",
 	"net_version",
@@ -82,12 +82,12 @@ var AlwaysLatestHeightMethods = []string{
 	"eth_sendRawTransaction",
 }
 
-// IsAlwaysLatestHeightMethod returns true when a JSON-RPC method always functions correctly
+// MethodRequiresNoHistory returns true when the JSON-RPC method always functions correctly
 // when sent to the latest block.
-// This is useful for determining if a request can be made to a pruning cluster.
-func IsAlwaysLatestHeightMethod(method string) bool {
-	for _, alwaysLatestMethod := range AlwaysLatestHeightMethods {
-		if method == alwaysLatestMethod {
+// This is useful for determining if a request can be routed to a pruning cluster.
+func MethodRequiresNoHistory(method string) bool {
+	for _, nonHistoricalMethod := range NoHistoryMethods {
+		if method == nonHistoricalMethod {
 			return true
 		}
 	}
