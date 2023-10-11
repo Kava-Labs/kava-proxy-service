@@ -18,33 +18,44 @@ var (
 )
 
 func TestUnitTest_CacheableParamValidation(t *testing.T) {
-	blockNumReq := EVMRPCRequestEnvelope{
-		Method: "eth_getBlockByNumber",
-		Params: []interface{}{"latest", false},
+	testCases := []struct {
+		name           string
+		method         string
+		hasBlockNumber bool
+		hasBlockHash   bool
+	}{
+		{
+			name:           "block number method",
+			method:         "eth_getBlockByNumber",
+			hasBlockNumber: true,
+			hasBlockHash:   false,
+		},
+		{
+			name:           "block hash method",
+			method:         "eth_getBlockByHash",
+			hasBlockNumber: false,
+			hasBlockHash:   true,
+		},
+		{
+			name:           "invalid method",
+			method:         "eth_notRealMethod",
+			hasBlockNumber: false,
+			hasBlockHash:   false,
+		},
+		{
+			name:           "empty method",
+			method:         "",
+			hasBlockNumber: false,
+			hasBlockHash:   false,
+		},
 	}
-	require.True(t, blockNumReq.HasBlockNumberParam())
-	require.False(t, blockNumReq.HasBlockHashParam())
 
-	blockHashReq := EVMRPCRequestEnvelope{
-		Method: "eth_getBlockByHash",
-		Params: []interface{}{"0x7d79bac29793ff9b430debd43309875766afaa61e6f49841d33019b1502fea47", false},
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.hasBlockNumber, MethodHasBlockNumberParam(tc.method), "unexpected MethodHasBlockNumberParam result")
+			require.Equal(t, tc.hasBlockHash, MethodHasBlockHashParam(tc.method), "unexpected MethodHasBlockHashParam result")
+		})
 	}
-	require.True(t, blockHashReq.HasBlockHashParam())
-	require.False(t, blockHashReq.HasBlockNumberParam())
-
-	invalidReq := EVMRPCRequestEnvelope{
-		Method: "eth_notRealMethod",
-		Params: []interface{}{},
-	}
-	require.False(t, invalidReq.HasBlockNumberParam())
-	require.False(t, invalidReq.HasBlockHashParam())
-
-	emptyReq := EVMRPCRequestEnvelope{
-		Method: "",
-		Params: []interface{}{},
-	}
-	require.False(t, emptyReq.HasBlockNumberParam())
-	require.False(t, emptyReq.HasBlockHashParam())
 }
 
 func TestUnitTestExtractBlockNumberFromEVMRPCRequestReturnsExpectedBlockForValidRequest(t *testing.T) {

@@ -49,6 +49,18 @@ var CacheableByBlockNumberMethods = []string{
 	"eth_call",
 }
 
+// MethodHasBlockNumberParam returns true when the method expects a block number in the request parameters.
+func MethodHasBlockNumberParam(method string) bool {
+	var includesBlockNumberParam bool
+	for _, cacheableByBlockNumberMethod := range CacheableByBlockNumberMethods {
+		if method == cacheableByBlockNumberMethod {
+			includesBlockNumberParam = true
+			break
+		}
+	}
+	return includesBlockNumberParam
+}
+
 // List of evm methods that can be cached by block hash
 // and so are useful for converting and tracking the block hash associated with
 // any requests invoking those methods to the matching block number
@@ -58,6 +70,18 @@ var CacheableByBlockHashMethods = []string{
 	"eth_getBlockByHash",
 	"eth_getUncleByBlockHashAndIndex",
 	"eth_getTransactionByBlockHashAndIndex",
+}
+
+// MethodHasBlockHashParam returns true when the method expects a block hash in the request parameters.
+func MethodHasBlockHashParam(method string) bool {
+	var includesBlockHashParam bool
+	for _, cacheableByBlockHashMethod := range CacheableByBlockHashMethods {
+		if method == cacheableByBlockHashMethod {
+			includesBlockHashParam = true
+			break
+		}
+	}
+	return includesBlockHashParam
 }
 
 // NoHistoryMethods is a list of JSON-RPC methods that rely only on the present state of the chain.
@@ -187,32 +211,6 @@ func DecodeEVMRPCRequest(body []byte) (*EVMRPCRequestEnvelope, error) {
 	return &request, err
 }
 
-// HasBlockNumberParam checks if the request includes a block number param
-// If it does, one can safely call parseBlockNumberFromParams on the request
-func (r *EVMRPCRequestEnvelope) HasBlockNumberParam() bool {
-	var includesBlockNumberParam bool
-	for _, cacheableByBlockNumberMethod := range CacheableByBlockNumberMethods {
-		if r.Method == cacheableByBlockNumberMethod {
-			includesBlockNumberParam = true
-			break
-		}
-	}
-	return includesBlockNumberParam
-}
-
-// HasBlockNumberParam checks if the request includes a block hash param
-// If it does, one can safely call lookupBlockNumberFromHashParam on the request
-func (r *EVMRPCRequestEnvelope) HasBlockHashParam() bool {
-	var includesBlockHashParam bool
-	for _, cacheableByBlockHashMethod := range CacheableByBlockHashMethods {
-		if r.Method == cacheableByBlockHashMethod {
-			includesBlockHashParam = true
-			break
-		}
-	}
-	return includesBlockHashParam
-}
-
 // ExtractBlockNumberFromEVMRPCRequest attempts to extract the block number
 // associated with a request if
 // - the request is a valid evm rpc request
@@ -224,11 +222,11 @@ func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(ctx context.
 		return 0, ErrInvalidEthAPIRequest
 	}
 	// handle cacheable by block number
-	if r.HasBlockNumberParam() {
+	if MethodHasBlockNumberParam(r.Method) {
 		return ParseBlockNumberFromParams(r.Method, r.Params)
 	}
 	// handle cacheable by block hash
-	if r.HasBlockHashParam() {
+	if MethodHasBlockHashParam(r.Method) {
 		return lookupBlockNumberFromHashParam(ctx, evmClient, r.Method, r.Params)
 	}
 	// handle unable to cached
