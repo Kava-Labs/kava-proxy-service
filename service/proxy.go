@@ -109,8 +109,7 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (proxy *httput
 	}
 
 	// route "latest" to pruning proxy, otherwise route to default
-	requestingLatestBlock := height == 0 || height == decode.BlockTagToNumberCodec["latest"]
-	if requestingLatestBlock {
+	if shouldRouteToPruning(height) {
 		hsp.Debug().Msg(fmt.Sprintf("request is for latest height (%d). routing to pruning proxy", height))
 		return pruningProxy, found
 	}
@@ -118,10 +117,27 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (proxy *httput
 	return hsp.defaultProxies.ProxyForRequest(r)
 }
 
+// newHeightShardingProxies creates a new HeightShardingProxies from the service config.
 func newHeightShardingProxies(config config.Config, serviceLogger *logging.ServiceLogger) HeightShardingProxies {
 	return HeightShardingProxies{
 		ServiceLogger:  serviceLogger,
 		pruningProxies: newHostProxies(config.ProxyPruningBackendHostURLMap, serviceLogger),
 		defaultProxies: newHostProxies(config.ProxyBackendHostURLMapParsed, serviceLogger),
 	}
+}
+
+// lookup map for block tags that all represent "latest".
+// maps encoded block tag -> true if the block tag should route to pruning cluster.
+var blockTagEncodingsRoutedToLatest = map[int64]bool{
+	decode.BlockTagToNumberCodec[decode.BlockTagLatest]:    true,
+	decode.BlockTagToNumberCodec[decode.BlockTagFinalized]: true,
+	decode.BlockTagToNumberCodec[decode.BlockTagPending]:   true,
+	decode.BlockTagToNumberCodec[decode.BlockTagSafe]:      true,
+	decode.BlockTagToNumberCodec[decode.BlockTagEmpty]:     true,
+}
+
+// shouldRouteToPruning is a helper method for determining if an encoded block tag should get routed
+// to the pruning cluster
+func shouldRouteToPruning(encodedHeight int64) bool {
+	return blockTagEncodingsRoutedToLatest[encodedHeight]
 }
