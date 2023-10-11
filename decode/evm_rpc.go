@@ -100,6 +100,7 @@ var NoHistoryMethods = []string{
 	"eth_hashrate",
 	"eth_gasPrice",
 	"eth_accounts",
+	"eth_blockNumber",
 	"eth_sign",
 	"eth_signTransaction",
 	"eth_sendTransaction",
