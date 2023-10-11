@@ -12,31 +12,38 @@ import (
 )
 
 var (
-	testDefaultContext    = context.TODO()
-	proxyServiceURLMapRaw = os.Getenv("TEST_PROXY_BACKEND_HOST_URL_MAP")
-	databaseName          = os.Getenv("DATABASE_NAME")
-	databaseUsername      = os.Getenv("DATABASE_USERNAME")
-	databasePassword      = os.Getenv("DATABASE_PASSWORD")
-	databaseEndpointURL   = os.Getenv("DATABASE_ENDPOINT_URL")
-	testServiceLogLevel   = os.Getenv("TEST_SERVICE_LOG_LEVEL")
-	evmQueryServiceURL    = os.Getenv("TEST_EVM_QUERY_SERVICE_URL")
+	testDefaultContext           = context.TODO()
+	proxyServiceDefaultURLMapRaw = os.Getenv("TEST_PROXY_BACKEND_HOST_URL_MAP")
+	proxyServicePruningURLMapRaw = os.Getenv("TEST_PROXY_PRUNING_BACKEND_HOST_URL_MAP")
+	databaseName                 = os.Getenv("DATABASE_NAME")
+	databaseUsername             = os.Getenv("DATABASE_USERNAME")
+	databasePassword             = os.Getenv("DATABASE_PASSWORD")
+	databaseEndpointURL          = os.Getenv("DATABASE_ENDPOINT_URL")
+	testServiceLogLevel          = os.Getenv("TEST_SERVICE_LOG_LEVEL")
+	evmQueryServiceURL           = os.Getenv("TEST_EVM_QUERY_SERVICE_URL")
 
 	dummyConfig = func() config.Config {
 
-		proxyBackendHostURLMapParsed, err := config.ParseRawProxyBackendHostURLMap(proxyServiceURLMapRaw)
-
+		proxyBackendHostURLMapParsed, err := config.ParseRawProxyBackendHostURLMap(proxyServiceDefaultURLMapRaw)
+		if err != nil {
+			panic(err)
+		}
+		proxyPruningBackendHostURLMapParsed, err := config.ParseRawProxyBackendHostURLMap(proxyServicePruningURLMapRaw)
 		if err != nil {
 			panic(err)
 		}
 
 		conf := config.Config{
-			ProxyBackendHostURLMapRaw:    proxyServiceURLMapRaw,
-			ProxyBackendHostURLMapParsed: proxyBackendHostURLMapParsed,
-			DatabaseName:                 databaseName,
-			DatabaseUserName:             databaseUsername,
-			DatabasePassword:             databasePassword,
-			DatabaseEndpointURL:          databaseEndpointURL,
-			EvmQueryServiceURL:           evmQueryServiceURL,
+			ProxyBackendHostURLMapRaw:        proxyServiceDefaultURLMapRaw,
+			ProxyBackendHostURLMapParsed:     proxyBackendHostURLMapParsed,
+			ProxyPruningBackendHostURLMapRaw: proxyServicePruningURLMapRaw,
+			ProxyPruningBackendHostURLMap:    proxyPruningBackendHostURLMapParsed,
+
+			DatabaseName:        databaseName,
+			DatabaseUserName:    databaseUsername,
+			DatabasePassword:    databasePassword,
+			DatabaseEndpointURL: databaseEndpointURL,
+			EvmQueryServiceURL:  evmQueryServiceURL,
 		}
 
 		return conf
