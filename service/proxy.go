@@ -96,7 +96,7 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (proxy *httput
 	}
 
 	// short circuit if requesting a method that doesn't include block height number
-	if !decodedReq.HasBlockNumberParam() {
+	if !decode.MethodHasBlockNumberParam(decodedReq.Method) {
 		hsp.Debug().Msg(fmt.Sprintf("request method does not include block height (%s). routing to default proxy", decodedReq.Method))
 		return hsp.defaultProxies.ProxyForRequest(r)
 	}
