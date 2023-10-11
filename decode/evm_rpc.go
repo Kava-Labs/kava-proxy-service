@@ -258,6 +258,8 @@ func lookupBlockNumberFromHashParam(ctx context.Context, evmClient *ethclient.Cl
 }
 
 // Generic method to parse the block number from a set of params
+// errors if method does not have a block number in the param, or the param has an unexpected value
+// block tags are encoded to an int64 according to the BlockTagToNumberCodec map.
 func ParseBlockNumberFromParams(methodName string, params []interface{}) (int64, error) {
 	paramIndex, exists := MethodNameToBlockNumberParamIndex[methodName]
 
