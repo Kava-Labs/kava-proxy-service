@@ -12,6 +12,18 @@ import (
 	cosmosmath "cosmossdk.io/math"
 )
 
+// These block tags are special strings used to reference blocks in JSON-RPC
+// see https://ethereum.org/en/developers/docs/apis/json-rpc/#default-block
+const (
+	BlockTagLatest    = "latest"
+	BlockTagPending   = "pending"
+	BlockTagEarliest  = "earliest"
+	BlockTagFinalized = "finalized"
+	BlockTagSafe      = "safe"
+	// "empty" is not in the spec, it is our encoding for requests made with a nil block tag param.
+	BlockTagEmpty = "empty"
+)
+
 // Errors that might result from decoding parts or the whole of
 // an EVM RPC request
 var (
@@ -142,16 +154,16 @@ var MethodNameToBlockHashParamIndex = map[string]int{
 // for the proxied request metric
 // see https://ethereum.org/en/developers/docs/apis/json-rpc/#default-block
 var BlockTagToNumberCodec = map[string]int64{
-	"latest":    -1,
-	"pending":   -2,
-	"earliest":  -3,
-	"finalized": -4,
-	"safe":      -5,
+	BlockTagLatest:    -1,
+	BlockTagPending:   -2,
+	BlockTagEarliest:  -3,
+	BlockTagFinalized: -4,
+	BlockTagSafe:      -5,
 	// "empty" is not part of the evm json-rpc spec
 	// it is our encoding for when no parameter is passed in as a block tag param
 	// usually, clients interpret an empty block tag to mean "latest"
 	// we track it separately here to more accurately track how users make requests
-	"empty": -6,
+	BlockTagEmpty: -6,
 }
 
 // EVMRPCRequest wraps expected values present in a request
