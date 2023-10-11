@@ -90,7 +90,7 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (proxy *httput
 	}
 
 	// some RPC methods can always be routed to the latest block
-	if decode.IsAlwaysLatestHeightMethod(decodedReq.Method) {
+	if decode.MethodRequiresNoHistory(decodedReq.Method) {
 		hsp.Debug().Msg(fmt.Sprintf("request method %s can always use latest block. routing to pruning proxy", decodedReq.Method))
 		return hsp.pruningProxies.ProxyForRequest(r)
 	}
