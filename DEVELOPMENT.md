@@ -96,6 +96,8 @@ The e2e tests won't pass if the proxy service and it's dependencies aren't fully
 make ready e2e-test
 ```
 
+For details on the local E2E setup, see [the `docker` directory](./docker/README.md).
+
 ## Test Coverage Report
 
 The test commands `make test`, `make unit-test`, and `make e2e-test` generate a `cover.out` raw test coverage report. The coverage can be converted into a user-friendly webpage:
