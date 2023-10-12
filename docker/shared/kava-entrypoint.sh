@@ -18,7 +18,7 @@ else
     kava init test --chain-id=localnet_7777-1
 
     # copy over temporary shared genesis
-    cp /docker/shared/genesis.json /root/.kava/config/genesis.json
+    cp /root/.kava/config/genesis.json /root/empty-genesis.json
     # # ensure evm api listens on all addresses
     sed -i 's/address = "127.0.0.1:8545"/address = "0.0.0.0:8545"/g' /root/.kava/config/app.toml
 
@@ -59,7 +59,12 @@ else
 
     # reset genesis. genesis accounts will be added in correct order in setup below
     # adding them in a different order in each different validator results in an AppHash mismatch.
-    cp /docker/shared/genesis.json /root/.kava/config/genesis.json
+    # cp /docker/shared/genesis.json /root/.kava/config/genesis.json
+    mv /root/empty-genesis.json /root/.kava/config/genesis.json
+
+    # set shared genesis time
+    jq '.genesis_time="'"$(cat /docker/shared/GENESIS_TIME)"'"' /root/.kava/config/genesis.json >/root/temp-genesis.json
+    mv /root/temp-genesis.json /root/.kava/config/genesis.json
 fi
 
 MY_ADDRESS=$(kava keys show kava-localnet-delegator -a)
