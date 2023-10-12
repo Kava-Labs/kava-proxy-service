@@ -5,11 +5,14 @@ set -ex
 
 # exit early if geneis.json already exists
 # which will happen if the kava docker container is stopped and later restarted
-if test -f "/root/.kava/config/genesis.json" ; then
+if test -f "/root/.kava/config/genesis.json"; then
     echo "genesis.json alredy exists, skipping chain init and validator initilization"
 else
     # create default genesis and node config
     kava init test --chain-id=localnet_7777-1
+
+    # ensure evm api listens on all addresses
+    sed -i 's/address = "127.0.0.1:8545"/address = "0.0.0.0:8545"/g' /root/.kava/config/app.toml
 
     # use the test backend to avoid prompts when storing and accessing keys
     kava config keyring-backend test
@@ -27,6 +30,11 @@ else
 
     # merge above transaction with previously generated default genesis
     kava collect-gentxs
+
+    # share node id with peer nodes
+    kava tendermint show-node-id >/docker/shared/VALIDATOR_NODE_ID
+    # share genesis file with peer nodes
+    cp /root/.kava/config/genesis.json /docker/shared/genesis.json
 fi
 
 # set config for kava processes to use

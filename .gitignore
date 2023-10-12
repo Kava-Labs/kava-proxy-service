@@ -21,3 +21,7 @@ cover.html
 
 # ignore editor files
 .vscode/
+
+# ignore e2e test validator files
+docker/shared/genesis.json
+docker/shared/VALIDATOR_NODE_ID
