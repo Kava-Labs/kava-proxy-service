@@ -69,6 +69,7 @@ up:
 .PHONY: down
 # stop the service and it's dependencies
 down:
+	rm -fr docker/shared/gentx
 	docker compose down
 
 .PHONY: restart

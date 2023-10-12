@@ -8,6 +8,7 @@ services:
       - "${POSTGRES_HOST_PORT}:${POSTGRES_CONTAINER_PORT}"
     expose:
       - "${POSTGRES_CONTAINER_PORT}"
+
   # run redis for proxy service to cache responses
   redis:
     image: 'bitnami/redis:latest'
@@ -16,11 +17,36 @@ services:
       - "${REDIS_HOST_PORT}:${REDIS_CONTAINER_PORT}"
     expose:
       - "${REDIS_CONTAINER_PORT}"
-  # run single validator kava node to provide a local kava network for development and testing of the proxy service
-  kavapruning:
-    image: kava/kava:latest
-    entrypoint: /docker/kava/kava-entrypoint.sh
+
+  # run 1st validator kava node to provide a local kava network for development and testing of the proxy service
+  # "archive" vs "pruning" is in name only. they run the same infra.
+  kavaarchive:
+    image: kava/kava:${KAVA_CONTAINER_TAG}
+    entrypoint: /docker/shared/kava-entrypoint.sh
     env_file: .env
+    environment:
+      # used by the container to notify other containers of its peer address
+      - CONTAINER_NAME=kavaarchive
+    volumes:
+      - ./docker/kavaarchive:/docker/kava
+      - ./docker/shared:/docker/shared
+    ports:
+      - "${KAVA_ARCHIVE_HOST_COSMOS_RPC_PORT}:${KAVA_CONTAINER_COSMOS_RPC_PORT}"
+      - "${KAVA_ARCHIVE_HOST_EVM_RPC_PORT}:${KAVA_CONTAINER_EVM_RPC_PORT}"
+    # expose ports for other services to be able to connect to within
+    # the default docker-compose network
+    expose:
+      - "${KAVA_CONTAINER_COSMOS_RPC_PORT}"
+      - "${KAVA_CONTAINER_EVM_RPC_PORT}"
+
+  # run 2nd validator kava node to provide a local kava network for development and testing of the proxy service
+  kavapruning:
+    image: kava/kava:${KAVA_CONTAINER_TAG}
+    entrypoint: /docker/shared/kava-entrypoint.sh
+    env_file: .env
+    environment:
+      # used by the container to notify other containers of its peer address
+      - CONTAINER_NAME=kavapruning
     volumes:
       - ./docker/kavapruning:/docker/kava
       - ./docker/shared:/docker/shared
@@ -32,6 +58,7 @@ services:
     expose:
       - "${KAVA_CONTAINER_COSMOS_RPC_PORT}"
       - "${KAVA_CONTAINER_EVM_RPC_PORT}"
+
   # run proxy service to observe, route, and scale requests to kava api endpoints
   proxy:
     build:
