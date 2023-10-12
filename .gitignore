@@ -21,3 +21,7 @@ cover.html
 
 # ignore editor files
 .vscode/
+
+# e2e test setup uses a shared folder of gentxs
+# that is recreated every time the containers are spun up
+docker/shared/gentx

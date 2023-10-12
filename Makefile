@@ -63,6 +63,7 @@ test:
 .PHONY: up
 # start dockerized versions of the service and it's dependencies
 up:
+	mkdir -p docker/shared/gentx
 	docker compose up -d
 
 .PHONY: down
@@ -78,6 +79,8 @@ restart:
 .PHONY: reset
 # wipe state and restart the service and all it's dependencies
 reset: lint
+	rm -fr docker/shared/gentx
+	mkdir -p docker/shared/gentx
 	docker compose up -d --build --remove-orphans --renew-anon-volumes --force-recreate
 
 .PHONY: refresh

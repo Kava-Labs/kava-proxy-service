@@ -23,6 +23,7 @@ services:
     env_file: .env
     volumes:
       - ./docker/kavapruning:/docker/kava
+      - ./docker/shared:/docker/shared
     ports:
       - "${KAVA_PRUNING_HOST_COSMOS_RPC_PORT}:${KAVA_CONTAINER_COSMOS_RPC_PORT}"
       - "${KAVA_PRUNING_HOST_EVM_RPC_PORT}:${KAVA_CONTAINER_EVM_RPC_PORT}"
