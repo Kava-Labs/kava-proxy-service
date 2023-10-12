@@ -17,15 +17,15 @@ services:
     expose:
       - "${REDIS_CONTAINER_PORT}"
   # run single validator kava node to provide a local kava network for development and testing of the proxy service
-  kava:
+  kavapruning:
     image: kava/kava:latest
     entrypoint: /docker/kava/kava-entrypoint.sh
     env_file: .env
     volumes:
-      - ./docker/kava:/docker/kava
+      - ./docker/kavapruning:/docker/kava
     ports:
-      - "${KAVA_HOST_COSMOS_RPC_PORT}:${KAVA_CONTAINER_COSMOS_RPC_PORT}"
-      - "${KAVA_HOST_EVM_RPC_PORT}:${KAVA_CONTAINER_EVM_RPC_PORT}"
+      - "${KAVA_PRUNING_HOST_COSMOS_RPC_PORT}:${KAVA_CONTAINER_COSMOS_RPC_PORT}"
+      - "${KAVA_PRUNING_HOST_EVM_RPC_PORT}:${KAVA_CONTAINER_EVM_RPC_PORT}"
     # expose ports for other services to be able to connect to within
     # the default docker-compose network
     expose:
