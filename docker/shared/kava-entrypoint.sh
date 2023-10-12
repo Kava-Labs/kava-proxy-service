@@ -17,7 +17,10 @@ else
     # create default genesis and node config
     kava init test --chain-id=localnet_7777-1
 
+    # copy over temporary shared genesis
     cp /docker/shared/genesis.json /root/.kava/config/genesis.json
+    # # ensure evm api listens on all addresses
+    sed -i 's/address = "127.0.0.1:8545"/address = "0.0.0.0:8545"/g' /root/.kava/config/app.toml
 
     # use the test backend to avoid prompts when storing and accessing keys
     kava config keyring-backend test
