@@ -53,23 +53,26 @@ func TestUnitTest_HostProxies(t *testing.T) {
 
 	t.Run("ProxyForHost maps to correct proxy", func(t *testing.T) {
 		req := mockReqForUrl("//magic.kava.io")
-		proxy, found := proxies.ProxyForRequest(req)
+		proxy, responseBackend, found := proxies.ProxyForRequest(req)
 		require.True(t, found, "expected proxy to be found")
+		require.Equal(t, responseBackend, service.ResponseBackendDefault)
 		requireProxyRoutesToUrl(t, proxy, req, "magicalbackend.kava.io/")
 
 		req = mockReqForUrl("https://archive.kava.io")
-		proxy, found = proxies.ProxyForRequest(req)
+		proxy, responseBackend, found = proxies.ProxyForRequest(req)
 		require.True(t, found, "expected proxy to be found")
+		require.Equal(t, responseBackend, service.ResponseBackendDefault)
 		requireProxyRoutesToUrl(t, proxy, req, "archivenode.kava.io/")
 
 		req = mockReqForUrl("//pruning.kava.io/some/nested/endpoint")
-		proxy, found = proxies.ProxyForRequest(req)
+		proxy, responseBackend, found = proxies.ProxyForRequest(req)
 		require.True(t, found, "expected proxy to be found")
+		require.Equal(t, responseBackend, service.ResponseBackendDefault)
 		requireProxyRoutesToUrl(t, proxy, req, "pruningnode.kava.io/some/nested/endpoint")
 	})
 
 	t.Run("ProxyForHost fails with unknown host", func(t *testing.T) {
-		_, found := proxies.ProxyForRequest(mockReqForUrl("//unknown-host.kava.io"))
+		_, _, found := proxies.ProxyForRequest(mockReqForUrl("//unknown-host.kava.io"))
 		require.False(t, found, "expected proxy not found for unknown host")
 	})
 }
@@ -77,6 +80,10 @@ func TestUnitTest_HostProxies(t *testing.T) {
 func TestUnitTest_HeightShardingProxies(t *testing.T) {
 	archiveBackend := "archivenode.kava.io/"
 	pruningBackend := "pruningnode.kava.io/"
+	backendRoutes := map[string]string{
+		service.ResponseBackendDefault: archiveBackend,
+		service.ResponseBackendPruning: pruningBackend,
+	}
 	config := newConfig(t,
 		fmt.Sprintf("archive.kava.io>%s,pruning.kava.io>%s", archiveBackend, pruningBackend),
 		fmt.Sprintf("archive.kava.io>%s", pruningBackend),
@@ -84,19 +91,19 @@ func TestUnitTest_HeightShardingProxies(t *testing.T) {
 	proxies := service.NewProxies(config, dummyLogger)
 
 	testCases := []struct {
-		name        string
-		url         string
-		req         *decode.EVMRPCRequestEnvelope
-		expectFound bool
-		expectRoute string
+		name          string
+		url           string
+		req           *decode.EVMRPCRequestEnvelope
+		expectFound   bool
+		expectBackend string
 	}{
 		// DEFAULT ROUTE CASES
 		{
-			name:        "routes to default when not in pruning map",
-			url:         "//pruning.kava.io",
-			req:         &decode.EVMRPCRequestEnvelope{},
-			expectFound: true,
-			expectRoute: pruningBackend,
+			name:          "routes to default when not in pruning map",
+			url:           "//pruning.kava.io",
+			req:           &decode.EVMRPCRequestEnvelope{},
+			expectFound:   true,
+			expectBackend: service.ResponseBackendPruning,
 		},
 		{
 			name: "routes to default for specific non-latest height",
@@ -105,8 +112,8 @@ func TestUnitTest_HeightShardingProxies(t *testing.T) {
 				Method: "eth_getBlockByNumber",
 				Params: []interface{}{"0xbaddad", false},
 			},
-			expectFound: true,
-			expectRoute: archiveBackend,
+			expectFound:   true,
+			expectBackend: service.ResponseBackendDefault,
 		},
 		{
 			name: "routes to default for methods that don't have block number",
@@ -115,15 +122,15 @@ func TestUnitTest_HeightShardingProxies(t *testing.T) {
 				Method: "eth_getBlockByHash",
 				Params: []interface{}{"0xe9bd10bc1d62b4406dd1fb3dbf3adb54f640bdb9ebbe3dd6dfc6bcc059275e54", false},
 			},
-			expectFound: true,
-			expectRoute: archiveBackend,
+			expectFound:   true,
+			expectBackend: service.ResponseBackendDefault,
 		},
 		{
-			name:        "routes to default if it fails to decode req",
-			url:         "//archive.kava.io",
-			req:         nil,
-			expectFound: true,
-			expectRoute: archiveBackend,
+			name:          "routes to default if it fails to decode req",
+			url:           "//archive.kava.io",
+			req:           nil,
+			expectFound:   true,
+			expectBackend: service.ResponseBackendDefault,
 		},
 		{
 			name: "routes to default if it fails to parse block number",
@@ -132,8 +139,8 @@ func TestUnitTest_HeightShardingProxies(t *testing.T) {
 				Method: "eth_getBlockByNumber",
 				Params: []interface{}{"not-a-block-tag", false},
 			},
-			expectFound: true,
-			expectRoute: archiveBackend,
+			expectFound:   true,
+			expectBackend: service.ResponseBackendDefault,
 		},
 		{
 			name: "routes to default for 'earliest' block",
@@ -142,8 +149,8 @@ func TestUnitTest_HeightShardingProxies(t *testing.T) {
 				Method: "eth_getBlockByNumber",
 				Params: []interface{}{"earliest", false},
 			},
-			expectFound: true,
-			expectRoute: archiveBackend,
+			expectFound:   true,
+			expectBackend: service.ResponseBackendDefault,
 		},
 
 		// PRUNING ROUTE CASES
@@ -154,8 +161,8 @@ func TestUnitTest_HeightShardingProxies(t *testing.T) {
 				Method: "eth_getBlockByNumber",
 				Params: []interface{}{"latest", false},
 			},
-			expectFound: true,
-			expectRoute: pruningBackend,
+			expectFound:   true,
+			expectBackend: service.ResponseBackendPruning,
 		},
 		{
 			name: "routes to pruning when block number empty",
@@ -164,8 +171,8 @@ func TestUnitTest_HeightShardingProxies(t *testing.T) {
 				Method: "eth_getBlockByNumber",
 				Params: []interface{}{nil, false},
 			},
-			expectFound: true,
-			expectRoute: pruningBackend,
+			expectFound:   true,
+			expectBackend: service.ResponseBackendPruning,
 		},
 		{
 			name: "routes to pruning for no-history methods",
@@ -173,8 +180,8 @@ func TestUnitTest_HeightShardingProxies(t *testing.T) {
 			req: &decode.EVMRPCRequestEnvelope{
 				Method: "eth_chainId",
 			},
-			expectFound: true,
-			expectRoute: pruningBackend,
+			expectFound:   true,
+			expectBackend: service.ResponseBackendPruning,
 		},
 		{
 			// this is just another example of the above, but worth pointing out!
@@ -193,22 +200,23 @@ func TestUnitTest_HeightShardingProxies(t *testing.T) {
 					},
 				},
 			},
-			expectFound: true,
-			expectRoute: pruningBackend,
+			expectFound:   true,
+			expectBackend: service.ResponseBackendPruning,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			req := mockJsonRpcReqToUrl(tc.url, tc.req)
-			proxy, found := proxies.ProxyForRequest(req)
+			proxy, responseBackend, found := proxies.ProxyForRequest(req)
 			if !tc.expectFound {
 				require.False(t, found, "expected proxy not to be found")
 				return
 			}
 			require.True(t, found, "expected proxy to be found")
 			require.NotNil(t, proxy)
-			requireProxyRoutesToUrl(t, proxy, req, tc.expectRoute)
+			require.Equal(t, responseBackend, tc.expectBackend)
+			requireProxyRoutesToUrl(t, proxy, req, backendRoutes[tc.expectBackend])
 		})
 	}
 }

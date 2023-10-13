@@ -167,7 +167,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			// proxy the request to the backend origin server
 			// based on the request host
-			proxy, ok := proxies.ProxyForRequest(r)
+			proxy, _, ok := proxies.ProxyForRequest(r)
 
 			if !ok {
 				serviceLogger.Error().Msg(fmt.Sprintf("no matching proxy for host %s for request %+v\n configured proxies %+v", r.Host, r, proxies))

@@ -11,9 +11,17 @@ import (
 	"github.com/kava-labs/kava-proxy-service/logging"
 )
 
+// ResponseBackend values for metric reporting of where request was routed
+const (
+	ResponseBackendDefault = "DEFAULT"
+	ResponseBackendPruning = "PRUNING"
+)
+
 // Proxies is an interface for getting a reverse proxy for a given request.
+// proxy is the reverse proxy to use for the request
+// responseBackend in the name of the backend that is being routed to
 type Proxies interface {
-	ProxyForRequest(r *http.Request) (proxy *httputil.ReverseProxy, found bool)
+	ProxyForRequest(r *http.Request) (proxy *httputil.ReverseProxy, responseBackend string, found bool)
 }
 
 // NewProxies creates a Proxies instance based on the service configuration:
@@ -25,25 +33,27 @@ func NewProxies(config config.Config, serviceLogger *logging.ServiceLogger) Prox
 		return newHeightShardingProxies(config, serviceLogger)
 	}
 	serviceLogger.Debug().Msg("configuring reverse proxies based solely on request host")
-	return newHostProxies(config.ProxyBackendHostURLMapParsed, serviceLogger)
+	return newHostProxies(ResponseBackendDefault, config.ProxyBackendHostURLMapParsed, serviceLogger)
 }
 
 // HostProxies chooses a proxy based solely on the Host of the incoming request,
 // and the host -> backend url map defined in the config.
+// HostProxies name is the response backend provided for all requests
 type HostProxies struct {
+	name         string
 	proxyForHost map[string]*httputil.ReverseProxy
 }
 
 var _ Proxies = HostProxies{}
 
 // ProxyForRequest implements Proxies. It determines the proxy based solely on the request Host.
-func (hbp HostProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, bool) {
+func (hbp HostProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, string, bool) {
 	proxy, found := hbp.proxyForHost[r.Host]
-	return proxy, found
+	return proxy, hbp.name, found
 }
 
 // newHostProxies creates a HostProxies from the backend url map defined in the config.
-func newHostProxies(hostURLMap map[string]url.URL, serviceLogger *logging.ServiceLogger) HostProxies {
+func newHostProxies(name string, hostURLMap map[string]url.URL, serviceLogger *logging.ServiceLogger) HostProxies {
 	reverseProxyForHost := make(map[string]*httputil.ReverseProxy)
 
 	for host, proxyBackendURL := range hostURLMap {
@@ -54,7 +64,7 @@ func newHostProxies(hostURLMap map[string]url.URL, serviceLogger *logging.Servic
 		reverseProxyForHost[host] = httputil.NewSingleHostReverseProxy(&targetURL)
 	}
 
-	return HostProxies{proxyForHost: reverseProxyForHost}
+	return HostProxies{name: name, proxyForHost: reverseProxyForHost}
 }
 
 // HeightShardingProxies routes traffic based on the host _and_ the height of the query.
@@ -73,8 +83,8 @@ var _ Proxies = HeightShardingProxies{}
 // Decodes height of request
 // - routes to Pruning proxy if defined & height is "latest"
 // - otherwise routes to Default proxy
-func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (proxy *httputil.ReverseProxy, found bool) {
-	pruningProxy, found := hsp.pruningProxies.ProxyForRequest(r)
+func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, string, bool) {
+	_, _, found := hsp.pruningProxies.ProxyForRequest(r)
 	// if the host isn't in the pruning proxies, short circuit fallback to default
 	if !found {
 		hsp.Debug().Msg(fmt.Sprintf("no pruning host backend configured for %s", r.Host))
@@ -111,7 +121,7 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (proxy *httput
 	// route "latest" to pruning proxy, otherwise route to default
 	if shouldRouteToPruning(height) {
 		hsp.Debug().Msg(fmt.Sprintf("request is for latest height (%d). routing to pruning proxy", height))
-		return pruningProxy, found
+		return hsp.pruningProxies.ProxyForRequest(r)
 	}
 	hsp.Debug().Msg(fmt.Sprintf("request is for specific height (%d). routing to default proxy", height))
 	return hsp.defaultProxies.ProxyForRequest(r)
@@ -121,8 +131,8 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (proxy *httput
 func newHeightShardingProxies(config config.Config, serviceLogger *logging.ServiceLogger) HeightShardingProxies {
 	return HeightShardingProxies{
 		ServiceLogger:  serviceLogger,
-		pruningProxies: newHostProxies(config.ProxyPruningBackendHostURLMap, serviceLogger),
-		defaultProxies: newHostProxies(config.ProxyBackendHostURLMapParsed, serviceLogger),
+		pruningProxies: newHostProxies(ResponseBackendPruning, config.ProxyPruningBackendHostURLMap, serviceLogger),
+		defaultProxies: newHostProxies(ResponseBackendDefault, config.ProxyBackendHostURLMapParsed, serviceLogger),
 	}
 }
 
