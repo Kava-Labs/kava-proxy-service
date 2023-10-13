@@ -68,6 +68,8 @@ up:
 .PHONY: down
 # stop the service and it's dependencies
 down:
+	rm docker/shared/genesis.json
+	rm docker/shared/VALIDATOR_NODE_ID
 	docker compose down
 
 .PHONY: restart
@@ -78,6 +80,8 @@ restart:
 .PHONY: reset
 # wipe state and restart the service and all it's dependencies
 reset: lint
+	rm docker/shared/genesis.json || exit 0
+	rm docker/shared/VALIDATOR_NODE_ID || exit 0
 	docker compose up -d --build --remove-orphans --renew-anon-volumes --force-recreate
 
 .PHONY: refresh
