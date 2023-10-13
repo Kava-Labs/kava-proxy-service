@@ -249,13 +249,13 @@ func lookupBlockNumberFromHashParam(ctx context.Context, evmClient *ethclient.Cl
 		return 0, fmt.Errorf(fmt.Sprintf("error decoding block hash param from params %+v at index %d", params, paramIndex))
 	}
 
-	block, err := evmClient.BlockByHash(ctx, common.HexToHash(blockHash))
+	header, err := evmClient.HeaderByHash(ctx, common.HexToHash(blockHash))
 
 	if err != nil {
 		return 0, err
 	}
 
-	return block.Number().Int64(), nil
+	return header.Number.Int64(), nil
 }
 
 // Generic method to parse the block number from a set of params
