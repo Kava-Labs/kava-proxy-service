@@ -36,7 +36,7 @@ services:
       - "${KAVA_CONTAINER_EVM_RPC_PORT}"
 
   # peer node with api running validator's network
-  kavapruning:
+  kava-pruning:
     image: kava/kava:${KAVA_CONTAINER_TAG}
     entrypoint: /docker/shared/kava-entrypoint.sh
     env_file: .env

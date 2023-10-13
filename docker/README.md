@@ -19,6 +19,10 @@ The following does not affect the network:
 
 ## how it works
 
+The setup runs a network of nodes via docker-compose where each node has its own container:
+* `kava-validator` - the validator node (see below)
+* `kava-pruning` - an API-enabled peer node
+
 There is a network running with a single validator. The config and entrypoint for this node is in [kava-validator](./kava-validator/).
 
 The `shared/` directory is shared between all nodes and is used to share necessary details from the validator to the other nodes in the network.
