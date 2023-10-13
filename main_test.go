@@ -52,6 +52,43 @@ var (
 	}
 )
 
+// lookup all the request metrics in the database paging as necessary
+// search for any request metrics during the time window for particular request methods
+func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, endTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
+	var nextCursor int64
+	var proxiedRequestMetrics []database.ProxiedRequestMetric
+
+	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, db.DB, nextCursor, 10000)
+	if err != nil {
+		panic(err)
+	}
+
+	proxiedRequestMetrics = proxiedRequestMetricsPage
+	for nextCursor != 0 {
+		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, db.DB, nextCursor, 10000)
+		if err != nil {
+			panic(err)
+		}
+
+		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
+	}
+
+	var requestMetricsDuringRequestWindow []database.ProxiedRequestMetric
+	// iterate in reverse order to start checking the most recent request metrics first
+	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
+		requestMetric := proxiedRequestMetrics[i]
+		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
+			for _, testedMethod := range testedmethods {
+				if requestMetric.MethodName == testedMethod {
+					requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
+				}
+			}
+		}
+	}
+
+	return requestMetricsDuringRequestWindow
+}
+
 func TestE2ETestProxyReturnsNonZeroLatestBlockHeader(t *testing.T) {
 	client, err := ethclient.Dial(proxyServiceURL)
 
@@ -103,39 +140,7 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// lookup all the request metrics in the database
-	// paging as necessary
-	var nextCursor int64
-	var proxiedRequestMetrics []database.ProxiedRequestMetric
-
-	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
-
-	require.NoError(t, err)
-
-	proxiedRequestMetrics = proxiedRequestMetricsPage
-
-	for nextCursor != 0 {
-		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
-
-		require.NoError(t, err)
-
-		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
-
-	}
-
-	// search for any request metrics during the test timespan
-	// with the same method used by the test
-	var requestMetricsDuringRequestWindow []database.ProxiedRequestMetric
-	// iterate in reverse order to start checking the most request metrics first
-	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
-		requestMetric := proxiedRequestMetrics[i]
-		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
-			if requestMetric.MethodName == testEthMethodName {
-				requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
-				break
-			}
-		}
-	}
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
 
 	assert.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 
@@ -180,39 +185,7 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	require.NoError(t, err)
 
-	// lookup all the request metrics in the database
-	// paging as necessary
-	var nextCursor int64
-	var proxiedRequestMetrics []database.ProxiedRequestMetric
-
-	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
-
-	require.NoError(t, err)
-
-	proxiedRequestMetrics = proxiedRequestMetricsPage
-
-	for nextCursor != 0 {
-		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
-
-		require.NoError(t, err)
-
-		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
-
-	}
-
-	// search for any request metrics during the test timespan
-	// with the same method used by the test
-	var requestMetricsDuringRequestWindow []database.ProxiedRequestMetric
-	// iterate in reverse order to start checking the most recent request metrics first
-	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
-		requestMetric := proxiedRequestMetrics[i]
-		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
-			if requestMetric.MethodName == testEthMethodName {
-				requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
-				break
-			}
-		}
-	}
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
 
 	assert.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
@@ -243,39 +216,7 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 
 	require.NoError(t, err)
 
-	// lookup all the request metrics in the database
-	// paging as necessary
-	var nextCursor int64
-	var proxiedRequestMetrics []database.ProxiedRequestMetric
-
-	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
-
-	require.NoError(t, err)
-
-	proxiedRequestMetrics = proxiedRequestMetricsPage
-
-	for nextCursor != 0 {
-		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
-
-		require.NoError(t, err)
-
-		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
-
-	}
-
-	// search for any request metrics during the test timespan
-	// with the same method used by the test
-	var requestMetricsDuringRequestWindow []database.ProxiedRequestMetric
-	// iterate in reverse order to start checking the most request metrics first
-	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
-		requestMetric := proxiedRequestMetrics[i]
-		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
-			if requestMetric.MethodName == testEthMethodName {
-				requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
-				break
-			}
-		}
-	}
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
 
 	assert.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
@@ -337,40 +278,7 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	// plus a buffer for slower connections (amd64 lol) :)
 	endTime := time.Now().Add(10)
 
-	// lookup all the request metrics in the database
-	// paging as necessary
-	var nextCursor int64
-	var proxiedRequestMetrics []database.ProxiedRequestMetric
-
-	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
-
-	require.NoError(t, err)
-
-	proxiedRequestMetrics = proxiedRequestMetricsPage
-
-	for nextCursor != 0 {
-		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
-
-		require.NoError(t, err)
-
-		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
-
-	}
-
-	// search for any request metrics during the test timespan
-	// with the same method used by the test
-	var requestMetricsDuringRequestWindow []database.ProxiedRequestMetric
-	// iterate in reverse order to start checking the most recent request metrics first
-	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
-		requestMetric := proxiedRequestMetrics[i]
-		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
-			for _, testedMethod := range testedmethods {
-				if requestMetric.MethodName == testedMethod {
-					requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
-				}
-			}
-		}
-	}
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, testedmethods)
 
 	// assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
 	// should be the above but geth doesn't implement client methods for all of them
@@ -425,40 +333,7 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 	_, _ = client.TransactionInBlock(testContext, requestBlockHash, 0)
 	endTime := time.Now()
 
-	// lookup all the request metrics in the database
-	// paging as necessary
-	var nextCursor int64
-	var proxiedRequestMetrics []database.ProxiedRequestMetric
-
-	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
-
-	require.NoError(t, err)
-
-	proxiedRequestMetrics = proxiedRequestMetricsPage
-
-	for nextCursor != 0 {
-		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, databaseClient.DB, nextCursor, 10000)
-
-		require.NoError(t, err)
-
-		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
-
-	}
-
-	// search for any request metrics during the test timespan
-	// with the same method used by the test
-	var requestMetricsDuringRequestWindow []database.ProxiedRequestMetric
-	// iterate in reverse order to start checking the most recent request metrics first
-	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
-		requestMetric := proxiedRequestMetrics[i]
-		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
-			for _, testedMethod := range testedmethods {
-				if requestMetric.MethodName == testedMethod {
-					requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
-				}
-			}
-		}
-	}
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, testedmethods)
 
 	// assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
 	// should be the above but geth doesn't implement client methods for all of them
