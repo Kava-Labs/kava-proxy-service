@@ -32,9 +32,9 @@ var (
 		return logger
 	}()
 
-	proxyServiceURL      = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
-	proxyServiceHostname = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_HOSTNAME")
-	proxyServiceDataURL  = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_DATA_URL")
+	proxyServiceURL        = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
+	proxyServiceHostname   = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_HOSTNAME")
+	proxyServicePruningURL = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_PRUNING_URL")
 
 	databaseURL      = os.Getenv("TEST_DATABASE_ENDPOINT_URL")
 	databasePassword = os.Getenv("DATABASE_PASSWORD")
@@ -110,11 +110,11 @@ func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
 
 	assert.Greater(t, int(header.Number.Int64()), 0)
 
-	dataClient, err := ethclient.Dial(proxyServiceDataURL)
+	pruningClient, err := ethclient.Dial(proxyServicePruningURL)
 
 	require.NoError(t, err)
 
-	header, err = dataClient.HeaderByNumber(testContext, nil)
+	header, err = pruningClient.HeaderByNumber(testContext, nil)
 	require.NoError(t, err)
 
 	assert.Greater(t, int(header.Number.Int64()), 0)
