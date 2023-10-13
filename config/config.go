@@ -86,6 +86,8 @@ const (
 	DEFAULT_DATABASE_WRITE_TIMEOUT_SECONDS                      = 10
 )
 
+var ErrEmptyHostMap = errors.New("backend host url map is empty")
+
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
 func EnvOrDefault(key string, fallback string) string {
 	if val, ok := os.LookupEnv(key); ok {
@@ -147,7 +149,8 @@ func ParseRawProxyBackendHostURLMap(raw string) (map[string]url.URL, error) {
 	entries := strings.Split(raw, PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER)
 
 	if len(entries) < 1 {
-		return hostURLMap, fmt.Errorf("found zero mappings delimited by %s in %s", PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER, raw)
+		extraErr := fmt.Errorf("found zero mappings delimited by %s in %s", PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER, raw)
+		return hostURLMap, errors.Join(ErrEmptyHostMap, extraErr)
 	}
 
 	for _, entry := range entries {
