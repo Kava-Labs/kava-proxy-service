@@ -45,6 +45,15 @@ func TestUnitTestValidateConfigReturnsErrorIfInvalidProxyBackendHostURL(t *testi
 	assert.NotNil(t, err)
 }
 
+func TestUnitTestValidateConfigReturnsNoErrorWhenPruningProxyBackendHostURLIsEmpty(t *testing.T) {
+	testConfig := defaultConfig
+	testConfig.ProxyPruningBackendHostURLMapRaw = ""
+
+	err := config.Validate(testConfig)
+
+	assert.Nil(t, err)
+}
+
 func TestUnitTestValidateConfigReturnsErrorIfInvalidProxyBackendHostURLComponents(t *testing.T) {
 	testConfig := defaultConfig
 	testConfig.ProxyBackendHostURLMapRaw = "localhost:7777,localhost:7778>http://kava:8545$^,localhost:7777>http://kava:8545"

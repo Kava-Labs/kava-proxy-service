@@ -20,6 +20,7 @@ var (
 func Validate(config Config) error {
 	var validLogLevel bool
 	var allErrs error
+	var err error
 
 	for _, validLevel := range ValidLogLevels {
 		if config.LogLevel == validLevel {
@@ -32,15 +33,12 @@ func Validate(config Config) error {
 		allErrs = fmt.Errorf("invalid %s specified %s, supported values are %v", LOG_LEVEL_ENVIRONMENT_KEY, config.LogLevel, ValidLogLevels)
 	}
 
-	_, err := ParseRawProxyBackendHostURLMap(config.ProxyBackendHostURLMapRaw)
-
-	if err != nil {
-		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyBackendHostURLMapRaw))
+	if err = validateHostURLMap(config.ProxyBackendHostURLMapRaw, false); err != nil {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyBackendHostURLMapRaw), err)
 	}
 
-	_, err = ParseRawProxyBackendHostURLMap(config.ProxyPruningBackendHostURLMapRaw)
-	if err != nil {
-		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyPruningBackendHostURLMapRaw))
+	if err = validateHostURLMap(config.ProxyPruningBackendHostURLMapRaw, true); err != nil {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyPruningBackendHostURLMapRaw), err)
 	}
 
 	_, err = strconv.Atoi(config.ProxyServicePort)
@@ -54,4 +52,13 @@ func Validate(config Config) error {
 	}
 
 	return allErrs
+}
+
+// validateHostURLMap validates a raw backend host URL map, optionally allowing the map to be empty
+func validateHostURLMap(raw string, allowEmpty bool) error {
+	_, err := ParseRawProxyBackendHostURLMap(raw)
+	if allowEmpty && errors.Is(err, ErrEmptyHostMap) {
+		err = nil
+	}
+	return err
 }

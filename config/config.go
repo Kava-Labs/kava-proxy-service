@@ -148,7 +148,7 @@ func ParseRawProxyBackendHostURLMap(raw string) (map[string]url.URL, error) {
 
 	entries := strings.Split(raw, PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER)
 
-	if len(entries) < 1 {
+	if raw == "" || len(entries) < 1 {
 		extraErr := fmt.Errorf("found zero mappings delimited by %s in %s", PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER, raw)
 		return hostURLMap, errors.Join(ErrEmptyHostMap, extraErr)
 	}
