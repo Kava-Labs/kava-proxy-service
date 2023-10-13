@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 )
 
@@ -41,6 +42,14 @@ func Validate(config Config) error {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyPruningBackendHostURLMapRaw), err)
 	}
 
+	if err = validateDefaultHostMapContainsHosts(
+		PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY,
+		config.ProxyBackendHostURLMapParsed,
+		config.ProxyPruningBackendHostURLMap,
+	); err != nil {
+		allErrs = errors.Join(allErrs, err)
+	}
+
 	_, err = strconv.Atoi(config.ProxyServicePort)
 
 	if err != nil {
@@ -61,4 +70,16 @@ func validateHostURLMap(raw string, allowEmpty bool) error {
 		err = nil
 	}
 	return err
+}
+
+// validateDefaultHostMapContainsHosts returns an error if there are hosts in hostMap that
+// are not in defaultHostMap
+// example: hosts in the pruning map should always have a default fallback backend
+func validateDefaultHostMapContainsHosts(mapName string, defaultHostsMap, hostsMap map[string]url.URL) error {
+	for host := range hostsMap {
+		if _, found := defaultHostsMap[host]; !found {
+			return fmt.Errorf("host %s is in %s but not in default host map", host, mapName)
+		}
+	}
+	return nil
 }
