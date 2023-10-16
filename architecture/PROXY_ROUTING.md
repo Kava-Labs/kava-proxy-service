@@ -77,6 +77,7 @@ Now suppose you want multiple backends for the same host.
 
 The proxy service supports height-based routing to direct requests that only require the most recent
 block to a different cluster.
+This support is handled via the [`HeightShardingProxies` implementation](../service/shard.go#L16).
 
 This is configured via the `PROXY_HEIGHT_BASED_ROUTING_ENABLED` and `PROXY_PRUNING_BACKEND_HOST_URL_MAP`
 environment variables.
