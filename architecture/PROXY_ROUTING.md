@@ -105,3 +105,43 @@ All traffic to evm.data.kava.io that targets the latest block (or requires no hi
 Otherwise, all traffic is sent to the archive cluster.
 
 ![Proxy Service configured with rudimentary sharding](images/proxy_service_rudimentary_sharding.jpg)
+
+### Default vs Pruning Backend Routing
+
+When `PROXY_HEIGHT_BASED_ROUTING_ENABLED` is `true`, the following cases will cause requests to route
+to the the backend url defined in `PROXY_PRUNING_BACKEND_HOST_URL_MAP` (if present):
+* requests that include any of the following block tags:
+  * `"latest"`
+  * `"finalized"`
+  * `"pending"`
+  * `"safe"`
+  * empty/missing block tag (interpreted as `"latest"`)
+* requests for methods that require no historic state, including transaction broadcasting
+  * for a full list of methods, see [`NoHistoryMethods`](../decode/evm_rpc.go#L89)
+
+All other requests fallback to the default backend url defined in `PROXY_BACKEND_HOST_URL_MAP`.
+This includes
+* requests for hosts not included in `PROXY_PRUNING_BACKEND_HOST_URL_MAP`
+* requests targeting any specific height by number
+  * NOTE: the service does not track the current height of the chain. if the tip of the chain is at
+    block 1000, a query for block 1000 will still route to the default (not pruning) backend
+* requests for methods that use block hash, like `eth_getBlockByHash`
+* requests with unparsable (invalid) block numbers
+* requests for block tag `"earliest"`
+
+The service will panic on startup if a host in `PROXY_PRUNING_BACKEND_HOST_URL_MAP` is not present
+in `PROXY_BACKEND_HOST_URL_MAP`.
+
+Any request made to a host not in the `PROXY_BACKEND_HOST_URL_MAP` map responds 502 Bad Gateway.
+
+## Metrics
+
+When metrics are enabled, the `proxied_request_metrics` table tracks the backend to which requests
+are routed in the `response_backend` column.
+
+When height-based sharding is disabled (`PROXY_HEIGHT_BASED_ROUTING_ENABLED=false`), the value is
+always `DEFAULT`.
+
+When enabled, the column will have one of the following values:
+* `DEFAULT` - the request was routed to the backend defined in `PROXY_BACKEND_HOST_URL_MAP`
+* `PRUNING` - the request was routed to the backend defined in `PROXY_PRUNING_BACKEND_HOST_URL_MAP`
