@@ -5,7 +5,7 @@ by maps of the Host to a backend url in the environment variables.
 
 All possible configurations use the `PROXY_BACKEND_HOST_URL_MAP` environment variable. This encodes
 the default backend to route all requests from a given host. Additional functionality is available
-via the `` env variable (see [Rudimentary Sharding](#rudimentary-sharding)).
+via the `PROXY_HEIGHT_BASED_ROUTING_ENABLED` env variable (see [Rudimentary Sharding](#rudimentary-sharding)).
 
 Consider the simplest case: a host-based-only routing proxy configured for one host
 ```
