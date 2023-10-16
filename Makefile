@@ -44,6 +44,14 @@ unit-test:
 e2e-test:
 	go test -count=1 -v -cover -coverprofile cover.out --race ./... -run "^TestE2ETest*"
 
+.PHONY: ci-setup
+# set up your local environment such that running `make e2e-test` runs against testnet (like in CI)
+ci-setup:
+	docker compose -f ci.docker-compose.yml pull
+	docker compose -f ci.docker-compose.yml up -d --build --force-recreate
+	PROXY_CONTAINER_PORT=7777 bash scripts/wait-for-proxy-service-running.sh
+	PROXY_CONTAINER_PORT=7777 MINIMUM_REQUIRED_PARTITIONS=30 bash scripts/wait-for-proxy-service-running.sh
+
 .PHONY: it
 # run any test matching the provided pattern, can pass a regex or a string
 # of the exact test to run
