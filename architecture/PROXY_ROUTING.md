@@ -1,7 +1,8 @@
 # Proxy Routing
 
-The proxy chooses where to route a request primarily by the incoming Host. The routing is configured
-by maps of the Host to a backend url in the environment variables.
+The proxy chooses where to route a request primarily by the incoming Host URL to which the client
+originally made their request. The routing is configured by maps of the Host to a backend url in
+the environment variables.
 
 All possible configurations use the `PROXY_BACKEND_HOST_URL_MAP` environment variable. This encodes
 the default backend to route all requests from a given host. Additional functionality is available
