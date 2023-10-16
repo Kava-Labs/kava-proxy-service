@@ -18,9 +18,17 @@ const (
 
 // Proxies is an interface for getting a reverse proxy for a given request.
 // proxy is the reverse proxy to use for the request
-// responseBackend in the name of the backend that is being routed to
 type Proxies interface {
-	ProxyForRequest(r *http.Request) (proxy *httputil.ReverseProxy, responseBackend string, found bool)
+	ProxyForRequest(r *http.Request) (proxy *httputil.ReverseProxy, metadata ProxyMetadata, found bool)
+}
+
+// ProxyMetadata wraps details about the proxy used for a request.
+// It is useful for gathering details about the proxied request to include in metrics.
+type ProxyMetadata struct {
+	// name of the backend used
+	BackendName string
+	// url of the backend used
+	BackendRoute url.URL
 }
 
 // NewProxies creates a Proxies instance based on the service configuration:
@@ -39,16 +47,21 @@ func NewProxies(config config.Config, serviceLogger *logging.ServiceLogger) Prox
 // and the host -> backend url map defined in the config.
 // HostProxies name is the response backend provided for all requests
 type HostProxies struct {
-	name         string
-	proxyForHost map[string]*httputil.ReverseProxy
+	name             string
+	proxyForHost     map[string]*httputil.ReverseProxy
+	targetUrlForHost map[string]url.URL
 }
 
 var _ Proxies = HostProxies{}
 
 // ProxyForRequest implements Proxies. It determines the proxy based solely on the request Host.
-func (hbp HostProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, string, bool) {
+func (hbp HostProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, ProxyMetadata, bool) {
 	proxy, found := hbp.proxyForHost[r.Host]
-	return proxy, hbp.name, found
+	metadata := ProxyMetadata{
+		BackendName:  hbp.name,
+		BackendRoute: hbp.targetUrlForHost[r.Host],
+	}
+	return proxy, metadata, found
 }
 
 // newHostProxies creates a HostProxies from the backend url map defined in the config.
@@ -63,5 +76,5 @@ func newHostProxies(name string, hostURLMap map[string]url.URL, serviceLogger *l
 		reverseProxyForHost[host] = httputil.NewSingleHostReverseProxy(&targetURL)
 	}
 
-	return HostProxies{name: name, proxyForHost: reverseProxyForHost}
+	return HostProxies{name: name, proxyForHost: reverseProxyForHost, targetUrlForHost: hostURLMap}
 }

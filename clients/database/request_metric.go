@@ -28,6 +28,7 @@ type ProxiedRequestMetric struct {
 	Referer                     *string
 	Origin                      *string
 	ResponseBackend             string
+	ResponseBackendRoute        string
 }
 
 // Save saves the current ProxiedRequestMetric to

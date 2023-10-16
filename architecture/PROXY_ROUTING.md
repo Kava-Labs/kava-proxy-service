@@ -147,3 +147,6 @@ always `DEFAULT`.
 When enabled, the column will have one of the following values:
 * `DEFAULT` - the request was routed to the backend defined in `PROXY_BACKEND_HOST_URL_MAP`
 * `PRUNING` - the request was routed to the backend defined in `PROXY_PRUNING_BACKEND_HOST_URL_MAP`
+
+Additionally, the actual URL to which the request is routed to is tracked in the
+`response_backend_route` column.

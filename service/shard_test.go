@@ -147,14 +147,15 @@ func TestUnitTest_HeightShardingProxies(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			req := mockJsonRpcReqToUrl(tc.url, tc.req)
-			proxy, responseBackend, found := proxies.ProxyForRequest(req)
+			proxy, metadata, found := proxies.ProxyForRequest(req)
 			if !tc.expectFound {
 				require.False(t, found, "expected proxy not to be found")
 				return
 			}
 			require.True(t, found, "expected proxy to be found")
 			require.NotNil(t, proxy)
-			require.Equal(t, responseBackend, tc.expectBackend)
+			require.Equal(t, metadata.BackendName, tc.expectBackend)
+			require.Equal(t, metadata.BackendRoute.String(), tc.expectRoute)
 			requireProxyRoutesToUrl(t, proxy, req, tc.expectRoute)
 		})
 	}

@@ -53,21 +53,21 @@ func TestUnitTest_HostProxies(t *testing.T) {
 
 	t.Run("ProxyForHost maps to correct proxy", func(t *testing.T) {
 		req := mockReqForUrl("//magic.kava.io")
-		proxy, responseBackend, found := proxies.ProxyForRequest(req)
+		proxy, metadata, found := proxies.ProxyForRequest(req)
 		require.True(t, found, "expected proxy to be found")
-		require.Equal(t, responseBackend, service.ResponseBackendDefault)
+		require.Equal(t, metadata.BackendName, service.ResponseBackendDefault)
 		requireProxyRoutesToUrl(t, proxy, req, "magicalbackend.kava.io/")
 
 		req = mockReqForUrl("https://archive.kava.io")
-		proxy, responseBackend, found = proxies.ProxyForRequest(req)
+		proxy, metadata, found = proxies.ProxyForRequest(req)
 		require.True(t, found, "expected proxy to be found")
-		require.Equal(t, responseBackend, service.ResponseBackendDefault)
+		require.Equal(t, metadata.BackendName, service.ResponseBackendDefault)
 		requireProxyRoutesToUrl(t, proxy, req, "archivenode.kava.io/")
 
 		req = mockReqForUrl("//pruning.kava.io/some/nested/endpoint")
-		proxy, responseBackend, found = proxies.ProxyForRequest(req)
+		proxy, metadata, found = proxies.ProxyForRequest(req)
 		require.True(t, found, "expected proxy to be found")
-		require.Equal(t, responseBackend, service.ResponseBackendDefault)
+		require.Equal(t, metadata.BackendName, service.ResponseBackendDefault)
 		requireProxyRoutesToUrl(t, proxy, req, "pruningnode.kava.io/some/nested/endpoint")
 	})
 

@@ -26,7 +26,7 @@ var _ Proxies = HeightShardingProxies{}
 // Decodes height of request
 // - routes to Pruning proxy if defined & height is "latest"
 // - otherwise routes to Default proxy
-func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, string, bool) {
+func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, ProxyMetadata, bool) {
 	_, _, found := hsp.pruningProxies.ProxyForRequest(r)
 	// if the host isn't in the pruning proxies, short circuit fallback to default
 	if !found {
