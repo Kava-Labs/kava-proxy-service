@@ -593,10 +593,6 @@ func cleanUpRedis(t *testing.T, redisClient *redis.Client) {
 	keys, err := redisClient.Keys(context.Background(), "*").Result()
 	require.NoError(t, err)
 
-	for _, key := range keys {
-		fmt.Printf("key: %v\n", key)
-	}
-
 	if len(keys) != 0 {
 		_, err = redisClient.Del(context.Background(), keys...).Result()
 		require.NoError(t, err)
