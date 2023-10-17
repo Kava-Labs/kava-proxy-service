@@ -57,10 +57,13 @@ func IsCacheable(
 		return false
 	}
 
+	// blockNumber <= 0 means magic tag was used, one of the "latest", "pending", "earliest", etc...
+	// as of now we don't cache requests with magic tags
 	if blockNumber <= 0 {
 		return false
 	}
 
+	// block number is specified and it's not a magic tag - cache the request
 	return true
 }
 
