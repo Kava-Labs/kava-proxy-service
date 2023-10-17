@@ -2,18 +2,24 @@ package main_test
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/kava-labs/kava-proxy-service/service"
 )
 
 const (
@@ -32,9 +38,11 @@ var (
 		return logger
 	}()
 
-	proxyServiceURL      = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
-	proxyServiceHostname = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_HOSTNAME")
-	proxyServiceDataURL  = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_DATA_URL")
+	proxyServiceURL        = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
+	proxyServiceHostname   = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_HOSTNAME")
+	proxyServicePruningURL = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_PRUNING_URL")
+
+	proxyServiceHeightBasedRouting, _ = strconv.ParseBool(os.Getenv("TEST_PROXY_HEIGHT_BASED_ROUTING_ENABLED"))
 
 	databaseURL      = os.Getenv("TEST_DATABASE_ENDPOINT_URL")
 	databasePassword = os.Getenv("DATABASE_PASSWORD")
@@ -110,11 +118,11 @@ func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
 
 	assert.Greater(t, int(header.Number.Int64()), 0)
 
-	dataClient, err := ethclient.Dial(proxyServiceDataURL)
+	pruningClient, err := ethclient.Dial(proxyServicePruningURL)
 
 	require.NoError(t, err)
 
-	header, err = dataClient.HeaderByNumber(testContext, nil)
+	header, err = pruningClient.HeaderByNumber(testContext, nil)
 	require.NoError(t, err)
 
 	assert.Greater(t, int(header.Number.Int64()), 0)
@@ -342,5 +350,88 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 	for _, requestMetricDuringRequestWindow := range requestMetricsDuringRequestWindow {
 		assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
 		assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber)
+	}
+}
+
+func TestE2ETest_HeightBasedRouting(t *testing.T) {
+	if !proxyServiceHeightBasedRouting {
+		t.Skip("TEST_PROXY_HEIGHT_BASED_ROUTING_ENABLED is false. skipping height-based routing e2e test")
+	}
+
+	rpc, err := rpc.Dial(proxyServiceURL)
+	require.NoError(t, err)
+
+	databaseClient, err := database.NewPostgresClient(databaseConfig)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name        string
+		method      string
+		params      []interface{}
+		expectRoute string
+	}{
+		{
+			name:        "request for non-latest height -> default",
+			method:      "eth_getBlockByNumber",
+			params:      []interface{}{"0x2", false},
+			expectRoute: service.ResponseBackendDefault,
+		},
+		{
+			name:        "request for earliest height -> default",
+			method:      "eth_getBlockByNumber",
+			params:      []interface{}{"earliest", false},
+			expectRoute: service.ResponseBackendDefault,
+		},
+		{
+			name:        "request for latest height -> pruning",
+			method:      "eth_getBlockByNumber",
+			params:      []interface{}{"latest", false},
+			expectRoute: service.ResponseBackendPruning,
+		},
+		{
+			name:        "request for finalized height -> pruning",
+			method:      "eth_getBlockByNumber",
+			params:      []interface{}{"finalized", false},
+			expectRoute: service.ResponseBackendPruning,
+		},
+		{
+			name:        "request with empty height -> pruning",
+			method:      "eth_getBlockByNumber",
+			params:      []interface{}{nil, false},
+			expectRoute: service.ResponseBackendPruning,
+		},
+		{
+			name:        "request not requiring height -> pruning",
+			method:      "eth_chainId",
+			params:      []interface{}{},
+			expectRoute: service.ResponseBackendPruning,
+		},
+		{
+			name:        "request by hash -> default",
+			method:      "eth_getBlockByHash",
+			params:      []interface{}{"0xe9bd10bc1d62b4406dd1fb3dbf3adb54f640bdb9ebbe3dd6dfc6bcc059275e54", false},
+			expectRoute: service.ResponseBackendDefault,
+		},
+		{
+			name:        "un-parseable (invalid) height -> default",
+			method:      "eth_getBlockByNumber",
+			params:      []interface{}{"not-a-block-tag", false},
+			expectRoute: service.ResponseBackendDefault,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			startTime := time.Now()
+			err := rpc.Call(nil, tc.method, tc.params...)
+			require.NoError(t, err)
+
+			metrics := findMetricsInWindowForMethods(databaseClient, startTime, time.Now(), []string{tc.method})
+
+			require.Len(t, metrics, 1)
+			fmt.Printf("%+v\n", metrics[0])
+			require.Equal(t, metrics[0].MethodName, tc.method)
+			require.Equal(t, metrics[0].ResponseBackend, tc.expectRoute)
+		})
 	}
 }

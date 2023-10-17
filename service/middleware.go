@@ -28,6 +28,7 @@ const (
 	RequestUserAgentContextKey            = "X-KAVA-PROXY-USER-AGENT"
 	RequestRefererContextKey              = "X-KAVA-PROXY-REFERER"
 	RequestOriginContextKey               = "X-KAVA-PROXY-ORIGIN"
+	ProxyMetadataContextKey               = "X-KAVA-PROXY-RESPONSE-BACKEND"
 	// Values defined by upstream services
 	LoadBalancerForwardedForHeaderKey = "X-Forwarded-For"
 	UserAgentHeaderkey                = "User-Agent"
@@ -167,7 +168,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			// proxy the request to the backend origin server
 			// based on the request host
-			proxy, ok := proxies.ProxyForRequest(r)
+			proxy, proxyMetadata, ok := proxies.ProxyForRequest(r)
 
 			if !ok {
 				serviceLogger.Error().Msg(fmt.Sprintf("no matching proxy for host %s for request %+v\n configured proxies %+v", r.Host, r, proxies))
@@ -235,6 +236,9 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 			requestHostnameContext := context.WithValue(originRoundtripLatencyContext, RequestHostnameContextKey, r.Host)
 
 			enrichedContext := requestHostnameContext
+
+			// add response backend name to context
+			enrichedContext = context.WithValue(enrichedContext, ProxyMetadataContextKey, proxyMetadata)
 
 			// parse the remote address of the request for use below
 			remoteAddressParts := strings.Split(r.RemoteAddr, ":")
@@ -373,6 +377,14 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 			return
 		}
 
+		rawProxyMetadata := r.Context().Value(ProxyMetadataContextKey)
+		proxyMetadata, ok := rawProxyMetadata.(ProxyMetadata)
+		if !ok {
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("invalid context value %+v for value %s", proxyMetadata, ProxyMetadataContextKey))
+
+			return
+		}
+
 		var blockNumber *int64
 		rawBlockNumber, err := decodedRequestBody.ExtractBlockNumberFromEVMRPCRequest(r.Context(), service.evmClient)
 
@@ -395,6 +407,8 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 			Referer:                     &referer,
 			Origin:                      &origin,
 			BlockNumber:                 blockNumber,
+			ResponseBackend:             proxyMetadata.BackendName,
+			ResponseBackendRoute:        proxyMetadata.BackendRoute.String(),
 		}
 
 		// save metric to database

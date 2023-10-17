@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 )
 
@@ -20,6 +21,7 @@ var (
 func Validate(config Config) error {
 	var validLogLevel bool
 	var allErrs error
+	var err error
 
 	for _, validLevel := range ValidLogLevels {
 		if config.LogLevel == validLevel {
@@ -32,10 +34,20 @@ func Validate(config Config) error {
 		allErrs = fmt.Errorf("invalid %s specified %s, supported values are %v", LOG_LEVEL_ENVIRONMENT_KEY, config.LogLevel, ValidLogLevels)
 	}
 
-	_, err := ParseRawProxyBackendHostURLMap(config.ProxyBackendHostURLMapRaw)
+	if err = validateHostURLMap(config.ProxyBackendHostURLMapRaw, false); err != nil {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyBackendHostURLMapRaw), err)
+	}
 
-	if err != nil {
-		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyBackendHostURLMapRaw))
+	if err = validateHostURLMap(config.ProxyPruningBackendHostURLMapRaw, true); err != nil {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyPruningBackendHostURLMapRaw), err)
+	}
+
+	if err = validateDefaultHostMapContainsHosts(
+		PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY,
+		config.ProxyBackendHostURLMapParsed,
+		config.ProxyPruningBackendHostURLMap,
+	); err != nil {
+		allErrs = errors.Join(allErrs, err)
 	}
 
 	_, err = strconv.Atoi(config.ProxyServicePort)
@@ -49,4 +61,25 @@ func Validate(config Config) error {
 	}
 
 	return allErrs
+}
+
+// validateHostURLMap validates a raw backend host URL map, optionally allowing the map to be empty
+func validateHostURLMap(raw string, allowEmpty bool) error {
+	_, err := ParseRawProxyBackendHostURLMap(raw)
+	if allowEmpty && errors.Is(err, ErrEmptyHostMap) {
+		err = nil
+	}
+	return err
+}
+
+// validateDefaultHostMapContainsHosts returns an error if there are hosts in hostMap that
+// are not in defaultHostMap
+// example: hosts in the pruning map should always have a default fallback backend
+func validateDefaultHostMapContainsHosts(mapName string, defaultHostsMap, hostsMap map[string]url.URL) error {
+	for host := range hostsMap {
+		if _, found := defaultHostsMap[host]; !found {
+			return fmt.Errorf("host %s is in %s but not in default host map", host, mapName)
+		}
+	}
+	return nil
 }

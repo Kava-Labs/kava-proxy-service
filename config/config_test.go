@@ -9,9 +9,11 @@ import (
 )
 
 var (
-	proxyServicePort              = "7777"
-	randomEnvironmentVariableKey  = "TEST_KAVA_RANDOM_VALUE"
-	proxyServiceBackendHostURLMap = os.Getenv("TEST_PROXY_BACKEND_HOST_URL_MAP")
+	proxyServicePort                     = "7777"
+	randomEnvironmentVariableKey         = "TEST_KAVA_RANDOM_VALUE"
+	proxyServiceBackendHostURLMap        = os.Getenv("TEST_PROXY_BACKEND_HOST_URL_MAP")
+	proxyServiceHeightBasedRouting       = os.Getenv("TEST_PROXY_HEIGHT_BASED_ROUTING_ENABLED")
+	proxyServicePruningBackendHostURLMap = os.Getenv("TEST_PROXY_PRUNING_BACKEND_HOST_URL_MAP")
 )
 
 func TestUnitTestEnvODefaultReturnsDefaultIfEnvironmentVariableNotSet(t *testing.T) {
@@ -46,8 +48,15 @@ func TestUnitTestReadConfigReturnsConfigWithValuesFromEnv(t *testing.T) {
 	assert.Equal(t, proxyServicePort, readConfig.ProxyServicePort)
 }
 
+func TestUnitTestParseHostMapReturnsErrEmptyHostMapWhenEmpty(t *testing.T) {
+	_, err := config.ParseRawProxyBackendHostURLMap("")
+	assert.ErrorIs(t, err, config.ErrEmptyHostMap)
+}
+
 func setDefaultEnv() {
 	os.Setenv(config.PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, proxyServiceBackendHostURLMap)
+	os.Setenv(config.PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY, proxyServiceHeightBasedRouting)
+	os.Setenv(config.PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, proxyServicePruningBackendHostURLMap)
 	os.Setenv(config.PROXY_SERVICE_PORT_ENVIRONMENT_KEY, proxyServicePort)
 	os.Setenv(config.LOG_LEVEL_ENVIRONMENT_KEY, config.DEFAULT_LOG_LEVEL)
 }

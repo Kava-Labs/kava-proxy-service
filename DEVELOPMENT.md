@@ -98,6 +98,17 @@ make ready e2e-test
 
 For details on the local E2E setup, see [the `docker` directory](./docker/README.md).
 
+#### Against testnet
+
+The Continuous Integration (CI) for this repo is setup to run a local proxy service with database & redis, but configures the service to use public testnet urls for the kava requests. This allows for testing the proxy service against a production-like environment (requests are routed to public testnet).
+
+You can emulate the CI configuration in your local environment:
+```bash
+make ci-setup
+```
+
+At that point, running `make e2e-test` will run the end-to-end tests with requests routing to public testnet.
+
 ## Test Coverage Report
 
 The test commands `make test`, `make unit-test`, and `make e2e-test` generate a `cover.out` raw test coverage report. The coverage can be converted into a user-friendly webpage:

@@ -17,6 +17,9 @@ type Config struct {
 	LogLevel                               string
 	ProxyBackendHostURLMapRaw              string
 	ProxyBackendHostURLMapParsed           map[string]url.URL
+	EnableHeightBasedRouting               bool
+	ProxyPruningBackendHostURLMapRaw       string
+	ProxyPruningBackendHostURLMap          map[string]url.URL
 	EvmQueryServiceURL                     string
 	DatabaseName                           string
 	DatabaseEndpointURL                    string
@@ -43,6 +46,8 @@ const (
 	LOG_LEVEL_ENVIRONMENT_KEY                          = "LOG_LEVEL"
 	DEFAULT_LOG_LEVEL                                  = "INFO"
 	PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY         = "PROXY_BACKEND_HOST_URL_MAP"
+	PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY             = "PROXY_HEIGHT_BASED_ROUTING_ENABLED"
+	PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY = "PROXY_PRUNING_BACKEND_HOST_URL_MAP"
 	PROXY_SERVICE_PORT_ENVIRONMENT_KEY                 = "PROXY_SERVICE_PORT"
 	DATABASE_NAME_ENVIRONMENT_KEY                      = "DATABASE_NAME"
 	DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY              = "DATABASE_ENDPOINT_URL"
@@ -80,6 +85,8 @@ const (
 	DATABASE_WRITE_TIMEOUT_SECONDS_ENVIRONMENT_KEY              = "DATABASE_WRITE_TIMEOUT_SECONDS"
 	DEFAULT_DATABASE_WRITE_TIMEOUT_SECONDS                      = 10
 )
+
+var ErrEmptyHostMap = errors.New("backend host url map is empty")
 
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
 func EnvOrDefault(key string, fallback string) string {
@@ -141,8 +148,9 @@ func ParseRawProxyBackendHostURLMap(raw string) (map[string]url.URL, error) {
 
 	entries := strings.Split(raw, PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER)
 
-	if len(entries) < 1 {
-		return hostURLMap, fmt.Errorf("found zero mappings delimited by %s in %s", PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER, raw)
+	if raw == "" || len(entries) < 1 {
+		extraErr := fmt.Errorf("found zero mappings delimited by %s in %s", PROXY_BACKEND_HOST_URL_MAP_ENTRY_DELIMITER, raw)
+		return hostURLMap, errors.Join(ErrEmptyHostMap, extraErr)
 	}
 
 	for _, entry := range entries {
@@ -175,15 +183,20 @@ func ParseRawProxyBackendHostURLMap(raw string) (map[string]url.URL, error) {
 // function of the Config package before use
 func ReadConfig() Config {
 	rawProxyBackendHostURLMap := os.Getenv(PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY)
-	// best effort to pares, callers are responsible for validating
+	rawProxyPruningBackendHostURLMap := os.Getenv(PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY)
+	// best effort to parse, callers are responsible for validating
 	// before using any values read
 	parsedProxyBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyBackendHostURLMap)
+	parsedProxyPruningBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyPruningBackendHostURLMap)
 
 	return Config{
 		ProxyServicePort:                       os.Getenv(PROXY_SERVICE_PORT_ENVIRONMENT_KEY),
 		LogLevel:                               EnvOrDefault(LOG_LEVEL_ENVIRONMENT_KEY, DEFAULT_LOG_LEVEL),
 		ProxyBackendHostURLMapRaw:              rawProxyBackendHostURLMap,
 		ProxyBackendHostURLMapParsed:           parsedProxyBackendHostURLMap,
+		EnableHeightBasedRouting:               EnvOrDefaultBool(PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY, false),
+		ProxyPruningBackendHostURLMapRaw:       rawProxyPruningBackendHostURLMap,
+		ProxyPruningBackendHostURLMap:          parsedProxyPruningBackendHostURLMap,
 		DatabaseName:                           os.Getenv(DATABASE_NAME_ENVIRONMENT_KEY),
 		DatabaseEndpointURL:                    os.Getenv(DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY),
 		DatabaseUserName:                       os.Getenv(DATABASE_USERNAME_ENVIRONMENT_KEY),
