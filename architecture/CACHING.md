@@ -39,7 +39,10 @@ As of now we cache requests which has `specific block number` in request, for ex
 {
 	"jsonrpc":"2.0",
 	"method":"eth_getBlockByNumber",
-	"params":["0x1b4", true],
+	"params":[
+		"0x1b4", // specific block number
+		true
+	],
 	"id":1
 }
 ```
