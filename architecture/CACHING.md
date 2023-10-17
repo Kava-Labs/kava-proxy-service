@@ -34,20 +34,17 @@ package provides two different middlewares:
 
 ## What requests are cached?
 
-As of now we only cache requests which has `specified block number` in params
-Requests without block number or with a magic word instead of 
+As of now we cache requests which has `specific block number` in request, for example:
+```json
+{
+	"jsonrpc":"2.0",
+	"method":"eth_getBlockByNumber",
+	"params":["0x1b4", true],
+	"id":1
+}
+```
 
-`{
-			"jsonrpc":"2.0",
-			"method":"eth_getBalance",
-			"params":[
-				"0x373CE80dd1e921506EC5603290AF444e60CeF61F", 
-				"0x49BCF0"
-			],
-			"id":1
-		}`,
-
-  TODO...
+we don't cache requests without `specific block number` or requests which uses magic tags as a block number: "latest", "pending", "earliest", etc...
 
 ## Cache Invalidation
 
