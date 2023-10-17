@@ -32,6 +32,23 @@ package provides two different middlewares:
   - if not present marks as uncached in context and forwards to next middleware
 - next middleware should check whether request was cached and act accordingly:
 
+## What requests are cached?
+
+As of now we only cache requests which has `specified block number` in params
+Requests without block number or with a magic word instead of 
+
+`{
+			"jsonrpc":"2.0",
+			"method":"eth_getBalance",
+			"params":[
+				"0x373CE80dd1e921506EC5603290AF444e60CeF61F", 
+				"0x49BCF0"
+			],
+			"id":1
+		}`,
+
+  TODO...
+
 ## Cache Invalidation
 
 ### Keys Structure
