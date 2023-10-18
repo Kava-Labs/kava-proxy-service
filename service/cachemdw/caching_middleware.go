@@ -40,7 +40,7 @@ func (c *ServiceCache) CachingMiddleware(
 
 		// if request isn't already cached, request is cacheable and response is present in context - cache the response
 		if !isCached && cacheable && ok {
-			if err := c.ValidateAndCacheQueryResponse(
+			if err := c.CacheQueryResponse(
 				r.Context(),
 				decodedReq,
 				typedResponse,

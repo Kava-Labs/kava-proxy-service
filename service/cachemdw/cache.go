@@ -90,26 +90,13 @@ func (c *ServiceCache) GetCachedQueryResponse(
 func (c *ServiceCache) CacheQueryResponse(
 	ctx context.Context,
 	req *decode.EVMRPCRequestEnvelope,
-	chainID string,
-	response []byte,
+	responseInBytes []byte,
 ) error {
+	// don't cache uncacheable requests
 	if !IsCacheable(ctx, c.blockGetter, c.ServiceLogger, req) {
 		return errors.New("query isn't cacheable")
 	}
 
-	key, err := GetQueryKey(chainID, req)
-	if err != nil {
-		return err
-	}
-
-	return c.cacheClient.Set(ctx, key, response, c.cacheTTL)
-}
-
-func (c *ServiceCache) ValidateAndCacheQueryResponse(
-	ctx context.Context,
-	req *decode.EVMRPCRequestEnvelope,
-	responseInBytes []byte,
-) error {
 	response, err := UnmarshalJsonRpcResponse(responseInBytes)
 	if err != nil {
 		return fmt.Errorf("can't unmarshal json-rpc response: %w", err)
@@ -119,16 +106,12 @@ func (c *ServiceCache) ValidateAndCacheQueryResponse(
 		return fmt.Errorf("response isn't cacheable")
 	}
 
-	if err := c.CacheQueryResponse(
-		ctx,
-		req,
-		c.chainID,
-		responseInBytes,
-	); err != nil {
+	key, err := GetQueryKey(c.chainID, req)
+	if err != nil {
 		return err
 	}
 
-	return nil
+	return c.cacheClient.Set(ctx, key, responseInBytes, c.cacheTTL)
 }
 
 func (c *ServiceCache) Healthcheck(ctx context.Context) error {

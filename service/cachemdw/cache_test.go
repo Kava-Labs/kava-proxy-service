@@ -90,31 +90,7 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 	require.Equal(t, cache.ErrNotFound, err)
 	require.Empty(t, resp)
 
-	err = serviceCache.CacheQueryResponse(ctxb, req, defaultChainIDString, defaultQueryResp)
-	require.NoError(t, err)
-
-	resp, err = serviceCache.GetCachedQueryResponse(ctxb, req)
-	require.NoError(t, err)
-	require.Equal(t, defaultQueryResp, resp)
-}
-
-func TestUnitTestValidateAndCacheQueryResponse(t *testing.T) {
-	logger, err := logging.New("TRACE")
-	require.NoError(t, err)
-
-	inMemoryCache := cache.NewInMemoryCache()
-	blockGetter := NewMockEVMBlockGetter()
-	cacheTTL := time.Hour
-	ctxb := context.Background()
-
-	serviceCache := cachemdw.NewServiceCache(inMemoryCache, blockGetter, cacheTTL, service.DecodedRequestContextKey, defaultChainIDString, &logger)
-
-	req := mkEVMRPCRequestEnvelope(defaultBlockNumber)
-	resp, err := serviceCache.GetCachedQueryResponse(ctxb, req)
-	require.Equal(t, cache.ErrNotFound, err)
-	require.Empty(t, resp)
-
-	err = serviceCache.ValidateAndCacheQueryResponse(ctxb, req, defaultQueryResp)
+	err = serviceCache.CacheQueryResponse(ctxb, req, defaultQueryResp)
 	require.NoError(t, err)
 
 	resp, err = serviceCache.GetCachedQueryResponse(ctxb, req)
