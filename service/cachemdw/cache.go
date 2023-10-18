@@ -3,6 +3,7 @@ package cachemdw
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/kava-labs/kava-proxy-service/clients/cache"
@@ -107,15 +108,22 @@ func (c *ServiceCache) CacheQueryResponse(
 func (c *ServiceCache) ValidateAndCacheQueryResponse(
 	ctx context.Context,
 	req *decode.EVMRPCRequestEnvelope,
-	response []byte,
+	responseInBytes []byte,
 ) error {
-	// TODO(yevhenii): add validation
+	response, err := UnmarshalJsonRpcResponse(responseInBytes)
+	if err != nil {
+		return fmt.Errorf("can't unmarshal json-rpc response: %w", err)
+	}
+	// don't cache uncacheable responses
+	if !response.IsCacheable() {
+		return fmt.Errorf("response isn't cacheable")
+	}
 
 	if err := c.CacheQueryResponse(
 		ctx,
 		req,
 		c.chainID,
-		response,
+		responseInBytes,
 	); err != nil {
 		return err
 	}

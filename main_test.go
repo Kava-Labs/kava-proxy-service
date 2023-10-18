@@ -483,10 +483,7 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 	}
 }
 
-func TestE2ETestProxyCachesMethodsWithBlockNumberParam(t *testing.T) {
-	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
-	testAddress := common.HexToAddress(testRandomAddressHex)
-
+func TestE2eTestCachingMdwWithBlockNumberParam(t *testing.T) {
 	// create api and database clients
 	client, err := ethclient.Dial(proxyServiceURL)
 	if err != nil {
@@ -509,15 +506,9 @@ func TestE2ETestProxyCachesMethodsWithBlockNumberParam(t *testing.T) {
 	}{
 		{
 			desc:    "test case #1",
-			method:  "eth_getTransactionCount",
-			params:  []interface{}{testAddress, "0x1"},
-			keysNum: 1,
-		},
-		{
-			desc:    "test case #2",
 			method:  "eth_getBlockByNumber",
 			params:  []interface{}{"0x1", true},
-			keysNum: 2,
+			keysNum: 1,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -547,36 +538,97 @@ func TestE2ETestProxyCachesMethodsWithBlockNumberParam(t *testing.T) {
 		})
 	}
 
-	// test cache MISS and cache HIT scenarios for eth_getTransactionCount method
-	// check that cached and non-cached responses are equal
-	{
-		// eth_getTransactionCount - cache MISS
-		bal1, err := client.NonceAt(testContext, testAddress, big.NewInt(2))
-		require.NoError(t, err)
-		expectKeysNum(t, redisClient, 3)
-
-		// eth_getTransactionCount - cache HIT
-		bal2, err := client.NonceAt(testContext, testAddress, big.NewInt(2))
-		require.NoError(t, err)
-		expectKeysNum(t, redisClient, 3)
-
-		require.Equal(t, bal1, bal2, "balances should be the same")
-	}
-
 	// test cache MISS and cache HIT scenarios for eth_getBlockByNumber method
 	// check that cached and non-cached responses are equal
 	{
 		// eth_getBlockByNumber - cache MISS
 		block1, err := client.BlockByNumber(testContext, big.NewInt(2))
 		require.NoError(t, err)
-		expectKeysNum(t, redisClient, 4)
+		expectKeysNum(t, redisClient, 2)
 
 		// eth_getBlockByNumber - cache HIT
 		block2, err := client.BlockByNumber(testContext, big.NewInt(2))
 		require.NoError(t, err)
-		expectKeysNum(t, redisClient, 4)
+		expectKeysNum(t, redisClient, 2)
 
 		require.Equal(t, block1, block2, "blocks should be the same")
+	}
+
+	cleanUpRedis(t, redisClient)
+}
+
+func TestE2eTestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
+	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
+	testAddress := common.HexToAddress(testRandomAddressHex)
+
+	// create api and database clients
+	client, err := ethclient.Dial(proxyServiceURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%v", redisHostPort),
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	for _, tc := range []struct {
+		desc    string
+		method  string
+		params  []interface{}
+		keysNum int
+	}{
+		{
+			desc:    "test case #1",
+			method:  "eth_getTransactionCount",
+			params:  []interface{}{testAddress, "0x1"},
+			keysNum: 0,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			// both calls should lead to cache MISS scenario, because empty results aren't cached
+			// check corresponding values in cachemdw.CacheMissHeaderValue HTTP header
+			// check that responses are equal
+
+			// eth_getBlockByNumber - cache MISS
+			resp1 := mkJsonRpcRequest(t, proxyServiceURL, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(resp1.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body1)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+
+			// eth_getBlockByNumber - cache MISS again (empty results aren't cached)
+			resp2 := mkJsonRpcRequest(t, proxyServiceURL, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(resp2.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body2)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+
+			require.JSONEq(t, string(body1), string(body2), "blocks should be the same")
+		})
+	}
+
+	// both calls should lead to cache MISS scenario, because empty results aren't cached
+	// check that responses are equal
+	{
+		// eth_getTransactionCount - cache MISS
+		bal1, err := client.NonceAt(testContext, testAddress, big.NewInt(2))
+		require.NoError(t, err)
+		expectKeysNum(t, redisClient, 0)
+
+		// eth_getTransactionCount - cache MISS again (empty results aren't cached)
+		bal2, err := client.NonceAt(testContext, testAddress, big.NewInt(2))
+		require.NoError(t, err)
+		expectKeysNum(t, redisClient, 0)
+
+		require.Equal(t, bal1, bal2, "balances should be the same")
 	}
 
 	cleanUpRedis(t, redisClient)
