@@ -55,31 +55,31 @@ we don't cache requests without `specific block number` or requests which uses m
 
 Keys have such format:
 
-`query:<chain_name>:<method_name>:<keccak256(body)>`
+`<cache_prefix>:evm-request:<method_name>:sha256:<sha256(body)>`
 
 For example:
 
-`query:local-chain:eth_getBlockByNumber:0x72806e50da4f1c824b9d5a74ce9d76ac4db72e4da049802d1d6f2de3fda73e10`
+`local-chain:evm-request:eth_getBlockByHash:sha256:2db366278f2cb463f92147bd888bdcad528b44baa94b7920fdff35f4c11ee617`
 
 ### Invalidation for specific method
 
 If you want to invalidate cache for specific method you may run such command:
 
-`redis-cli KEYS "query:<chain_name>:<method_name>:*" | xargs redis-cli DEL`
+`redis-cli KEYS "<cache_prefix>:evm-request:<method_name>:sha256:*" | xargs redis-cli DEL`
 
 For example:
 
-`redis-cli KEYS "query:local-chain:eth_getBlockByNumber:*" | xargs redis-cli DEL`
+`redis-cli KEYS "local-chain:evm-request:eth_getBlockByNumber:sha256:*" | xargs redis-cli DEL`
 
 ### Invalidation for all methods
 
 If you want to invalidate cache for all methods you may run such command:
 
-`redis-cli KEYS "query:<chain_name>:*" | xargs redis-cli DEL`
+`redis-cli KEYS "<cache_prefix>:evm-request:*" | xargs redis-cli DEL`
 
 For example:
 
-`redis-cli KEYS "query:local-chain:*" | xargs redis-cli DEL`
+`redis-cli KEYS "local-chain:evm-request:*" | xargs redis-cli DEL`
 
 ## Architecture Diagrams
 
