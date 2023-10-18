@@ -1,11 +1,11 @@
 package cachemdw
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/kava-labs/kava-proxy-service/decode"
 )
@@ -13,21 +13,22 @@ import (
 type CacheItemType int
 
 const (
-	CacheItemTypeQuery CacheItemType = iota + 1
+	CacheItemTypeEVMRequest CacheItemType = iota + 1
 )
 
 func (t CacheItemType) String() string {
 	switch t {
-	case CacheItemTypeQuery:
-		return "query"
+	case CacheItemTypeEVMRequest:
+		return "evm-request"
 	default:
 		return "unknown"
 	}
 }
 
-func BuildCacheKey(cacheItemType CacheItemType, parts []string) string {
+func BuildCacheKey(cachePrefix string, cacheItemType CacheItemType, parts []string) string {
 	fullParts := append(
 		[]string{
+			cachePrefix,
 			cacheItemType.String(),
 		},
 		parts...,
@@ -55,13 +56,14 @@ func GetQueryKey(
 	data = append(data, []byte(req.Method)...)
 	data = append(data, serializedParams...)
 
-	hashedReq := crypto.Keccak256Hash(data)
+	hashedReq := sha256.Sum256(data)
+	hashedReqInHex := hex.EncodeToString(hashedReq[:])
 
 	parts := []string{
-		cachePrefix,
 		req.Method,
-		hashedReq.Hex(),
+		"sha256",
+		hashedReqInHex,
 	}
 
-	return BuildCacheKey(CacheItemTypeQuery, parts), nil
+	return BuildCacheKey(cachePrefix, CacheItemTypeEVMRequest, parts), nil
 }

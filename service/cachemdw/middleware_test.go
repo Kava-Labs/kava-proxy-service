@@ -65,7 +65,7 @@ func TestE2ETestServiceCacheMiddleware(t *testing.T) {
 
 		cacheItems := inMemoryCache.GetAll(context.Background())
 		require.Len(t, cacheItems, 1)
-		require.Contains(t, cacheItems, "query:1:eth_getBlockByNumber:0x885d3d84b42d647be47d94a001428be7e88ab787251031ddbfb247a581d0505a")
+		require.Contains(t, cacheItems, "1:evm-request:eth_getBlockByNumber:sha256:bf79de57723b25b85391513b470ea6989e7c44dd9afc0c270ee961c9f12f578d")
 	})
 
 	t.Run("cache hit", func(t *testing.T) {

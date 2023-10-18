@@ -12,19 +12,21 @@ import (
 func TestUnitTestBuildCacheKey(t *testing.T) {
 	for _, tc := range []struct {
 		desc             string
+		cachePrefix      string
 		cacheItemType    cachemdw.CacheItemType
 		parts            []string
 		expectedCacheKey string
 	}{
 		{
 			desc:             "test case #1",
-			cacheItemType:    cachemdw.CacheItemTypeQuery,
+			cachePrefix:      "chain1",
+			cacheItemType:    cachemdw.CacheItemTypeEVMRequest,
 			parts:            []string{"1", "2", "3"},
-			expectedCacheKey: "query:1:2:3",
+			expectedCacheKey: "chain1:evm-request:1:2:3",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cacheKey := cachemdw.BuildCacheKey(tc.cacheItemType, tc.parts)
+			cacheKey := cachemdw.BuildCacheKey(tc.cachePrefix, tc.cacheItemType, tc.parts)
 			require.Equal(t, tc.expectedCacheKey, cacheKey)
 		})
 	}
@@ -47,7 +49,7 @@ func TestUnitTestGetQueryKey(t *testing.T) {
 				Method:         "eth_getBlockByHash",
 				Params:         []interface{}{"0x1234", true},
 			},
-			expectedCacheKey: "query:chain1:eth_getBlockByHash:0xb2b69f976d9aa41cd2065e2a2354254f6cba682a6fe2b3996571daa27ea4a6f4",
+			expectedCacheKey: "chain1:evm-request:eth_getBlockByHash:sha256:2db366278f2cb463f92147bd888bdcad528b44baa94b7920fdff35f4c11ee617",
 		},
 		{
 			desc:        "test case #1",

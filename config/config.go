@@ -42,7 +42,7 @@ type Config struct {
 	// TTL for cached evm requests
 	CacheTTL time.Duration
 	// CachePrefix is used as prefix for any key in the cache, key has such structure:
-	// query:<cache_prefix>:<method_name>:<keccak256(body)>
+	// <cache_prefix>:evm-request:<method_name>:sha256:<sha256(body)>
 	// Possible values are testnet, mainnet, etc...
 	CachePrefix string
 }
