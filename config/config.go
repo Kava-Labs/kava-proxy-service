@@ -39,12 +39,8 @@ type Config struct {
 	MetricPartitioningPrefillPeriodDays    int
 	RedisEndpointURL                       string
 	RedisPassword                          string
-	// TTL for cached evm requests
-	CacheTTL time.Duration
-	// CachePrefix is used as prefix for any key in the cache, key has such structure:
-	// <cache_prefix>:evm-request:<method_name>:sha256:<sha256(body)>
-	// Possible values are testnet, mainnet, etc...
-	CachePrefix string
+	CacheTTL                               time.Duration
+	CachePrefix                            string
 }
 
 const (
@@ -90,8 +86,7 @@ const (
 	REDIS_ENDPOINT_URL_ENVIRONMENT_KEY                          = "REDIS_ENDPOINT_URL"
 	REDIS_PASSWORD_ENVIRONMENT_KEY                              = "REDIS_PASSWORD"
 	CACHE_TTL_ENVIRONMENT_KEY                                   = "CACHE_TTL"
-	DEFAULT_CACHE_TTL_SECONDS                                   = 600
-	CHAIN_ID_ENVIRONMENT_KEY                                    = "CHAIN_ID"
+	CACHE_PREFIX_ENVIRONMENT_KEY                                = "CACHE_PREFIX"
 )
 
 // EnvOrDefault fetches an environment variable value, or if not set returns the fallback value
@@ -219,7 +214,7 @@ func ReadConfig() Config {
 		MetricPartitioningPrefillPeriodDays:    EnvOrDefaultInt(METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_PREFILL_PERIOD_DAYS),
 		RedisEndpointURL:                       os.Getenv(REDIS_ENDPOINT_URL_ENVIRONMENT_KEY),
 		RedisPassword:                          os.Getenv(REDIS_PASSWORD_ENVIRONMENT_KEY),
-		CacheTTL:                               time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, DEFAULT_CACHE_TTL_SECONDS)) * time.Second,
-		CachePrefix:                            os.Getenv(CHAIN_ID_ENVIRONMENT_KEY),
+		CacheTTL:                               time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
+		CachePrefix:                            os.Getenv(CACHE_PREFIX_ENVIRONMENT_KEY),
 	}
 }

@@ -14,8 +14,9 @@ import (
 // ServiceCache is responsible for caching EVM requests and provides corresponding middleware
 // ServiceCache can work with any underlying storage which implements simple cache.Cache interface
 type ServiceCache struct {
-	cacheClient              cache.Cache
-	blockGetter              decode.EVMBlockGetter
+	cacheClient cache.Cache
+	blockGetter decode.EVMBlockGetter
+	// TTL for cached evm requests
 	cacheTTL                 time.Duration
 	decodedRequestContextKey any
 	// cachePrefix is used as prefix for any key in the cache

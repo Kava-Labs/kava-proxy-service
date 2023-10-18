@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -46,6 +47,19 @@ func Validate(config Config) error {
 
 	if config.MetricPartitioningPrefillPeriodDays > MaxMetricPartitioningPrefillPeriodDays || config.MetricPartitioningPrefillPeriodDays < 1 {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %d, must be non-zero and less than or equal to %d", METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY, config.MetricPartitioningPrefillPeriodDays, MaxMetricPartitioningPrefillPeriodDays))
+	}
+
+	if config.RedisEndpointURL == "" {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not be empty", REDIS_ENDPOINT_URL_ENVIRONMENT_KEY, config.RedisEndpointURL))
+	}
+	if config.CacheTTL <= 0 {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must be greater than zero", CACHE_TTL_ENVIRONMENT_KEY, config.CacheTTL))
+	}
+	if strings.Contains(config.CachePrefix, ":") {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not contain colon symbol", CACHE_PREFIX_ENVIRONMENT_KEY, config.CachePrefix))
+	}
+	if config.CachePrefix == "" {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not be empty", CACHE_PREFIX_ENVIRONMENT_KEY, config.CachePrefix))
 	}
 
 	return allErrs
