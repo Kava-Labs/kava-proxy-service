@@ -38,7 +38,7 @@ func BuildCacheKey(cacheItemType CacheItemType, parts []string) string {
 
 // GetQueryKey calculates cache key for request
 func GetQueryKey(
-	chainID string,
+	cachePrefix string,
 	req *decode.EVMRPCRequestEnvelope,
 ) (string, error) {
 	if req == nil {
@@ -58,7 +58,7 @@ func GetQueryKey(
 	hashedReq := crypto.Keccak256Hash(data)
 
 	parts := []string{
-		chainID,
+		cachePrefix,
 		req.Method,
 		hashedReq.Hex(),
 	}

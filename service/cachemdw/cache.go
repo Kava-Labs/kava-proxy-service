@@ -18,8 +18,8 @@ type ServiceCache struct {
 	blockGetter              decode.EVMBlockGetter
 	cacheTTL                 time.Duration
 	decodedRequestContextKey any
-	// chainID is used as prefix for any key in the cache
-	chainID string
+	// cachePrefix is used as prefix for any key in the cache
+	cachePrefix string
 
 	*logging.ServiceLogger
 }
@@ -29,7 +29,7 @@ func NewServiceCache(
 	blockGetter decode.EVMBlockGetter,
 	cacheTTL time.Duration,
 	decodedRequestContextKey any,
-	chainID string,
+	cachePrefix string,
 	logger *logging.ServiceLogger,
 ) *ServiceCache {
 	return &ServiceCache{
@@ -37,7 +37,7 @@ func NewServiceCache(
 		blockGetter:              blockGetter,
 		cacheTTL:                 cacheTTL,
 		decodedRequestContextKey: decodedRequestContextKey,
-		chainID:                  chainID,
+		cachePrefix:              cachePrefix,
 		ServiceLogger:            logger,
 	}
 }
@@ -73,7 +73,7 @@ func (c *ServiceCache) GetCachedQueryResponse(
 	ctx context.Context,
 	req *decode.EVMRPCRequestEnvelope,
 ) ([]byte, error) {
-	key, err := GetQueryKey(c.chainID, req)
+	key, err := GetQueryKey(c.cachePrefix, req)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (c *ServiceCache) CacheQueryResponse(
 		return fmt.Errorf("response isn't cacheable")
 	}
 
-	key, err := GetQueryKey(c.chainID, req)
+	key, err := GetQueryKey(c.cachePrefix, req)
 	if err != nil {
 		return err
 	}

@@ -212,7 +212,7 @@ func createServiceCache(
 		evmclient,
 		config.CacheTTL,
 		DecodedRequestContextKey,
-		config.ChainID,
+		config.CachePrefix,
 		logger,
 	)
 

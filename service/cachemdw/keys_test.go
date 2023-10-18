@@ -33,14 +33,14 @@ func TestUnitTestBuildCacheKey(t *testing.T) {
 func TestUnitTestGetQueryKey(t *testing.T) {
 	for _, tc := range []struct {
 		desc             string
-		chainID          string
+		cachePrefix      string
 		req              *decode.EVMRPCRequestEnvelope
 		expectedCacheKey string
 		errMsg           string
 	}{
 		{
-			desc:    "test case #1",
-			chainID: "chain1",
+			desc:        "test case #1",
+			cachePrefix: "chain1",
 			req: &decode.EVMRPCRequestEnvelope{
 				JSONRPCVersion: "2.0",
 				ID:             1,
@@ -50,14 +50,14 @@ func TestUnitTestGetQueryKey(t *testing.T) {
 			expectedCacheKey: "query:chain1:eth_getBlockByHash:0xb2b69f976d9aa41cd2065e2a2354254f6cba682a6fe2b3996571daa27ea4a6f4",
 		},
 		{
-			desc:    "test case #1",
-			chainID: "chain1",
-			req:     nil,
-			errMsg:  "request shouldn't be nil",
+			desc:        "test case #1",
+			cachePrefix: "chain1",
+			req:         nil,
+			errMsg:      "request shouldn't be nil",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cacheKey, err := cachemdw.GetQueryKey(tc.chainID, tc.req)
+			cacheKey, err := cachemdw.GetQueryKey(tc.cachePrefix, tc.req)
 			if tc.errMsg == "" {
 				require.NoError(t, err)
 				require.Equal(t, tc.expectedCacheKey, cacheKey)

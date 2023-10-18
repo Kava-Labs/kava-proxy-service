@@ -24,7 +24,7 @@ func TestE2ETestServiceCacheMiddleware(t *testing.T) {
 	blockGetter := NewMockEVMBlockGetter()
 	cacheTTL := time.Duration(0) // TTL: no expiry
 
-	serviceCache := cachemdw.NewServiceCache(inMemoryCache, blockGetter, cacheTTL, service.DecodedRequestContextKey, defaultChainIDString, &logger)
+	serviceCache := cachemdw.NewServiceCache(inMemoryCache, blockGetter, cacheTTL, service.DecodedRequestContextKey, defaultCachePrefixString, &logger)
 
 	emptyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	cachingMdw := serviceCache.CachingMiddleware(emptyHandler)

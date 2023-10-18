@@ -39,8 +39,12 @@ type Config struct {
 	MetricPartitioningPrefillPeriodDays    int
 	RedisEndpointURL                       string
 	RedisPassword                          string
-	CacheTTL                               time.Duration
-	ChainID                                string
+	// TTL for cached evm requests
+	CacheTTL time.Duration
+	// CachePrefix is used as prefix for any key in the cache, key has such structure:
+	// query:<cache_prefix>:<method_name>:<keccak256(body)>
+	// Possible values are testnet, mainnet, etc...
+	CachePrefix string
 }
 
 const (
@@ -216,6 +220,6 @@ func ReadConfig() Config {
 		RedisEndpointURL:                       os.Getenv(REDIS_ENDPOINT_URL_ENVIRONMENT_KEY),
 		RedisPassword:                          os.Getenv(REDIS_PASSWORD_ENVIRONMENT_KEY),
 		CacheTTL:                               time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, DEFAULT_CACHE_TTL_SECONDS)) * time.Second,
-		ChainID:                                os.Getenv(CHAIN_ID_ENVIRONMENT_KEY),
+		CachePrefix:                            os.Getenv(CHAIN_ID_ENVIRONMENT_KEY),
 	}
 }

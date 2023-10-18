@@ -18,14 +18,13 @@ import (
 )
 
 const (
-	defaultChainIDString = "1"
-	defaultHost          = "api.kava.io"
-	defaultBlockNumber   = "42"
+	defaultCachePrefixString = "1"
+	defaultBlockNumber       = "42"
 )
 
 var (
-	defaultChainID   = big.NewInt(1)
-	defaultQueryResp = []byte(testEVMQueries[TestRequestWeb3ClientVersion].ResponseBody)
+	defaultCachePrefix = big.NewInt(1)
+	defaultQueryResp   = []byte(testEVMQueries[TestRequestWeb3ClientVersion].ResponseBody)
 )
 
 type MockEVMBlockGetter struct{}
@@ -38,10 +37,6 @@ var _ decode.EVMBlockGetter = (*MockEVMBlockGetter)(nil)
 
 func (c *MockEVMBlockGetter) BlockByHash(ctx context.Context, hash common.Hash) (*ethctypes.Block, error) {
 	panic("not implemented")
-}
-
-func (c *MockEVMBlockGetter) ChainID(ctx context.Context) (*big.Int, error) {
-	return defaultChainID, nil
 }
 
 func TestUnitTestIsCacheable(t *testing.T) {
@@ -83,7 +78,7 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 	cacheTTL := time.Hour
 	ctxb := context.Background()
 
-	serviceCache := cachemdw.NewServiceCache(inMemoryCache, blockGetter, cacheTTL, service.DecodedRequestContextKey, defaultChainIDString, &logger)
+	serviceCache := cachemdw.NewServiceCache(inMemoryCache, blockGetter, cacheTTL, service.DecodedRequestContextKey, defaultCachePrefixString, &logger)
 
 	req := mkEVMRPCRequestEnvelope(defaultBlockNumber)
 	resp, err := serviceCache.GetCachedQueryResponse(ctxb, req)
