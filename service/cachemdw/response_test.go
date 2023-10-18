@@ -9,7 +9,7 @@ import (
 	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
 )
 
-func TestUnitTestJsonRpcResponse_IsEmpty(t *testing.T) {
+func TestUnitTestJsonRpcResponse_IsResultEmpty(t *testing.T) {
 	toJSON := func(t *testing.T, result any) []byte {
 		resultInJSON, err := json.Marshal(result)
 		require.NoError(t, err)
@@ -103,6 +103,63 @@ func TestUnitTestJsonRpcResponse_IsEmpty(t *testing.T) {
 				t,
 				tc.isEmpty,
 				tc.resp.IsResultEmpty(),
+			)
+		})
+	}
+}
+
+func TestUnitTestJsonRpcResponse_IsCacheable(t *testing.T) {
+	toJSON := func(t *testing.T, result any) []byte {
+		resultInJSON, err := json.Marshal(result)
+		require.NoError(t, err)
+
+		return resultInJSON
+	}
+
+	tests := []struct {
+		name        string
+		resp        *cachemdw.JsonRpcResponse
+		isCacheable bool
+	}{
+		{
+			name: "empty result",
+			resp: &cachemdw.JsonRpcResponse{
+				Version: "2.0",
+				ID:      []byte("1"),
+				Result:  []byte{},
+			},
+			isCacheable: false,
+		},
+		{
+			name: "non-empty error",
+			resp: &cachemdw.JsonRpcResponse{
+				Version: "2.0",
+				ID:      []byte("1"),
+				Result:  toJSON(t, "0x1234"),
+				JsonRpcError: &cachemdw.JsonRpcError{
+					Code:    1,
+					Message: "error",
+				},
+			},
+			isCacheable: false,
+		},
+		{
+			name: "valid response",
+			resp: &cachemdw.JsonRpcResponse{
+				Version: "2.0",
+				ID:      []byte("1"),
+				Result:  toJSON(t, "0x1234"),
+			},
+			isCacheable: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(
+				t,
+				tc.isCacheable,
+				tc.resp.IsCacheable(),
 			)
 		})
 	}
