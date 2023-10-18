@@ -25,7 +25,7 @@ const (
 
 var (
 	defaultChainID   = big.NewInt(1)
-	defaultQueryResp = []byte("resp")
+	defaultQueryResp = []byte(testEVMQueries[TestRequestWeb3ClientVersion].ResponseBody)
 )
 
 type MockEVMBlockGetter struct{}
