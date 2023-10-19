@@ -26,15 +26,17 @@ func createHealthcheckHandler(service *ProxyService) func(http.ResponseWriter, *
 			combinedErrors = errors.Join(combinedErrors, errMsg)
 		}
 
-		// check that the cache is reachable
-		err = service.Cache.Healthcheck(context.Background())
-		if err != nil {
-			service.Logger.Error().
-				Err(err).
-				Msg("cache healthcheck failed")
+		if service.Cache.IsCacheEnabled() {
+			// check that the cache is reachable
+			err := service.Cache.Healthcheck(context.Background())
+			if err != nil {
+				service.Logger.Error().
+					Err(err).
+					Msg("cache healthcheck failed")
 
-			errMsg := fmt.Errorf("proxy service unable to connect to cache")
-			combinedErrors = errors.Join(combinedErrors, errMsg)
+				errMsg := fmt.Errorf("proxy service unable to connect to cache: %v", err)
+				combinedErrors = errors.Join(combinedErrors, errMsg)
+			}
 		}
 
 		if combinedErrors != nil {

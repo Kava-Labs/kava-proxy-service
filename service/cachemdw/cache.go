@@ -121,3 +121,7 @@ func (c *ServiceCache) CacheQueryResponse(
 func (c *ServiceCache) Healthcheck(ctx context.Context) error {
 	return c.cacheClient.Healthcheck(ctx)
 }
+
+func (c *ServiceCache) IsCacheEnabled() bool {
+	return c.cacheEnabled
+}
