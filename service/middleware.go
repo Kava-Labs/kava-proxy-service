@@ -162,6 +162,19 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 	handler := func(proxies map[string]*httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 		return func(w http.ResponseWriter, r *http.Request) {
+			req := r.Context().Value(DecodedRequestContextKey)
+			decodedReq, ok := (req).(*decode.EVMRPCRequestEnvelope)
+			if !ok {
+				serviceLogger.Logger.Error().
+					Str("method", r.Method).
+					Str("url", r.URL.String()).
+					Str("host", r.Host).
+					Msg("can't cast request to *EVMRPCRequestEnvelope type")
+
+				// if we can't get decoded request then assign it empty structure to avoid panics
+				decodedReq = new(decode.EVMRPCRequestEnvelope)
+			}
+
 			serviceLogger.Trace().Msg(fmt.Sprintf("proxying request %+v", r))
 
 			proxyRequestAt := time.Now()
@@ -240,6 +253,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 					Str("method", r.Method).
 					Str("url", r.URL.String()).
 					Str("host", r.Host).
+					Str("evm-method", decodedReq.Method).
 					Msg("cache hit")
 
 				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheHitHeaderValue)
@@ -253,6 +267,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 					Str("method", r.Method).
 					Str("url", r.URL.String()).
 					Str("host", r.Host).
+					Str("evm-method", decodedReq.Method).
 					Msg("cache miss")
 
 				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheMissHeaderValue)
