@@ -11,12 +11,9 @@ import (
 	ethctypes "github.com/ethereum/go-ethereum/core/types"
 )
 
-// EVMBlockGetter defines an interface which can be implemented by any client capable of getting ethereum block by hash
+// EVMBlockGetter defines an interface which can be implemented by any client capable of getting ethereum block header by hash
 type EVMBlockGetter interface {
-	// BlockByHash returns ethereum block by hash
-	BlockByHash(ctx context.Context, hash common.Hash) (*ethctypes.Block, error)
-
-	// TODO(yevhenii): remote BlockByHash + AddComment
+	// HeaderByHash returns ethereum block header by hash
 	HeaderByHash(ctx context.Context, hash common.Hash) (*ethctypes.Header, error)
 }
 
