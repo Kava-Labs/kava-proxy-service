@@ -99,6 +99,87 @@ func TestUnitTestServiceCacheMiddleware(t *testing.T) {
 	})
 }
 
+func TestUnitTestServiceCacheMiddleware_CacheIsDisabled(t *testing.T) {
+	logger, err := logging.New("TRACE")
+	require.NoError(t, err)
+
+	inMemoryCache := cache.NewInMemoryCache()
+	blockGetter := NewMockEVMBlockGetter()
+	cacheTTL := time.Duration(0) // TTL: no expiry
+
+	serviceCache := cachemdw.NewServiceCache(
+		inMemoryCache,
+		blockGetter,
+		cacheTTL,
+		service.DecodedRequestContextKey,
+		defaultCachePrefixString,
+		false,
+		&logger,
+	)
+
+	emptyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	cachingMdw := serviceCache.CachingMiddleware(emptyHandler)
+	// proxyHandler emulates behaviour of actual service proxy handler
+	// sequence of execution:
+	// - isCachedMdw
+	// - proxyHandler
+	// - cachingMdw
+	// - emptyHandler
+	proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := []byte(testEVMQueries[TestRequestEthBlockByNumberSpecific].ResponseBody)
+		if cachemdw.IsRequestCached(r.Context()) {
+			w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheHitHeaderValue)
+		} else {
+			w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheMissHeaderValue)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(response)
+		responseContext := context.WithValue(r.Context(), cachemdw.ResponseContextKey, response)
+
+		cachingMdw.ServeHTTP(w, r.WithContext(responseContext))
+	})
+	isCachedMdw := serviceCache.IsCachedMiddleware(proxyHandler)
+
+	// both calls should lead to cache MISS scenario, because cache is disabled
+	// check corresponding values in cachemdw.CacheHeaderKey HTTP header
+
+	t.Run("cache miss", func(t *testing.T) {
+		req := createTestHttpRequest(
+			t,
+			"https://api.kava.io:8545/thisshouldntshowup",
+			TestRequestEthBlockByNumberSpecific,
+		)
+		resp := httptest.NewRecorder()
+
+		isCachedMdw.ServeHTTP(resp, req)
+
+		require.Equal(t, http.StatusOK, resp.Code)
+		require.JSONEq(t, testEVMQueries[TestRequestEthBlockByNumberSpecific].ResponseBody, resp.Body.String())
+		require.Equal(t, cachemdw.CacheMissHeaderValue, resp.Header().Get(cachemdw.CacheHeaderKey))
+
+		cacheItems := inMemoryCache.GetAll(context.Background())
+		require.Len(t, cacheItems, 0)
+	})
+
+	t.Run("cache miss again (cache is disabled)", func(t *testing.T) {
+		req := createTestHttpRequest(
+			t,
+			"https://api.kava.io:8545/thisshouldntshowup",
+			TestRequestEthBlockByNumberSpecific,
+		)
+		resp := httptest.NewRecorder()
+
+		isCachedMdw.ServeHTTP(resp, req)
+
+		require.Equal(t, http.StatusOK, resp.Code)
+		require.JSONEq(t, testEVMQueries[TestRequestEthBlockByNumberSpecific].ResponseBody, resp.Body.String())
+		require.Equal(t, cachemdw.CacheMissHeaderValue, resp.Header().Get(cachemdw.CacheHeaderKey))
+
+		cacheItems := inMemoryCache.GetAll(context.Background())
+		require.Len(t, cacheItems, 0)
+	})
+}
+
 func createTestHttpRequest(
 	t *testing.T,
 	url string,
