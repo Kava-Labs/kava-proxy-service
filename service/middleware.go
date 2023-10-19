@@ -233,9 +233,9 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 			response := r.Context().Value(cachemdw.ResponseContextKey)
 			typedResponse, ok := response.([]byte)
 
-			// if request is cached and response is present in context - serve the request from the cache
+			// if cache is enabled, request is cached and response is present in context - serve the request from the cache
 			// otherwise proxy to the actual backend
-			if isCached && ok {
+			if config.CacheEnabled && isCached && ok {
 				serviceLogger.Logger.Trace().
 					Str("method", r.Method).
 					Str("url", r.URL.String()).
@@ -271,20 +271,23 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 			// extract the original hostname the request was sent to
 			requestHostnameContext := context.WithValue(originRoundtripLatencyContext, RequestHostnameContextKey, r.Host)
 
-			var bodyCopy bytes.Buffer
-			tee := io.TeeReader(lrw.body, &bodyCopy)
-			// read all body from reader into bodyBytes, and copy into bodyCopy
-			bodyBytes, err := io.ReadAll(tee)
-			if err != nil {
-				serviceLogger.Error().Err(err).Msg("can't read lrw.body")
+			enrichedContext := requestHostnameContext
+
+			// if cache is enabled, update enrichedContext with cachemdw.ResponseContextKey -> bodyBytes key-value pair
+			if config.CacheEnabled {
+				var bodyCopy bytes.Buffer
+				tee := io.TeeReader(lrw.body, &bodyCopy)
+				// read all body from reader into bodyBytes, and copy into bodyCopy
+				bodyBytes, err := io.ReadAll(tee)
+				if err != nil {
+					serviceLogger.Error().Err(err).Msg("can't read lrw.body")
+				}
+
+				// replace empty body reader with fresh copy
+				lrw.body = &bodyCopy
+				// set body in context
+				enrichedContext = context.WithValue(enrichedContext, cachemdw.ResponseContextKey, bodyBytes)
 			}
-
-			// replace empty body reader with fresh copy
-			lrw.body = &bodyCopy
-			// set body in context
-			responseContext := context.WithValue(requestHostnameContext, cachemdw.ResponseContextKey, bodyBytes)
-
-			enrichedContext := responseContext
 
 			// parse the remote address of the request for use below
 			remoteAddressParts := strings.Split(r.RemoteAddr, ":")

@@ -37,6 +37,7 @@ type Config struct {
 	MetricPartitioningRoutineInterval      time.Duration
 	MetricPartitioningRoutineDelayFirstRun time.Duration
 	MetricPartitioningPrefillPeriodDays    int
+	CacheEnabled                           bool
 	RedisEndpointURL                       string
 	RedisPassword                          string
 	CacheTTL                               time.Duration
@@ -83,6 +84,7 @@ const (
 	DEFAULT_DATABASE_READ_TIMEOUT_SECONDS                       = 60
 	DATABASE_WRITE_TIMEOUT_SECONDS_ENVIRONMENT_KEY              = "DATABASE_WRITE_TIMEOUT_SECONDS"
 	DEFAULT_DATABASE_WRITE_TIMEOUT_SECONDS                      = 10
+	CACHE_ENABLED_ENVIRONMENT_KEY                               = "CACHE_ENABLED"
 	REDIS_ENDPOINT_URL_ENVIRONMENT_KEY                          = "REDIS_ENDPOINT_URL"
 	REDIS_PASSWORD_ENVIRONMENT_KEY                              = "REDIS_PASSWORD"
 	CACHE_TTL_ENVIRONMENT_KEY                                   = "CACHE_TTL"
@@ -212,6 +214,7 @@ func ReadConfig() Config {
 		MetricPartitioningRoutineInterval:      time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS)) * time.Second),
 		MetricPartitioningRoutineDelayFirstRun: time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS)) * time.Second),
 		MetricPartitioningPrefillPeriodDays:    EnvOrDefaultInt(METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_PREFILL_PERIOD_DAYS),
+		CacheEnabled:                           EnvOrDefaultBool(CACHE_ENABLED_ENVIRONMENT_KEY, false),
 		RedisEndpointURL:                       os.Getenv(REDIS_ENDPOINT_URL_ENVIRONMENT_KEY),
 		RedisPassword:                          os.Getenv(REDIS_PASSWORD_ENVIRONMENT_KEY),
 		CacheTTL:                               time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, 0)) * time.Second,

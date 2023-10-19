@@ -19,6 +19,12 @@ func (c *ServiceCache) CachingMiddleware(
 	next http.Handler,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// if cache is not enabled - do nothing and forward to next middleware
+		if !c.cacheEnabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// if we can't get decoded request then forward to next middleware
 		req := r.Context().Value(c.decodedRequestContextKey)
 		decodedReq, ok := (req).(*decode.EVMRPCRequestEnvelope)

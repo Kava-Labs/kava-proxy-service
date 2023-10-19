@@ -213,6 +213,7 @@ func createServiceCache(
 		config.CacheTTL,
 		DecodedRequestContextKey,
 		config.CachePrefix,
+		config.CacheEnabled,
 		logger,
 	)
 

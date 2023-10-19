@@ -78,7 +78,15 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 	cacheTTL := time.Hour
 	ctxb := context.Background()
 
-	serviceCache := cachemdw.NewServiceCache(inMemoryCache, blockGetter, cacheTTL, service.DecodedRequestContextKey, defaultCachePrefixString, &logger)
+	serviceCache := cachemdw.NewServiceCache(
+		inMemoryCache,
+		blockGetter,
+		cacheTTL,
+		service.DecodedRequestContextKey,
+		defaultCachePrefixString,
+		true,
+		&logger,
+	)
 
 	req := mkEVMRPCRequestEnvelope(defaultBlockNumber)
 	resp, err := serviceCache.GetCachedQueryResponse(ctxb, req)

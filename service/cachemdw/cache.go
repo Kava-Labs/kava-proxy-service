@@ -20,7 +20,8 @@ type ServiceCache struct {
 	cacheTTL                 time.Duration
 	decodedRequestContextKey any
 	// cachePrefix is used as prefix for any key in the cache
-	cachePrefix string
+	cachePrefix  string
+	cacheEnabled bool
 
 	*logging.ServiceLogger
 }
@@ -31,6 +32,7 @@ func NewServiceCache(
 	cacheTTL time.Duration,
 	decodedRequestContextKey any,
 	cachePrefix string,
+	cacheEnabled bool,
 	logger *logging.ServiceLogger,
 ) *ServiceCache {
 	return &ServiceCache{
@@ -39,6 +41,7 @@ func NewServiceCache(
 		cacheTTL:                 cacheTTL,
 		decodedRequestContextKey: decodedRequestContextKey,
 		cachePrefix:              cachePrefix,
+		cacheEnabled:             cacheEnabled,
 		ServiceLogger:            logger,
 	}
 }

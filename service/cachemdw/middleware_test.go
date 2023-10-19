@@ -16,7 +16,7 @@ import (
 	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
 )
 
-func TestE2ETestServiceCacheMiddleware(t *testing.T) {
+func TestUnitTestServiceCacheMiddleware(t *testing.T) {
 	logger, err := logging.New("TRACE")
 	require.NoError(t, err)
 
@@ -24,7 +24,15 @@ func TestE2ETestServiceCacheMiddleware(t *testing.T) {
 	blockGetter := NewMockEVMBlockGetter()
 	cacheTTL := time.Duration(0) // TTL: no expiry
 
-	serviceCache := cachemdw.NewServiceCache(inMemoryCache, blockGetter, cacheTTL, service.DecodedRequestContextKey, defaultCachePrefixString, &logger)
+	serviceCache := cachemdw.NewServiceCache(
+		inMemoryCache,
+		blockGetter,
+		cacheTTL,
+		service.DecodedRequestContextKey,
+		defaultCachePrefixString,
+		true,
+		&logger,
+	)
 
 	emptyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	cachingMdw := serviceCache.CachingMiddleware(emptyHandler)
@@ -48,6 +56,9 @@ func TestE2ETestServiceCacheMiddleware(t *testing.T) {
 		cachingMdw.ServeHTTP(w, r.WithContext(responseContext))
 	})
 	isCachedMdw := serviceCache.IsCachedMiddleware(proxyHandler)
+
+	// test cache MISS and cache HIT scenarios for specified method
+	// check corresponding values in cachemdw.CacheHeaderKey HTTP header
 
 	t.Run("cache miss", func(t *testing.T) {
 		req := createTestHttpRequest(
@@ -81,6 +92,10 @@ func TestE2ETestServiceCacheMiddleware(t *testing.T) {
 		require.Equal(t, http.StatusOK, resp.Code)
 		require.JSONEq(t, testEVMQueries[TestRequestEthBlockByNumberSpecific].ResponseBody, resp.Body.String())
 		require.Equal(t, cachemdw.CacheHitHeaderValue, resp.Header().Get(cachemdw.CacheHeaderKey))
+
+		cacheItems := inMemoryCache.GetAll(context.Background())
+		require.Len(t, cacheItems, 1)
+		require.Contains(t, cacheItems, "1:evm-request:eth_getBlockByNumber:sha256:bf79de57723b25b85391513b470ea6989e7c44dd9afc0c270ee961c9f12f578d")
 	})
 }
 

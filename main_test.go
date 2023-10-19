@@ -483,7 +483,7 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 	}
 }
 
-func TestE2eTestCachingMdwWithBlockNumberParam(t *testing.T) {
+func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 	// create api and database clients
 	client, err := ethclient.Dial(proxyServiceURL)
 	if err != nil {
@@ -513,7 +513,7 @@ func TestE2eTestCachingMdwWithBlockNumberParam(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			// test cache MISS and cache HIT scenarios for specified method
-			// check corresponding values in cachemdw.CacheMissHeaderValue HTTP header
+			// check corresponding values in cachemdw.CacheHeaderKey HTTP header
 			// check that cached and non-cached responses are equal
 
 			// eth_getBlockByNumber - cache MISS
@@ -557,7 +557,7 @@ func TestE2eTestCachingMdwWithBlockNumberParam(t *testing.T) {
 	cleanUpRedis(t, redisClient)
 }
 
-func TestE2eTestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
+func TestE2ETestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
 	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
 	testAddress := common.HexToAddress(testRandomAddressHex)
 
@@ -590,7 +590,7 @@ func TestE2eTestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			// both calls should lead to cache MISS scenario, because empty results aren't cached
-			// check corresponding values in cachemdw.CacheMissHeaderValue HTTP header
+			// check corresponding values in cachemdw.CacheHeaderKey HTTP header
 			// check that responses are equal
 
 			// eth_getBlockByNumber - cache MISS

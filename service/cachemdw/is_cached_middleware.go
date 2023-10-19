@@ -28,6 +28,12 @@ func (c *ServiceCache) IsCachedMiddleware(
 	next http.Handler,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// if cache is not enabled - do nothing and forward to next middleware
+		if !c.cacheEnabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		uncachedContext := context.WithValue(r.Context(), CachedContextKey, false)
 		cachedContext := context.WithValue(r.Context(), CachedContextKey, true)
 
