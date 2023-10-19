@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -61,7 +60,7 @@ var (
 		RunDatabaseMigrations: false,
 	}
 
-	redisHostPort = os.Getenv("REDIS_HOST_PORT")
+	redisURL      = os.Getenv("TEST_REDIS_ENDPOINT_URL")
 	redisPassword = os.Getenv("REDIS_PASSWORD")
 )
 
@@ -491,7 +490,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 	}
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("localhost:%v", redisHostPort),
+		Addr:     redisURL,
 		Password: redisPassword,
 		DB:       0,
 	})
@@ -568,7 +567,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
 	}
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("localhost:%v", redisHostPort),
+		Addr:     redisURL,
 		Password: redisPassword,
 		DB:       0,
 	})
