@@ -22,3 +22,7 @@ vendor/
 # ignore editor files
 .vscode/
 .idea/
+
+# ignore e2e test validator files
+docker/shared/genesis.json
+docker/shared/VALIDATOR_NODE_ID

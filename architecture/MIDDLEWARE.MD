@@ -61,6 +61,8 @@ server := &http.Server{
 
 1. Times the roundtrip latency for the response from the backend origin server and stores the latency in the context key `X-KAVA-PROXY-ORIGIN-ROUNDTRIP-LATENCY-MILLISECONDS` for use by other middleware.
 
+See [Proxy Routing](./PROXY_ROUTING.md) for details on configuration and how requests are routed.
+
 ### After Proxy Middleware
 
 1. Parses the request body and latency from context key values and creates a request metric for the proxied request.

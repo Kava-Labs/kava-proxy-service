@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"strings"
 	"time"
 
@@ -30,6 +29,7 @@ const (
 	RequestUserAgentContextKey            = "X-KAVA-PROXY-USER-AGENT"
 	RequestRefererContextKey              = "X-KAVA-PROXY-REFERER"
 	RequestOriginContextKey               = "X-KAVA-PROXY-ORIGIN"
+	ProxyMetadataContextKey               = "X-KAVA-PROXY-RESPONSE-BACKEND"
 	// Values defined by upstream services
 	LoadBalancerForwardedForHeaderKey = "X-Forwarded-For"
 	UserAgentHeaderkey                = "User-Agent"
@@ -150,17 +150,9 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 // through and executed before the response is written to the caller
 func createProxyRequestMiddleware(next http.Handler, config config.Config, serviceLogger *logging.ServiceLogger, beforeRequestInterceptors []RequestInterceptor, afterRequestInterceptors []RequestInterceptor) http.HandlerFunc {
 	// create an http handler that will proxy any request to the specified URL
-	reverseProxyForHost := make(map[string]*httputil.ReverseProxy)
+	reverseProxyForHost := NewProxies(config, serviceLogger)
 
-	for host, proxyBackendURL := range config.ProxyBackendHostURLMapParsed {
-		serviceLogger.Debug().Msg(fmt.Sprintf("creating reverse proxy for host %s to %+v", host, proxyBackendURL))
-
-		targetURL := config.ProxyBackendHostURLMapParsed[host]
-
-		reverseProxyForHost[host] = httputil.NewSingleHostReverseProxy(&targetURL)
-	}
-
-	handler := func(proxies map[string]*httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+	handler := func(proxies Proxies) func(http.ResponseWriter, *http.Request) {
 		return func(w http.ResponseWriter, r *http.Request) {
 			req := r.Context().Value(DecodedRequestContextKey)
 			decodedReq, ok := (req).(*decode.EVMRPCRequestEnvelope)
@@ -190,7 +182,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			// proxy the request to the backend origin server
 			// based on the request host
-			proxy, ok := proxies[r.Host]
+			proxy, proxyMetadata, ok := proxies.ProxyForRequest(r)
 
 			if !ok {
 				serviceLogger.Error().Msg(fmt.Sprintf("no matching proxy for host %s for request %+v\n configured proxies %+v", r.Host, r, proxies))
@@ -287,6 +279,9 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 			requestHostnameContext := context.WithValue(originRoundtripLatencyContext, RequestHostnameContextKey, r.Host)
 
 			enrichedContext := requestHostnameContext
+
+			// add response backend name to context
+			enrichedContext = context.WithValue(enrichedContext, ProxyMetadataContextKey, proxyMetadata)
 
 			// if cache is enabled, update enrichedContext with cachemdw.ResponseContextKey -> bodyBytes key-value pair
 			if config.CacheEnabled {
@@ -441,6 +436,14 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 			return
 		}
 
+		rawProxyMetadata := r.Context().Value(ProxyMetadataContextKey)
+		proxyMetadata, ok := rawProxyMetadata.(ProxyMetadata)
+		if !ok {
+			service.ServiceLogger.Trace().Msg(fmt.Sprintf("invalid context value %+v for value %s", proxyMetadata, ProxyMetadataContextKey))
+
+			return
+		}
+
 		var blockNumber *int64
 		// TODO: Redundant ExtractBlockNumberFromEVMRPCRequest call here if request is cached
 		rawBlockNumber, err := decodedRequestBody.ExtractBlockNumberFromEVMRPCRequest(r.Context(), service.evmClient)
@@ -464,6 +467,8 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 			Referer:                     &referer,
 			Origin:                      &origin,
 			BlockNumber:                 blockNumber,
+			ResponseBackend:             proxyMetadata.BackendName,
+			ResponseBackendRoute:        proxyMetadata.BackendRoute.String(),
 		}
 
 		// save metric to database

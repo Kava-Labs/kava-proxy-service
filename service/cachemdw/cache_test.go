@@ -39,6 +39,10 @@ func (c *MockEVMBlockGetter) BlockByHash(ctx context.Context, hash common.Hash) 
 	panic("not implemented")
 }
 
+func (c *MockEVMBlockGetter) HeaderByHash(ctx context.Context, hash common.Hash) (*ethctypes.Header, error) {
+	panic("not implemented")
+}
+
 func TestUnitTestIsCacheable(t *testing.T) {
 	logger, err := logging.New("TRACE")
 	require.NoError(t, err)

@@ -15,7 +15,22 @@ import (
 type EVMBlockGetter interface {
 	// BlockByHash returns ethereum block by hash
 	BlockByHash(ctx context.Context, hash common.Hash) (*ethctypes.Block, error)
+
+	// TODO(yevhenii): remote BlockByHash + AddComment
+	HeaderByHash(ctx context.Context, hash common.Hash) (*ethctypes.Header, error)
 }
+
+// These block tags are special strings used to reference blocks in JSON-RPC
+// see https://ethereum.org/en/developers/docs/apis/json-rpc/#default-block
+const (
+	BlockTagLatest    = "latest"
+	BlockTagPending   = "pending"
+	BlockTagEarliest  = "earliest"
+	BlockTagFinalized = "finalized"
+	BlockTagSafe      = "safe"
+	// "empty" is not in the spec, it is our encoding for requests made with a nil block tag param.
+	BlockTagEmpty = "empty"
+)
 
 // Errors that might result from decoding parts or the whole of
 // an EVM RPC request
@@ -42,6 +57,18 @@ var CacheableByBlockNumberMethods = []string{
 	"eth_call",
 }
 
+// MethodHasBlockNumberParam returns true when the method expects a block number in the request parameters.
+func MethodHasBlockNumberParam(method string) bool {
+	var includesBlockNumberParam bool
+	for _, cacheableByBlockNumberMethod := range CacheableByBlockNumberMethods {
+		if method == cacheableByBlockNumberMethod {
+			includesBlockNumberParam = true
+			break
+		}
+	}
+	return includesBlockNumberParam
+}
+
 // List of evm methods that can be cached by block hash
 // and so are useful for converting and tracking the block hash associated with
 // any requests invoking those methods to the matching block number
@@ -51,6 +78,53 @@ var CacheableByBlockHashMethods = []string{
 	"eth_getBlockByHash",
 	"eth_getUncleByBlockHashAndIndex",
 	"eth_getTransactionByBlockHashAndIndex",
+}
+
+// MethodHasBlockHashParam returns true when the method expects a block hash in the request parameters.
+func MethodHasBlockHashParam(method string) bool {
+	var includesBlockHashParam bool
+	for _, cacheableByBlockHashMethod := range CacheableByBlockHashMethods {
+		if method == cacheableByBlockHashMethod {
+			includesBlockHashParam = true
+			break
+		}
+	}
+	return includesBlockHashParam
+}
+
+// NoHistoryMethods is a list of JSON-RPC methods that rely only on the present state of the chain.
+// They can always be safely routed to an up-to-date pruning cluster.
+var NoHistoryMethods = []string{
+	"web3_clientVersion",
+	"web3_sha3",
+	"net_version",
+	"net_listening",
+	"net_peerCount",
+	"eth_protocolVersion",
+	"eth_syncing",
+	"eth_coinbase",
+	"eth_chainId",
+	"eth_mining",
+	"eth_hashrate",
+	"eth_gasPrice",
+	"eth_accounts",
+	"eth_blockNumber",
+	"eth_sign",
+	"eth_signTransaction",
+	"eth_sendTransaction",
+	"eth_sendRawTransaction",
+}
+
+// MethodRequiresNoHistory returns true when the JSON-RPC method always functions correctly
+// when sent to the latest block.
+// This is useful for determining if a request can be routed to a pruning cluster.
+func MethodRequiresNoHistory(method string) bool {
+	for _, nonHistoricalMethod := range NoHistoryMethods {
+		if method == nonHistoricalMethod {
+			return true
+		}
+	}
+	return false
 }
 
 // List of evm methods that can be cached independent
@@ -111,10 +185,18 @@ var MethodNameToBlockHashParamIndex = map[string]int{
 // Mapping of string tag values used in the eth api to
 // normalized int values that can be stored as the block number
 // for the proxied request metric
+// see https://ethereum.org/en/developers/docs/apis/json-rpc/#default-block
 var BlockTagToNumberCodec = map[string]int64{
-	"latest":   -1,
-	"pending":  -2,
-	"earliest": -3,
+	BlockTagLatest:    -1,
+	BlockTagPending:   -2,
+	BlockTagEarliest:  -3,
+	BlockTagFinalized: -4,
+	BlockTagSafe:      -5,
+	// "empty" is not part of the evm json-rpc spec
+	// it is our encoding for when no parameter is passed in as a block tag param
+	// usually, clients interpret an empty block tag to mean "latest"
+	// we track it separately here to more accurately track how users make requests
+	BlockTagEmpty: -6,
 }
 
 // EVMRPCRequest wraps expected values present in a request
@@ -148,37 +230,16 @@ func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(ctx context.
 	if r.Method == "" {
 		return 0, ErrInvalidEthAPIRequest
 	}
-
-	// validate this is a request with a block number param
-	var cacheableByBlockNumber bool
-	for _, cacheableByBlockNumberMethod := range CacheableByBlockNumberMethods {
-		if r.Method == cacheableByBlockNumberMethod {
-			cacheableByBlockNumber = true
-			break
-		}
+	// handle cacheable by block number
+	if MethodHasBlockNumberParam(r.Method) {
+		return ParseBlockNumberFromParams(r.Method, r.Params)
 	}
-
-	var cacheableByBlockHash bool
-	for _, cacheableByBlockHashMethod := range CacheableByBlockHashMethods {
-		if r.Method == cacheableByBlockHashMethod {
-			cacheableByBlockHash = true
-			break
-		}
+	// handle cacheable by block hash
+	if MethodHasBlockHashParam(r.Method) {
+		return lookupBlockNumberFromHashParam(ctx, blockGetter, r.Method, r.Params)
 	}
-
-	if !cacheableByBlockNumber && !cacheableByBlockHash {
-		return 0, ErrUncachaebleByBlockNumberEthRequest
-	}
-
-	// parse block number using heuristics so byzantine
-	// they require their own consensus engine 😅
-	// https://ethereum.org/en/developers/docs/apis/json-rpc
-	// or at least a healthy level of [code coverage](./evm_rpc_test.go) ;-)
-	if cacheableByBlockNumber {
-		return parseBlockNumberFromParams(r.Method, r.Params)
-	}
-
-	return lookupBlockNumberFromHashParam(ctx, blockGetter, r.Method, r.Params)
+	// handle unable to cached
+	return 0, ErrUncachaebleByBlockNumberEthRequest
 }
 
 // Generic method to lookup the block number
@@ -196,21 +257,27 @@ func lookupBlockNumberFromHashParam(ctx context.Context, blockGetter EVMBlockGet
 		return 0, fmt.Errorf(fmt.Sprintf("error decoding block hash param from params %+v at index %d", params, paramIndex))
 	}
 
-	block, err := blockGetter.BlockByHash(ctx, common.HexToHash(blockHash))
-
+	header, err := blockGetter.HeaderByHash(ctx, common.HexToHash(blockHash))
 	if err != nil {
 		return 0, err
 	}
 
-	return block.Number().Int64(), nil
+	return header.Number.Int64(), nil
 }
 
 // Generic method to parse the block number from a set of params
-func parseBlockNumberFromParams(methodName string, params []interface{}) (int64, error) {
+// errors if method does not have a block number in the param, or the param has an unexpected value
+// block tags are encoded to an int64 according to the BlockTagToNumberCodec map.
+func ParseBlockNumberFromParams(methodName string, params []interface{}) (int64, error) {
 	paramIndex, exists := MethodNameToBlockNumberParamIndex[methodName]
 
 	if !exists {
 		return 0, ErrUncachaebleByBlockNumberEthRequest
+	}
+
+	// capture requests made with empty block tag params
+	if params[paramIndex] == nil {
+		return BlockTagToNumberCodec["empty"], nil
 	}
 
 	tag, isString := params[paramIndex].(string)
@@ -219,22 +286,16 @@ func parseBlockNumberFromParams(methodName string, params []interface{}) (int64,
 		return 0, fmt.Errorf(fmt.Sprintf("error decoding block number param from params %+v at index %d", params, paramIndex))
 	}
 
-	var blockNumber int64
-	tagEncoding, exists := BlockTagToNumberCodec[tag]
+	blockNumber, exists := BlockTagToNumberCodec[tag]
 
 	if !exists {
 		spaceint, valid := cosmosmath.NewIntFromString(tag)
-
 		if !valid {
 			return 0, fmt.Errorf(fmt.Sprintf("unable to parse tag %s to integer", tag))
 		}
 
 		blockNumber = spaceint.Int64()
-
-		return blockNumber, nil
 	}
-
-	blockNumber = tagEncoding
 
 	return blockNumber, nil
 }
