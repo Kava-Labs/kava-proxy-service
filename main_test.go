@@ -523,6 +523,8 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 			err = checkJsonRpcErr(body1)
 			require.NoError(t, err)
 			expectKeysNum(t, redisClient, tc.keysNum)
+			expectedKey := "local-chain:evm-request:eth_getBlockByNumber:sha256:d08b426164eacf6646fb1817403ec0af5d37869a0f32a01ebfab3096fa4999be"
+			containsKey(t, redisClient, expectedKey)
 
 			// eth_getBlockByNumber - cache HIT
 			resp2 := mkJsonRpcRequest(t, proxyServiceURL, tc.method, tc.params)
@@ -532,6 +534,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 			err = checkJsonRpcErr(body2)
 			require.NoError(t, err)
 			expectKeysNum(t, redisClient, tc.keysNum)
+			containsKey(t, redisClient, expectedKey)
 
 			require.JSONEq(t, string(body1), string(body2), "blocks should be the same")
 		})
@@ -544,11 +547,14 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 		block1, err := client.BlockByNumber(testContext, big.NewInt(2))
 		require.NoError(t, err)
 		expectKeysNum(t, redisClient, 2)
+		expectedKey := "local-chain:evm-request:eth_getBlockByNumber:sha256:0bfa7c5affc525ed731803c223042b4b1eb16ee7a6a539ae213b47a3ef6e3a7d"
+		containsKey(t, redisClient, expectedKey)
 
 		// eth_getBlockByNumber - cache HIT
 		block2, err := client.BlockByNumber(testContext, big.NewInt(2))
 		require.NoError(t, err)
 		expectKeysNum(t, redisClient, 2)
+		containsKey(t, redisClient, expectedKey)
 
 		require.Equal(t, block1, block2, "blocks should be the same")
 	}
@@ -638,6 +644,12 @@ func expectKeysNum(t *testing.T, redisClient *redis.Client, keysNum int) {
 	require.NoError(t, err)
 
 	require.Equal(t, keysNum, len(keys))
+}
+
+func containsKey(t *testing.T, redisClient *redis.Client, key string) {
+	keys, err := redisClient.Keys(context.Background(), key).Result()
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(keys), 1)
 }
 
 func cleanUpRedis(t *testing.T, redisClient *redis.Client) {
