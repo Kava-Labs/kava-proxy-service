@@ -57,11 +57,7 @@ func IsCacheable(
 	if req.Method == "" {
 		return false
 	}
-
-	if decode.MethodRequiresNoHistory(req.Method) {
-		return true
-	}
-
+	
 	if decode.MethodHasBlockHashParam(req.Method) {
 		return true
 	}
