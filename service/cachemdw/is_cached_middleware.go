@@ -30,6 +30,12 @@ func (c *ServiceCache) IsCachedMiddleware(
 	return func(w http.ResponseWriter, r *http.Request) {
 		// if cache is not enabled - do nothing and forward to next middleware
 		if !c.cacheEnabled {
+			c.Logger.Trace().
+				Str("method", r.Method).
+				Str("url", r.URL.String()).
+				Str("host", r.Host).
+				Msg("cache is disabled skipping is-cached-middleware")
+
 			next.ServeHTTP(w, r)
 			return
 		}
