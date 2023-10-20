@@ -46,7 +46,6 @@ func GetQueryKey(
 		return "", fmt.Errorf("request shouldn't be nil")
 	}
 
-	// TODO(yevhenii): use stable/sorted JSON serializer
 	serializedParams, err := json.Marshal(req.Params)
 	if err != nil {
 		return "", err
