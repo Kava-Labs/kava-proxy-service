@@ -2,8 +2,10 @@ package cachemdw
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/kava-labs/kava-proxy-service/clients/cache"
@@ -82,6 +84,8 @@ func IsCacheable(
 }
 
 // GetCachedQueryResponse calculates cache key for request and then tries to get it from cache.
+// NOTE: only JSON-RPC response's result will be taken from the cache.
+// JSON-RPC response's ID and Version will be constructed on the fly to match JSON-RPC request.
 func (c *ServiceCache) GetCachedQueryResponse(
 	ctx context.Context,
 	req *decode.EVMRPCRequestEnvelope,
@@ -91,15 +95,31 @@ func (c *ServiceCache) GetCachedQueryResponse(
 		return nil, err
 	}
 
-	value, err := c.cacheClient.Get(ctx, key)
+	// get JSON-RPC response's result from the cache
+	result, err := c.cacheClient.Get(ctx, key)
 	if err != nil {
 		return nil, err
 	}
 
-	return value, nil
+	// JSON-RPC response's ID and Version should match JSON-RPC request
+	id := strconv.Itoa(int(req.ID))
+	response := JsonRpcResponse{
+		Version: req.JSONRPCVersion,
+		ID:      []byte(id),
+		Result:  result,
+	}
+	responseInJSON, err := json.Marshal(response)
+	if err != nil {
+		return nil, err
+	}
+
+	return responseInJSON, nil
 }
 
 // CacheQueryResponse calculates cache key for request and then saves response to the cache.
+// NOTE: only JSON-RPC response's result is cached.
+// There is no point to cache JSON-RPC response's ID (because it should correspond to request's ID, which constantly changes).
+// Same with JSON-RPC response's Version.
 func (c *ServiceCache) CacheQueryResponse(
 	ctx context.Context,
 	req *decode.EVMRPCRequestEnvelope,
@@ -124,7 +144,7 @@ func (c *ServiceCache) CacheQueryResponse(
 		return err
 	}
 
-	return c.cacheClient.Set(ctx, key, responseInBytes, c.cacheTTL)
+	return c.cacheClient.Set(ctx, key, response.Result, c.cacheTTL)
 }
 
 func (c *ServiceCache) Healthcheck(ctx context.Context) error {

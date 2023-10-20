@@ -93,7 +93,7 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 
 	resp, err = serviceCache.GetCachedQueryResponse(ctxb, req)
 	require.NoError(t, err)
-	require.Equal(t, defaultQueryResp, resp)
+	require.JSONEq(t, string(defaultQueryResp), string(resp))
 }
 
 func mkEVMRPCRequestEnvelope(blockNumber string) *decode.EVMRPCRequestEnvelope {

@@ -480,7 +480,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 			// check that cached and non-cached responses are equal
 
 			// eth_getBlockByNumber - cache MISS
-			resp1 := mkJsonRpcRequest(t, proxyServiceURL, tc.method, tc.params)
+			resp1 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
 			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
 			body1, err := io.ReadAll(resp1.Body)
 			require.NoError(t, err)
@@ -491,7 +491,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 			containsKey(t, redisClient, expectedKey)
 
 			// eth_getBlockByNumber - cache HIT
-			resp2 := mkJsonRpcRequest(t, proxyServiceURL, tc.method, tc.params)
+			resp2 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
 			require.Equal(t, cachemdw.CacheHitHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
 			body2, err := io.ReadAll(resp2.Body)
 			require.NoError(t, err)
@@ -563,7 +563,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
 			// check that responses are equal
 
 			// eth_getBlockByNumber - cache MISS
-			resp1 := mkJsonRpcRequest(t, proxyServiceURL, tc.method, tc.params)
+			resp1 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
 			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
 			body1, err := io.ReadAll(resp1.Body)
 			require.NoError(t, err)
@@ -572,7 +572,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
 			expectKeysNum(t, redisClient, tc.keysNum)
 
 			// eth_getBlockByNumber - cache MISS again (empty results aren't cached)
-			resp2 := mkJsonRpcRequest(t, proxyServiceURL, tc.method, tc.params)
+			resp2 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
 			require.Equal(t, cachemdw.CacheMissHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
 			body2, err := io.ReadAll(resp2.Body)
 			require.NoError(t, err)
@@ -603,6 +603,81 @@ func TestE2ETestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
 	cleanUpRedis(t, redisClient)
 }
 
+func TestE2ETestCachingMdwWithBlockNumberParam_DiffJsonRpcReqIDs(t *testing.T) {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	for _, tc := range []struct {
+		desc    string
+		method  string
+		params  []interface{}
+		keysNum int
+	}{
+		{
+			desc:    "test case #1",
+			method:  "eth_getBlockByNumber",
+			params:  []interface{}{"0x1", true},
+			keysNum: 1,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			// test cache MISS and cache HIT scenarios for specified method
+			// check corresponding values in cachemdw.CacheHeaderKey HTTP header
+			// NOTE: JSON-RPC request IDs are different
+			// check that cached and non-cached responses differ only in response ID
+
+			// eth_getBlockByNumber - cache MISS
+			resp1 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(resp1.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body1)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+			expectedKey := "local-chain:evm-request:eth_getBlockByNumber:sha256:d08b426164eacf6646fb1817403ec0af5d37869a0f32a01ebfab3096fa4999be"
+			containsKey(t, redisClient, expectedKey)
+
+			// eth_getBlockByNumber - cache HIT
+			resp2 := mkJsonRpcRequest(t, proxyServiceURL, 2, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheHitHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(resp2.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body2)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+			containsKey(t, redisClient, expectedKey)
+
+			rpcResp1, err := cachemdw.UnmarshalJsonRpcResponse(body1)
+			require.NoError(t, err)
+			rpcResp2, err := cachemdw.UnmarshalJsonRpcResponse(body2)
+			require.NoError(t, err)
+
+			// JSON-RPC Version and Result should be equal
+			require.Equal(t, rpcResp1.Version, rpcResp2.Version)
+			require.Equal(t, rpcResp1.Result, rpcResp2.Result)
+
+			// JSON-RPC response ID should correspond to JSON-RPC request ID
+			require.Equal(t, string(rpcResp1.ID), "1")
+			require.Equal(t, string(rpcResp2.ID), "2")
+
+			// JSON-RPC error should be empty
+			require.Empty(t, rpcResp1.JsonRpcError)
+			require.Empty(t, rpcResp2.JsonRpcError)
+
+			// Double-check that JSON-RPC responses differ only in response ID
+			rpcResp2.ID = []byte("1")
+			require.Equal(t, rpcResp1, rpcResp2)
+		})
+	}
+
+	cleanUpRedis(t, redisClient)
+}
+
 func expectKeysNum(t *testing.T, redisClient *redis.Client, keysNum int) {
 	keys, err := redisClient.Keys(context.Background(), "*").Result()
 	require.NoError(t, err)
@@ -626,8 +701,8 @@ func cleanUpRedis(t *testing.T, redisClient *redis.Client) {
 	}
 }
 
-func mkJsonRpcRequest(t *testing.T, proxyServiceURL, method string, params []interface{}) *http.Response {
-	req := newJsonRpcRequest(method, params)
+func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id int, method string, params []interface{}) *http.Response {
+	req := newJsonRpcRequest(id, method, params)
 	reqInJSON, err := json.Marshal(req)
 	require.NoError(t, err)
 	reqReader := bytes.NewBuffer(reqInJSON)
@@ -640,17 +715,17 @@ func mkJsonRpcRequest(t *testing.T, proxyServiceURL, method string, params []int
 
 type jsonRpcRequest struct {
 	JsonRpc string        `json:"jsonrpc"`
+	Id      int           `json:"id"`
 	Method  string        `json:"method"`
 	Params  []interface{} `json:"params"`
-	Id      int           `json:"id"`
 }
 
-func newJsonRpcRequest(method string, params []interface{}) *jsonRpcRequest {
+func newJsonRpcRequest(id int, method string, params []interface{}) *jsonRpcRequest {
 	return &jsonRpcRequest{
 		JsonRpc: "2.0",
+		Id:      id,
 		Method:  method,
 		Params:  params,
-		Id:      1,
 	}
 }
 
