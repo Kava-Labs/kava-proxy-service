@@ -40,7 +40,7 @@ func (c *ServiceCache) CachingMiddleware(
 		}
 
 		isCached := IsRequestCached(r.Context())
-		cacheable := IsCacheable(r.Context(), c.blockGetter, c.ServiceLogger, decodedReq)
+		cacheable := IsCacheable(c.ServiceLogger, decodedReq)
 		response := r.Context().Value(ResponseContextKey)
 		typedResponse, ok := response.([]byte)
 

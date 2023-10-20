@@ -2,7 +2,6 @@ package cachemdw_test
 
 import (
 	"context"
-	"math/big"
 	"testing"
 	"time"
 
@@ -23,8 +22,7 @@ const (
 )
 
 var (
-	defaultCachePrefix = big.NewInt(1)
-	defaultQueryResp   = []byte(testEVMQueries[TestRequestWeb3ClientVersion].ResponseBody)
+	defaultQueryResp = []byte(testEVMQueries[TestRequestWeb3ClientVersion].ResponseBody)
 )
 
 type MockEVMBlockGetter struct{}
@@ -43,9 +41,6 @@ func TestUnitTestIsCacheable(t *testing.T) {
 	logger, err := logging.New("TRACE")
 	require.NoError(t, err)
 
-	blockGetter := NewMockEVMBlockGetter()
-	ctxb := context.Background()
-
 	for _, tc := range []struct {
 		desc      string
 		req       *decode.EVMRPCRequestEnvelope
@@ -63,7 +58,7 @@ func TestUnitTestIsCacheable(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cacheable := cachemdw.IsCacheable(ctxb, blockGetter, &logger, tc.req)
+			cacheable := cachemdw.IsCacheable(&logger, tc.req)
 			require.Equal(t, tc.cacheable, cacheable)
 		})
 	}

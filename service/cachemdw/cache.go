@@ -49,27 +49,36 @@ func NewServiceCache(
 // IsCacheable checks if EVM request is cacheable.
 // In current implementation we consider request is cacheable if it has specific block height
 func IsCacheable(
-	ctx context.Context,
-	blockGetter decode.EVMBlockGetter,
 	logger *logging.ServiceLogger,
 	req *decode.EVMRPCRequestEnvelope,
 ) bool {
-	blockNumber, err := req.ExtractBlockNumberFromEVMRPCRequest(ctx, blockGetter)
-	if err != nil {
-		logger.Logger.Error().
-			Err(err).
-			Msg("can't extract block number from EVM RPC request")
+	if req.Method == "" {
 		return false
 	}
 
-	// blockNumber <= 0 means magic tag was used, one of the "latest", "pending", "earliest", etc...
-	// as of now we don't cache requests with magic tags
-	if blockNumber <= 0 {
-		return false
+	if decode.MethodRequiresNoHistory(req.Method) {
+		return true
 	}
 
-	// block number is specified and it's not a magic tag - cache the request
-	return true
+	if decode.MethodHasBlockHashParam(req.Method) {
+		return true
+	}
+
+	if decode.MethodHasBlockNumberParam(req.Method) {
+		blockNumber, err := decode.ParseBlockNumberFromParams(req.Method, req.Params)
+		if err != nil {
+			logger.Logger.Error().
+				Err(err).
+				Msg("can't parse block number from params")
+			return false
+		}
+
+		// blockNumber < 0 means magic tag was used, one of the "latest", "pending", "earliest", etc...
+		// we cache requests without magic tag or with the earliest magic tag
+		return blockNumber > 0 || blockNumber == decode.BlockTagToNumberCodec[decode.BlockTagEarliest]
+	}
+
+	return false
 }
 
 // GetCachedQueryResponse calculates cache key for request and then tries to get it from cache.
@@ -97,7 +106,7 @@ func (c *ServiceCache) CacheQueryResponse(
 	responseInBytes []byte,
 ) error {
 	// don't cache uncacheable requests
-	if !IsCacheable(ctx, c.blockGetter, c.ServiceLogger, req) {
+	if !IsCacheable(c.ServiceLogger, req) {
 		return errors.New("query isn't cacheable")
 	}
 
