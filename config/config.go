@@ -92,7 +92,7 @@ const (
 	CACHE_ENABLED_ENVIRONMENT_KEY                               = "CACHE_ENABLED"
 	REDIS_ENDPOINT_URL_ENVIRONMENT_KEY                          = "REDIS_ENDPOINT_URL"
 	REDIS_PASSWORD_ENVIRONMENT_KEY                              = "REDIS_PASSWORD"
-	CACHE_TTL_ENVIRONMENT_KEY                                   = "CACHE_TTL"
+	CACHE_TTL_ENVIRONMENT_KEY                                   = "CACHE_TTL_SECONDS"
 	CACHE_PREFIX_ENVIRONMENT_KEY                                = "CACHE_PREFIX"
 )
 
