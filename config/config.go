@@ -45,6 +45,7 @@ type Config struct {
 	MetricPruningRoutineDelayFirstRun         time.Duration
 	MetricPruningMaxRequestMetricsHistoryDays int
 	CacheEnabled                              bool
+	CacheIndefinitely                         bool
 	RedisEndpointURL                          string
 	RedisPassword                             string
 	CacheTTL                                  time.Duration
@@ -90,7 +91,7 @@ const (
 	METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS_ENVIRONMENT_KEY  = "METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS"
 	DEFAULT_METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS          = 10
 	METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS_ENVIRONMENT_KEY = "METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS"
-	DEFAULT_METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS         = 1
+	DEFAULT_METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS         = 45
 	EVM_QUERY_SERVICE_ENVIRONMENT_KEY                               = "EVM_QUERY_SERVICE_URL"
 	DATABASE_MAX_IDLE_CONNECTIONS_ENVIRONMENT_KEY                   = "DATABASE_MAX_IDLE_CONNECTIONS"
 	DEFAULT_DATABASE_MAX_IDLE_CONNECTIONS                           = 20
