@@ -95,11 +95,17 @@ func startMetricCompactionRoutine(serviceConfig config.Config, service service.P
 }
 
 func startMetricPruningRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
+	if !serviceConfig.MetricPruningEnabled {
+		serviceLogger.Info().Msg("skipping starting metric pruning routine since it is disabled via config")
+		return make(<-chan error)
+	}
+
 	metricPruningRoutineConfig := routines.MetricPruningRoutineConfig{
-		Interval:   serviceConfig.MetricPruningRoutineInterval,
-		StartDelay: serviceConfig.MetricPartitioningRoutineDelayFirstRun,
-		Database:   service.Database,
-		Logger:     serviceLogger,
+		Interval:                     serviceConfig.MetricPruningRoutineInterval,
+		StartDelay:                   serviceConfig.MetricPartitioningRoutineDelayFirstRun,
+		MaxRequestMetricsHistoryDays: int64(serviceConfig.MetricPruningMaxRequestMetricsHistoryDays),
+		Database:                     service.Database,
+		Logger:                       serviceLogger,
 	}
 
 	metricPruningRoutine, err := routines.NewMetricPruningRoutine(metricPruningRoutineConfig)

@@ -4,6 +4,7 @@
 package routines
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -15,19 +16,21 @@ import (
 // MetricPruningRoutineConfig wraps values used
 // for creating a new metric Pruning routine
 type MetricPruningRoutineConfig struct {
-	Interval   time.Duration
-	StartDelay time.Duration
-	Database   *database.PostgresClient
-	Logger     logging.ServiceLogger
+	Interval                     time.Duration
+	StartDelay                   time.Duration
+	MaxRequestMetricsHistoryDays int64
+	Database                     *database.PostgresClient
+	Logger                       logging.ServiceLogger
 }
 
 // MetricPruningRoutine can be used to
 // run a background routine on a configurable interval
 // to aggregate and prune historical request metrics
 type MetricPruningRoutine struct {
-	id         string
-	interval   time.Duration
-	startDelay time.Duration
+	id                           string
+	interval                     time.Duration
+	startDelay                   time.Duration
+	maxRequestMetricsHistoryDays int64
 	*database.PostgresClient
 	logging.ServiceLogger
 }
@@ -46,6 +49,8 @@ func (mpr *MetricPruningRoutine) Run() (<-chan error, error) {
 	go func() {
 		for tick := range timer {
 			mpr.Trace().Msg(fmt.Sprintf("%s tick at %+v", mpr.id, tick))
+
+			database.DeleteProxiedRequestMetricsOlderThanNDays(context.Background(), mpr.DB, mpr.maxRequestMetricsHistoryDays)
 		}
 	}()
 
@@ -56,10 +61,11 @@ func (mpr *MetricPruningRoutine) Run() (<-chan error, error) {
 // using the provided config, returning the routine and error (if any)
 func NewMetricPruningRoutine(config MetricPruningRoutineConfig) (*MetricPruningRoutine, error) {
 	return &MetricPruningRoutine{
-		id:             uuid.New().String(),
-		interval:       config.Interval,
-		startDelay:     config.StartDelay,
-		PostgresClient: config.Database,
-		ServiceLogger:  config.Logger,
+		id:                           uuid.New().String(),
+		interval:                     config.Interval,
+		startDelay:                   config.StartDelay,
+		maxRequestMetricsHistoryDays: config.MaxRequestMetricsHistoryDays,
+		PostgresClient:               config.Database,
+		ServiceLogger:                config.Logger,
 	}, nil
 }
