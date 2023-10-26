@@ -109,3 +109,12 @@ WHERE parent.relname='%s' order by child.oid desc limit 1;`, ProxiedRequestMetri
 
 	return lastCreatedAttachedPartitionName, nil
 }
+
+// DeleteProxiedRequestMetricsOlderThanNDays deletes
+// all proxied request metrics older than the specified
+// days, returning error (if any)
+func DeleteProxiedRequestMetricsOlderThanNDays(ctx context.Context, db *bun.DB, n int64) error {
+	_, err := db.NewDelete().Model((*ProxiedRequestMetric)(nil)).Where(fmt.Sprintf("request_time < now() - interval '%d' day", n)).Exec(ctx)
+
+	return err
+}
