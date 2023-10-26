@@ -13,39 +13,42 @@ import (
 )
 
 type Config struct {
-	ProxyServicePort                       string
-	LogLevel                               string
-	ProxyBackendHostURLMapRaw              string
-	ProxyBackendHostURLMapParsed           map[string]url.URL
-	EnableHeightBasedRouting               bool
-	ProxyPruningBackendHostURLMapRaw       string
-	ProxyPruningBackendHostURLMap          map[string]url.URL
-	EvmQueryServiceURL                     string
-	DatabaseName                           string
-	DatabaseEndpointURL                    string
-	DatabaseUserName                       string
-	DatabasePassword                       string
-	DatabaseReadTimeoutSeconds             int64
-	DatabaseWriteTimeoutSeconds            int64
-	DatabaseSSLEnabled                     bool
-	DatabaseQueryLoggingEnabled            bool
-	DatabaseMaxIdleConnections             int64
-	DatabaseConnectionMaxIdleSeconds       int64
-	DatabaseMaxOpenConnections             int64
-	RunDatabaseMigrations                  bool
-	HTTPReadTimeoutSeconds                 int64
-	HTTPWriteTimeoutSeconds                int64
-	MetricCompactionRoutineInterval        time.Duration
-	MetricCollectionEnabled                bool
-	MetricPartitioningRoutineInterval      time.Duration
-	MetricPartitioningRoutineDelayFirstRun time.Duration
-	MetricPartitioningPrefillPeriodDays    int
-	CacheEnabled                           bool
-	RedisEndpointURL                       string
-	RedisPassword                          string
-	CacheTTL                               time.Duration
-	CacheIndefinitely                      bool
-	CachePrefix                            string
+	ProxyServicePort                          string
+	LogLevel                                  string
+	ProxyBackendHostURLMapRaw                 string
+	ProxyBackendHostURLMapParsed              map[string]url.URL
+	EnableHeightBasedRouting                  bool
+	ProxyPruningBackendHostURLMapRaw          string
+	ProxyPruningBackendHostURLMap             map[string]url.URL
+	EvmQueryServiceURL                        string
+	DatabaseName                              string
+	DatabaseEndpointURL                       string
+	DatabaseUserName                          string
+	DatabasePassword                          string
+	DatabaseReadTimeoutSeconds                int64
+	DatabaseWriteTimeoutSeconds               int64
+	DatabaseSSLEnabled                        bool
+	DatabaseQueryLoggingEnabled               bool
+	DatabaseMaxIdleConnections                int64
+	DatabaseConnectionMaxIdleSeconds          int64
+	DatabaseMaxOpenConnections                int64
+	RunDatabaseMigrations                     bool
+	HTTPReadTimeoutSeconds                    int64
+	HTTPWriteTimeoutSeconds                   int64
+	MetricCompactionRoutineInterval           time.Duration
+	MetricCollectionEnabled                   bool
+	MetricPartitioningRoutineInterval         time.Duration
+	MetricPartitioningRoutineDelayFirstRun    time.Duration
+	MetricPartitioningPrefillPeriodDays       int
+	MetricPruningEnabled                      bool
+	MetricPruningRoutineInterval              time.Duration
+	MetricPruningRoutineDelayFirstRun         time.Duration
+	MetricPruningMaxRequestMetricsHistoryDays int
+	CacheEnabled                              bool
+	RedisEndpointURL                          string
+	RedisPassword                             string
+	CacheTTL                                  time.Duration
+	CachePrefix                               string
 }
 
 const (
@@ -79,23 +82,31 @@ const (
 	DEFAULT_METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS = 10
 	METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY     = "METRIC_PARTITIONING_PREFILL_PERIOD_DAYS"
 	DEFAULT_METRIC_PARTITIONING_PREFILL_PERIOD_DAYS             = 7
-	EVM_QUERY_SERVICE_ENVIRONMENT_KEY                           = "EVM_QUERY_SERVICE_URL"
-	DATABASE_MAX_IDLE_CONNECTIONS_ENVIRONMENT_KEY               = "DATABASE_MAX_IDLE_CONNECTIONS"
-	DEFAULT_DATABASE_MAX_IDLE_CONNECTIONS                       = 20
-	DATABASE_CONNECTION_MAX_IDLE_SECONDS_ENVIRONMENT_KEY        = "DATABASE_CONNECTION_MAX_IDLE_SECONDS"
-	DEFAULT_DATABASE_CONNECTION_MAX_IDLE_SECONDS                = 5
-	DATABASE_MAX_OPEN_CONNECTIONS_ENVIRONMENT_KEY               = "DATABASE_MAX_OPEN_CONNECTIONS"
-	DEFAULT_DATABASE_MAX_OPEN_CONNECTIONS                       = 100
-	DATABASE_READ_TIMEOUT_SECONDS_ENVIRONMENT_KEY               = "DATABASE_READ_TIMEOUT_SECONDS"
-	DEFAULT_DATABASE_READ_TIMEOUT_SECONDS                       = 60
-	DATABASE_WRITE_TIMEOUT_SECONDS_ENVIRONMENT_KEY              = "DATABASE_WRITE_TIMEOUT_SECONDS"
-	DEFAULT_DATABASE_WRITE_TIMEOUT_SECONDS                      = 10
-	CACHE_ENABLED_ENVIRONMENT_KEY                               = "CACHE_ENABLED"
-	REDIS_ENDPOINT_URL_ENVIRONMENT_KEY                          = "REDIS_ENDPOINT_URL"
-	REDIS_PASSWORD_ENVIRONMENT_KEY                              = "REDIS_PASSWORD"
-	CACHE_TTL_ENVIRONMENT_KEY                                   = "CACHE_TTL_SECONDS"
-	CACHE_INDEFINITELY_KEY                                      = "CACHE_INDEFINITELY"
-	CACHE_PREFIX_ENVIRONMENT_KEY                                = "CACHE_PREFIX"
+	METRIC_PRUNING_ENABLED_ENVIRONMENT_KEY                      = "METRIC_PRUNING_ENABLED"
+	DEFAULT_METRIC_PRUNING_ENABLED                              = true
+	METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS_ENVIRONMENT_KEY     = "METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS"
+	// 60 seconds * 60 minutes * 24 hours = 1 day
+	DEFAULT_METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS                 = 86400
+	METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS_ENVIRONMENT_KEY  = "METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS"
+	DEFAULT_METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS          = 10
+	METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS_ENVIRONMENT_KEY = "METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS"
+	DEFAULT_METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS         = 1
+	EVM_QUERY_SERVICE_ENVIRONMENT_KEY                               = "EVM_QUERY_SERVICE_URL"
+	DATABASE_MAX_IDLE_CONNECTIONS_ENVIRONMENT_KEY                   = "DATABASE_MAX_IDLE_CONNECTIONS"
+	DEFAULT_DATABASE_MAX_IDLE_CONNECTIONS                           = 20
+	DATABASE_CONNECTION_MAX_IDLE_SECONDS_ENVIRONMENT_KEY            = "DATABASE_CONNECTION_MAX_IDLE_SECONDS"
+	DEFAULT_DATABASE_CONNECTION_MAX_IDLE_SECONDS                    = 5
+	DATABASE_MAX_OPEN_CONNECTIONS_ENVIRONMENT_KEY                   = "DATABASE_MAX_OPEN_CONNECTIONS"
+	DEFAULT_DATABASE_MAX_OPEN_CONNECTIONS                           = 100
+	DATABASE_READ_TIMEOUT_SECONDS_ENVIRONMENT_KEY                   = "DATABASE_READ_TIMEOUT_SECONDS"
+	DEFAULT_DATABASE_READ_TIMEOUT_SECONDS                           = 60
+	DATABASE_WRITE_TIMEOUT_SECONDS_ENVIRONMENT_KEY                  = "DATABASE_WRITE_TIMEOUT_SECONDS"
+	DEFAULT_DATABASE_WRITE_TIMEOUT_SECONDS                          = 10
+	CACHE_ENABLED_ENVIRONMENT_KEY                                   = "CACHE_ENABLED"
+	REDIS_ENDPOINT_URL_ENVIRONMENT_KEY                              = "REDIS_ENDPOINT_URL"
+	REDIS_PASSWORD_ENVIRONMENT_KEY                                  = "REDIS_PASSWORD"
+	CACHE_TTL_ENVIRONMENT_KEY                                       = "CACHE_TTL_SECONDS"
+	CACHE_PREFIX_ENVIRONMENT_KEY                                    = "CACHE_PREFIX"
 )
 
 var ErrEmptyHostMap = errors.New("backend host url map is empty")
@@ -202,38 +213,41 @@ func ReadConfig() Config {
 	parsedProxyPruningBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyPruningBackendHostURLMap)
 
 	return Config{
-		ProxyServicePort:                       os.Getenv(PROXY_SERVICE_PORT_ENVIRONMENT_KEY),
-		LogLevel:                               EnvOrDefault(LOG_LEVEL_ENVIRONMENT_KEY, DEFAULT_LOG_LEVEL),
-		ProxyBackendHostURLMapRaw:              rawProxyBackendHostURLMap,
-		ProxyBackendHostURLMapParsed:           parsedProxyBackendHostURLMap,
-		EnableHeightBasedRouting:               EnvOrDefaultBool(PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY, false),
-		ProxyPruningBackendHostURLMapRaw:       rawProxyPruningBackendHostURLMap,
-		ProxyPruningBackendHostURLMap:          parsedProxyPruningBackendHostURLMap,
-		DatabaseName:                           os.Getenv(DATABASE_NAME_ENVIRONMENT_KEY),
-		DatabaseEndpointURL:                    os.Getenv(DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY),
-		DatabaseUserName:                       os.Getenv(DATABASE_USERNAME_ENVIRONMENT_KEY),
-		DatabasePassword:                       os.Getenv(DATABASE_PASSWORD_ENVIRONMENT_KEY),
-		DatabaseSSLEnabled:                     EnvOrDefaultBool(DATABASE_SSL_ENABLED_ENVIRONMENT_KEY, false),
-		DatabaseReadTimeoutSeconds:             EnvOrDefaultInt64(DATABASE_READ_TIMEOUT_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_READ_TIMEOUT_SECONDS),
-		DatabaseWriteTimeoutSeconds:            EnvOrDefaultInt64(DATABASE_WRITE_TIMEOUT_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_WRITE_TIMEOUT_SECONDS),
-		DatabaseQueryLoggingEnabled:            EnvOrDefaultBool(DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY, true),
-		RunDatabaseMigrations:                  EnvOrDefaultBool(RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY, false),
-		DatabaseMaxIdleConnections:             EnvOrDefaultInt64(DATABASE_MAX_IDLE_CONNECTIONS_ENVIRONMENT_KEY, DEFAULT_DATABASE_MAX_IDLE_CONNECTIONS),
-		DatabaseConnectionMaxIdleSeconds:       EnvOrDefaultInt64(DATABASE_CONNECTION_MAX_IDLE_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_CONNECTION_MAX_IDLE_SECONDS),
-		DatabaseMaxOpenConnections:             EnvOrDefaultInt64(DATABASE_MAX_OPEN_CONNECTIONS_ENVIRONMENT_KEY, DEFAULT_DATABASE_MAX_OPEN_CONNECTIONS),
-		HTTPReadTimeoutSeconds:                 EnvOrDefaultInt64(HTTP_READ_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_READ_TIMEOUT),
-		HTTPWriteTimeoutSeconds:                EnvOrDefaultInt64(HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_WRITE_TIMEOUT),
-		MetricCompactionRoutineInterval:        time.Duration(time.Duration(EnvOrDefaultInt(METRIC_COMPACTION_ROUTINE_INTERVAL_ENVIRONMENT_KEY, DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS)) * time.Second),
-		EvmQueryServiceURL:                     os.Getenv(EVM_QUERY_SERVICE_ENVIRONMENT_KEY),
-		MetricCollectionEnabled:                EnvOrDefaultBool(METRIC_COLLECTION_ENABLED_ENVIRONMENT_KEY, DEFAULT_METRIC_COLLECTION_ENABLED),
-		MetricPartitioningRoutineInterval:      time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS)) * time.Second),
-		MetricPartitioningRoutineDelayFirstRun: time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS)) * time.Second),
-		MetricPartitioningPrefillPeriodDays:    EnvOrDefaultInt(METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_PREFILL_PERIOD_DAYS),
-		CacheEnabled:                           EnvOrDefaultBool(CACHE_ENABLED_ENVIRONMENT_KEY, false),
-		RedisEndpointURL:                       os.Getenv(REDIS_ENDPOINT_URL_ENVIRONMENT_KEY),
-		RedisPassword:                          os.Getenv(REDIS_PASSWORD_ENVIRONMENT_KEY),
-		CacheTTL:                               time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
-		CacheIndefinitely:                      EnvOrDefaultBool(CACHE_INDEFINITELY_KEY, false),
-		CachePrefix:                            os.Getenv(CACHE_PREFIX_ENVIRONMENT_KEY),
+		ProxyServicePort:                          os.Getenv(PROXY_SERVICE_PORT_ENVIRONMENT_KEY),
+		LogLevel:                                  EnvOrDefault(LOG_LEVEL_ENVIRONMENT_KEY, DEFAULT_LOG_LEVEL),
+		ProxyBackendHostURLMapRaw:                 rawProxyBackendHostURLMap,
+		ProxyBackendHostURLMapParsed:              parsedProxyBackendHostURLMap,
+		EnableHeightBasedRouting:                  EnvOrDefaultBool(PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY, false),
+		ProxyPruningBackendHostURLMapRaw:          rawProxyPruningBackendHostURLMap,
+		ProxyPruningBackendHostURLMap:             parsedProxyPruningBackendHostURLMap,
+		DatabaseName:                              os.Getenv(DATABASE_NAME_ENVIRONMENT_KEY),
+		DatabaseEndpointURL:                       os.Getenv(DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY),
+		DatabaseUserName:                          os.Getenv(DATABASE_USERNAME_ENVIRONMENT_KEY),
+		DatabasePassword:                          os.Getenv(DATABASE_PASSWORD_ENVIRONMENT_KEY),
+		DatabaseSSLEnabled:                        EnvOrDefaultBool(DATABASE_SSL_ENABLED_ENVIRONMENT_KEY, false),
+		DatabaseReadTimeoutSeconds:                EnvOrDefaultInt64(DATABASE_READ_TIMEOUT_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_READ_TIMEOUT_SECONDS),
+		DatabaseWriteTimeoutSeconds:               EnvOrDefaultInt64(DATABASE_WRITE_TIMEOUT_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_WRITE_TIMEOUT_SECONDS),
+		DatabaseQueryLoggingEnabled:               EnvOrDefaultBool(DATABASE_QUERY_LOGGING_ENABLED_ENVIRONMENT_KEY, true),
+		RunDatabaseMigrations:                     EnvOrDefaultBool(RUN_DATABASE_MIGRATIONS_ENVIRONMENT_KEY, false),
+		DatabaseMaxIdleConnections:                EnvOrDefaultInt64(DATABASE_MAX_IDLE_CONNECTIONS_ENVIRONMENT_KEY, DEFAULT_DATABASE_MAX_IDLE_CONNECTIONS),
+		DatabaseConnectionMaxIdleSeconds:          EnvOrDefaultInt64(DATABASE_CONNECTION_MAX_IDLE_SECONDS_ENVIRONMENT_KEY, DEFAULT_DATABASE_CONNECTION_MAX_IDLE_SECONDS),
+		DatabaseMaxOpenConnections:                EnvOrDefaultInt64(DATABASE_MAX_OPEN_CONNECTIONS_ENVIRONMENT_KEY, DEFAULT_DATABASE_MAX_OPEN_CONNECTIONS),
+		HTTPReadTimeoutSeconds:                    EnvOrDefaultInt64(HTTP_READ_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_READ_TIMEOUT),
+		HTTPWriteTimeoutSeconds:                   EnvOrDefaultInt64(HTTP_WRITE_TIMEOUT_ENVIRONMENT_KEY, DEFAULT_HTTP_WRITE_TIMEOUT),
+		MetricCompactionRoutineInterval:           time.Duration(time.Duration(EnvOrDefaultInt(METRIC_COMPACTION_ROUTINE_INTERVAL_ENVIRONMENT_KEY, DEFAULT_METRIC_COMPACTION_ROUTINE_INTERVAL_SECONDS)) * time.Second),
+		EvmQueryServiceURL:                        os.Getenv(EVM_QUERY_SERVICE_ENVIRONMENT_KEY),
+		MetricCollectionEnabled:                   EnvOrDefaultBool(METRIC_COLLECTION_ENABLED_ENVIRONMENT_KEY, DEFAULT_METRIC_COLLECTION_ENABLED),
+		MetricPartitioningRoutineInterval:         time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_ROUTINE_INTERVAL_SECONDS)) * time.Second),
+		MetricPartitioningRoutineDelayFirstRun:    time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_ROUTINE_DELAY_FIRST_RUN_SECONDS)) * time.Second),
+		MetricPartitioningPrefillPeriodDays:       EnvOrDefaultInt(METRIC_PARTITIONING_PREFILL_PERIOD_DAYS_ENVIRONMENT_KEY, DEFAULT_METRIC_PARTITIONING_PREFILL_PERIOD_DAYS),
+		MetricPruningEnabled:                      EnvOrDefaultBool(METRIC_PRUNING_ENABLED_ENVIRONMENT_KEY, DEFAULT_METRIC_PRUNING_ENABLED),
+		MetricPruningRoutineInterval:              time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS)) * time.Second),
+		MetricPruningRoutineDelayFirstRun:         time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS)) * time.Second),
+		MetricPruningMaxRequestMetricsHistoryDays: EnvOrDefaultInt(METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS_ENVIRONMENT_KEY, DEFAULT_METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS),
+		CacheEnabled:                              EnvOrDefaultBool(CACHE_ENABLED_ENVIRONMENT_KEY, false),
+		RedisEndpointURL:                          os.Getenv(REDIS_ENDPOINT_URL_ENVIRONMENT_KEY),
+		RedisPassword:                             os.Getenv(REDIS_PASSWORD_ENVIRONMENT_KEY),
+		CacheTTL:                                  time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
+		CachePrefix:                               os.Getenv(CACHE_PREFIX_ENVIRONMENT_KEY),
 	}
 }
