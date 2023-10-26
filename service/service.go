@@ -211,6 +211,7 @@ func createServiceCache(
 		redisCache,
 		evmclient,
 		config.CacheTTL,
+		config.CacheIndefinitely,
 		DecodedRequestContextKey,
 		config.CachePrefix,
 		config.CacheEnabled,

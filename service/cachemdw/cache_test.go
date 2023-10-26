@@ -71,12 +71,14 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 	inMemoryCache := cache.NewInMemoryCache()
 	blockGetter := NewMockEVMBlockGetter()
 	cacheTTL := time.Hour
+	cacheIndefinitely := false
 	ctxb := context.Background()
 
 	serviceCache := cachemdw.NewServiceCache(
 		inMemoryCache,
 		blockGetter,
 		cacheTTL,
+		cacheIndefinitely,
 		service.DecodedRequestContextKey,
 		defaultCachePrefixString,
 		true,

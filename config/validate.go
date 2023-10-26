@@ -64,8 +64,11 @@ func Validate(config Config) error {
 	if config.RedisEndpointURL == "" {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not be empty", REDIS_ENDPOINT_URL_ENVIRONMENT_KEY, config.RedisEndpointURL))
 	}
-	if config.CacheTTL <= 0 {
-		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must be greater than zero", CACHE_TTL_ENVIRONMENT_KEY, config.CacheTTL))
+	if !config.CacheIndefinitely && config.CacheTTL <= 0 {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must be greater than zero (when CACHE_INDEFINITELY is false)", CACHE_TTL_ENVIRONMENT_KEY, config.CacheTTL))
+	}
+	if config.CacheIndefinitely && config.CacheTTL != 0 {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must be zero (when CACHE_INDEFINITELY is true)", CACHE_TTL_ENVIRONMENT_KEY, config.CacheTTL))
 	}
 	if strings.Contains(config.CachePrefix, ":") {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not contain colon symbol", CACHE_PREFIX_ENVIRONMENT_KEY, config.CachePrefix))

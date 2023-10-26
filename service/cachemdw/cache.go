@@ -19,7 +19,9 @@ type ServiceCache struct {
 	cacheClient cache.Cache
 	blockGetter decode.EVMBlockGetter
 	// TTL for cached evm requests
-	cacheTTL                 time.Duration
+	cacheTTL time.Duration
+	// if cacheIndefinitely set to true it overrides cacheTTL and sets TTL to infinity
+	cacheIndefinitely        bool
 	decodedRequestContextKey any
 	// cachePrefix is used as prefix for any key in the cache
 	cachePrefix  string
@@ -32,6 +34,7 @@ func NewServiceCache(
 	cacheClient cache.Cache,
 	blockGetter decode.EVMBlockGetter,
 	cacheTTL time.Duration,
+	cacheIndefinitely bool,
 	decodedRequestContextKey any,
 	cachePrefix string,
 	cacheEnabled bool,
@@ -41,6 +44,7 @@ func NewServiceCache(
 		cacheClient:              cacheClient,
 		blockGetter:              blockGetter,
 		cacheTTL:                 cacheTTL,
+		cacheIndefinitely:        cacheIndefinitely,
 		decodedRequestContextKey: decodedRequestContextKey,
 		cachePrefix:              cachePrefix,
 		cacheEnabled:             cacheEnabled,
@@ -57,7 +61,7 @@ func IsCacheable(
 	if req.Method == "" {
 		return false
 	}
-	
+
 	if decode.MethodHasBlockHashParam(req.Method) {
 		return true
 	}
@@ -140,7 +144,7 @@ func (c *ServiceCache) CacheQueryResponse(
 		return err
 	}
 
-	return c.cacheClient.Set(ctx, key, response.Result, c.cacheTTL)
+	return c.cacheClient.Set(ctx, key, response.Result, c.cacheTTL, c.cacheIndefinitely)
 }
 
 func (c *ServiceCache) Healthcheck(ctx context.Context) error {
