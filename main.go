@@ -94,6 +94,35 @@ func startMetricCompactionRoutine(serviceConfig config.Config, service service.P
 	return errChan
 }
 
+func startMetricPruningRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
+	metricPruningRoutineConfig := routines.MetricPruningRoutineConfig{
+		Interval:   serviceConfig.MetricPruningRoutineInterval,
+		StartDelay: serviceConfig.MetricPartitioningRoutineDelayFirstRun,
+		Database:   service.Database,
+		Logger:     serviceLogger,
+	}
+
+	metricPruningRoutine, err := routines.NewMetricPruningRoutine(metricPruningRoutineConfig)
+
+	if err != nil {
+		serviceLogger.Error().Msg(fmt.Sprintf("error %s creating metric pruning routine with config %+v", err, metricPruningRoutineConfig))
+
+		return nil
+	}
+
+	errChan, err := metricPruningRoutine.Run()
+
+	if err != nil {
+		serviceLogger.Error().Msg(fmt.Sprintf("error %s starting metric pruning routine with config %+v", err, metricPruningRoutineConfig))
+
+		return nil
+	}
+
+	serviceLogger.Debug().Msg(fmt.Sprintf("started metric pruning routine with config %+v", metricPruningRoutineConfig))
+
+	return errChan
+}
+
 func main() {
 	serviceLogger.Debug().Msg(fmt.Sprintf("initial config: %+v", serviceConfig))
 
@@ -120,6 +149,15 @@ func main() {
 
 		for routineErr := range metricCompactionErrs {
 			serviceLogger.Error().Msg(fmt.Sprintf("metric compaction routine encountered error %s", routineErr))
+		}
+	}()
+
+	// metric pruning routine
+	go func() {
+		metricPruningErrs := startMetricPruningRoutine(serviceConfig, service, serviceLogger)
+
+		for routineErr := range metricPruningErrs {
+			serviceLogger.Error().Msg(fmt.Sprintf("metric pruning routine encountered error %s", routineErr))
 		}
 	}()
 
