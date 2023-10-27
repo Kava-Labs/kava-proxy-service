@@ -44,6 +44,7 @@ type Config struct {
 	RedisEndpointURL                       string
 	RedisPassword                          string
 	CacheTTL                               time.Duration
+	CacheIndefinitely                      bool
 	CachePrefix                            string
 }
 
@@ -93,6 +94,7 @@ const (
 	REDIS_ENDPOINT_URL_ENVIRONMENT_KEY                          = "REDIS_ENDPOINT_URL"
 	REDIS_PASSWORD_ENVIRONMENT_KEY                              = "REDIS_PASSWORD"
 	CACHE_TTL_ENVIRONMENT_KEY                                   = "CACHE_TTL_SECONDS"
+	CACHE_INDEFINITELY_KEY                                      = "CACHE_INDEFINITELY"
 	CACHE_PREFIX_ENVIRONMENT_KEY                                = "CACHE_PREFIX"
 )
 
@@ -231,6 +233,7 @@ func ReadConfig() Config {
 		RedisEndpointURL:                       os.Getenv(REDIS_ENDPOINT_URL_ENVIRONMENT_KEY),
 		RedisPassword:                          os.Getenv(REDIS_PASSWORD_ENVIRONMENT_KEY),
 		CacheTTL:                               time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
+		CacheIndefinitely:                      EnvOrDefaultBool(CACHE_INDEFINITELY_KEY, false),
 		CachePrefix:                            os.Getenv(CACHE_PREFIX_ENVIRONMENT_KEY),
 	}
 }

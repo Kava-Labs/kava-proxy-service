@@ -22,12 +22,14 @@ func TestUnitTestServiceCacheMiddleware(t *testing.T) {
 
 	inMemoryCache := cache.NewInMemoryCache()
 	blockGetter := NewMockEVMBlockGetter()
-	cacheTTL := time.Duration(0) // TTL: no expiry
+	cacheTTL := time.Duration(0)
+	cacheIndefinitely := true
 
 	serviceCache := cachemdw.NewServiceCache(
 		inMemoryCache,
 		blockGetter,
 		cacheTTL,
+		cacheIndefinitely,
 		service.DecodedRequestContextKey,
 		defaultCachePrefixString,
 		true,
@@ -105,12 +107,14 @@ func TestUnitTestServiceCacheMiddleware_CacheIsDisabled(t *testing.T) {
 
 	inMemoryCache := cache.NewInMemoryCache()
 	blockGetter := NewMockEVMBlockGetter()
-	cacheTTL := time.Duration(0) // TTL: no expiry
+	cacheTTL := time.Duration(0)
+	cacheIndefinitely := true
 
 	serviceCache := cachemdw.NewServiceCache(
 		inMemoryCache,
 		blockGetter,
 		cacheTTL,
+		cacheIndefinitely,
 		service.DecodedRequestContextKey,
 		defaultCachePrefixString,
 		false,
