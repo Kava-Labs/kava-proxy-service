@@ -526,6 +526,164 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 	cleanUpRedis(t, redisClient)
 }
 
+func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
+	client, err := ethclient.Dial(proxyServiceURL)
+	require.NoError(t, err)
+	db, err := database.NewPostgresClient(databaseConfig)
+	require.NoError(t, err)
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+	// startTime is a time before first request
+	startTime := time.Now()
+
+	for _, tc := range []struct {
+		desc    string
+		method  string
+		params  []interface{}
+		keysNum int
+	}{
+		{
+			desc:    "test case #1",
+			method:  "eth_getBlockByNumber",
+			params:  []interface{}{"0x1", true},
+			keysNum: 1,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			// test cache MISS and cache HIT scenarios for specified method
+			// check corresponding values in cachemdw.CacheHeaderKey HTTP header
+			// check that cached and non-cached responses are equal
+
+			// eth_getBlockByNumber - cache MISS
+			resp1 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(resp1.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body1)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+			expectedKey := "local-chain:evm-request:eth_getBlockByNumber:sha256:d08b426164eacf6646fb1817403ec0af5d37869a0f32a01ebfab3096fa4999be"
+			containsKey(t, redisClient, expectedKey)
+
+			// eth_getBlockByNumber - cache HIT
+			resp2 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheHitHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(resp2.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body2)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+			containsKey(t, redisClient, expectedKey)
+
+			require.JSONEq(t, string(body1), string(body2), "blocks should be the same")
+		})
+	}
+
+	// test cache MISS and cache HIT scenarios for eth_getBlockByNumber method
+	// check that cached and non-cached responses are equal
+	{
+		// eth_getBlockByNumber - cache MISS
+		block1, err := client.BlockByNumber(testContext, big.NewInt(2))
+		require.NoError(t, err)
+		expectKeysNum(t, redisClient, 2)
+		expectedKey := "local-chain:evm-request:eth_getBlockByNumber:sha256:0bfa7c5affc525ed731803c223042b4b1eb16ee7a6a539ae213b47a3ef6e3a7d"
+		containsKey(t, redisClient, expectedKey)
+
+		// eth_getBlockByNumber - cache HIT
+		block2, err := client.BlockByNumber(testContext, big.NewInt(2))
+		require.NoError(t, err)
+		expectKeysNum(t, redisClient, 2)
+		containsKey(t, redisClient, expectedKey)
+
+		require.Equal(t, block1, block2, "blocks should be the same")
+	}
+
+	// endTime is a time after last request
+	endTime := time.Now()
+	// get metrics within [startTime, endTime] time range for eth_getBlockByNumber requests
+	allMetrics := getAllMetrics(context.Background(), t, db)
+	filteredMetrics := filterMetrics(allMetrics, []string{"eth_getBlockByNumber"}, startTime, endTime)
+
+	// we expect 4 metrics, 2 of them are cache hits and two of them are cache misses
+	require.Len(t, filteredMetrics, 4)
+	cacheHits := 0
+	cacheMisses := 0
+	for _, metric := range filteredMetrics {
+		if metric.CacheHit {
+			cacheHits++
+		} else {
+			cacheMisses++
+		}
+	}
+	require.Equal(t, 2, cacheHits)
+	require.Equal(t, 2, cacheMisses)
+
+	cleanUpRedis(t, redisClient)
+}
+
+// getAllMetrics gets all metrics from database
+func getAllMetrics(ctx context.Context, t *testing.T, db database.PostgresClient) []database.ProxiedRequestMetric {
+	var (
+		metrics        []database.ProxiedRequestMetric
+		cursor         int64
+		limit          int  = 10_000
+		firstIteration bool = true
+	)
+
+	for firstIteration || cursor != 0 {
+		metricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(
+			ctx,
+			db.DB,
+			cursor,
+			limit,
+		)
+		require.NoError(t, err)
+
+		metrics = append(metrics, metricsPage...)
+		cursor = nextCursor
+		firstIteration = false
+	}
+
+	return metrics
+}
+
+// filterMetrics filters metrics based on time range and method
+func filterMetrics(
+	metrics []database.ProxiedRequestMetric,
+	methods []string,
+	startTime time.Time,
+	endTime time.Time,
+) []database.ProxiedRequestMetric {
+	var metricsWithinTimerange []database.ProxiedRequestMetric
+	// iterate in reverse order to start checking the most recent metrics first
+	for i := len(metrics) - 1; i >= 0; i-- {
+		metric := metrics[i]
+		ok1 := metric.RequestTime.After(startTime) && metric.RequestTime.Before(endTime)
+		ok2 := contains(methods, metric.MethodName)
+		if ok1 && ok2 {
+			metricsWithinTimerange = append(metricsWithinTimerange, metric)
+		}
+	}
+
+	return metricsWithinTimerange
+}
+
+func contains(items []string, item string) bool {
+	for _, nextItem := range items {
+		if item == nextItem {
+			return true
+		}
+	}
+
+	return false
+}
+
 func TestE2ETestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
 	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
 	testAddress := common.HexToAddress(testRandomAddressHex)

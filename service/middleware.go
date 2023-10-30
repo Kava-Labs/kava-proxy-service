@@ -456,6 +456,8 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 			blockNumber = &rawBlockNumber
 		}
 
+		isCached := cachemdw.IsRequestCached(r.Context())
+
 		// create a metric for the request
 		metric := database.ProxiedRequestMetric{
 			MethodName:                  decodedRequestBody.Method,
@@ -469,6 +471,7 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 			BlockNumber:                 blockNumber,
 			ResponseBackend:             proxyMetadata.BackendName,
 			ResponseBackendRoute:        proxyMetadata.BackendRoute.String(),
+			CacheHit:                    isCached,
 		}
 
 		// save metric to database

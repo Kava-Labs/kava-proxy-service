@@ -29,6 +29,7 @@ type ProxiedRequestMetric struct {
 	Origin                      *string
 	ResponseBackend             string
 	ResponseBackendRoute        string
+	CacheHit                    bool
 }
 
 // Save saves the current ProxiedRequestMetric to
