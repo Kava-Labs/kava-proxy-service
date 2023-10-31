@@ -90,6 +90,12 @@ func (c *ServiceCache) GetCachedQueryResponse(
 	ctx context.Context,
 	req *decode.EVMRPCRequestEnvelope,
 ) ([]byte, error) {
+	// if request isn't cacheable - there is no point to try to get it from cache so exit early with an error
+	cacheable := IsCacheable(c.ServiceLogger, req)
+	if !cacheable {
+		return nil, ErrRequestIsNotCacheable
+	}
+
 	key, err := GetQueryKey(c.cachePrefix, req)
 	if err != nil {
 		return nil, err
