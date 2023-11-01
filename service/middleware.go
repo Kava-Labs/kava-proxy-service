@@ -250,6 +250,11 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheHitHeaderValue)
 				w.Header().Add("Content-Type", "application/json")
+
+				// TODO: response headers should probably be cached with the original response
+				w.Header().Add("Access-Control-Allow-Origin", "*")
+				w.Header().Add("Access-Control-Expose-Headers", "Content-Length")
+
 				_, err := w.Write(typedCachedResponse)
 				if err != nil {
 					serviceLogger.Logger.Error().Msg(fmt.Sprintf("can't write cached response: %v", err))

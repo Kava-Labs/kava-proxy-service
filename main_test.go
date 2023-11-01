@@ -500,6 +500,10 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 			expectKeysNum(t, redisClient, tc.keysNum)
 			containsKey(t, redisClient, expectedKey)
 
+			// verify expected CORs headers added on cache hit
+			require.Equal(t, "*", resp2.Header.Get("Access-Control-Allow-Origin"))
+			require.Equal(t, "Content-Length", resp2.Header.Get("Access-Control-Expose-Headers"))
+
 			require.JSONEq(t, string(body1), string(body2), "blocks should be the same")
 		})
 	}
