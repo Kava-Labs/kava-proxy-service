@@ -103,6 +103,7 @@ For details on the local E2E setup, see [the `docker` directory](./docker/README
 The Continuous Integration (CI) for this repo is setup to run a local proxy service with database & redis, but configures the service to use public testnet urls for the kava requests. This allows for testing the proxy service against a production-like environment (requests are routed to public testnet).
 
 You can emulate the CI configuration in your local environment:
+
 ```bash
 make ci-setup
 ```
@@ -278,6 +279,50 @@ If the service is deployed on AWS ECS, to force ECS to start a new instance of t
 
 ```bash
 AWS_PROFILE=production aws ecs update-service --cluster kava-internal-testnet-proxy-service --service kava-internal-testnet-proxy-service --force-new-deployment
+```
+
+### Hotfix flow
+
+1. Make changes to code
+
+2. Build and push updated image to deployment repo
+
+```bash
+# login before pushing to a Dockerhub repo
+# create a personal access token first https://docs.docker.com/docker-hub/access-tokens/
+docker login -u kavaops
+
+# build and push image, you can customize the tag here
+docker buildx build -f ./production.Dockerfile  --platform linux/amd64,linux/arm64 --push -t kava/kava-proxy-service:latest .
+
+# see below for if you need to update service config to use a custom tag
+AWS_PROFILE=production aws ecs update-service --cluster kava-internal-testnet-proxy-service --service kava-internal-testnet-proxy-service --force-new-deployment
+```
+
+3. If you need to update values used to configure the service (such as what tag the service should run with)
+
+```bash
+cd /infrastructure/terraform/product/production/us-east-1/kava-internal-testnet-proxy-service/service
+
+AWS_PROFILE=production terragrunt apply
+```
+
+4. Verify
+
+Run e2e and manual tests against the endpoint as needed (note that any E2E tests that involve checking the database or redis will fail when run against a production environment), for example to run the e2e tests against internal testnet
+
+```bash
+# update this value in .env
+TEST_PROXY_SERVICE_EVM_RPC_URL=https://evm.data.internal.testnet.us-east.production.kava.io
+```
+
+```bash
+# run e2e tests (filtered down using regex pattern `p`)
+make it p="TestE2ETestProxyReturnsNonZero
+LatestBlockHeader"
+
+# run curl commands against endpoint hot fix is deployed to
+time curl -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"topics":["0x1602ce2aba92f09827c6a342020908249036cb9863e6895041095afdce392a5e"]}],"id":74}' https://evm.data.internal.testnet.us-east.production.kava.io
 ```
 
 ## Feedback
