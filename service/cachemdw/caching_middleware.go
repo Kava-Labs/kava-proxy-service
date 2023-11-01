@@ -52,10 +52,12 @@ func (c *ServiceCache) CachingMiddleware(
 
 		// if request isn't already cached, request is cacheable and response is present in context - cache the response
 		if !isCached && cacheable && ok {
+			headersToCache := getHeadersToCache(w, c.whitelistedHeaders)
 			if err := c.CacheQueryResponse(
 				r.Context(),
 				decodedReq,
 				typedResponse,
+				headersToCache,
 			); err != nil {
 				c.Logger.Error().Msgf("can't validate and cache response: %v", err)
 			}
@@ -63,4 +65,20 @@ func (c *ServiceCache) CachingMiddleware(
 
 		next.ServeHTTP(w, r)
 	}
+}
+
+// getHeadersToCache gets header map which has to be cached along with EVM JSON-RPC response
+func getHeadersToCache(w http.ResponseWriter, whitelistedHeaders []string) map[string]string {
+	headersToCache := make(map[string]string, 0)
+
+	for _, headerName := range whitelistedHeaders {
+		headerValue := w.Header().Get(headerName)
+		if headerValue == "" {
+			continue
+		}
+
+		headersToCache[headerName] = headerValue
+	}
+
+	return headersToCache
 }

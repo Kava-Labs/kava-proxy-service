@@ -50,6 +50,7 @@ type Config struct {
 	RedisPassword                             string
 	CacheTTL                                  time.Duration
 	CachePrefix                               string
+	WhitelistedHeaders                        []string
 }
 
 const (
@@ -109,6 +110,7 @@ const (
 	CACHE_INDEFINITELY_KEY                                          = "CACHE_INDEFINITELY"
 	CACHE_TTL_ENVIRONMENT_KEY                                       = "CACHE_TTL_SECONDS"
 	CACHE_PREFIX_ENVIRONMENT_KEY                                    = "CACHE_PREFIX"
+	WHITELISTED_HEADERS_ENVIRONMENT_KEY                             = "WHITELISTED_HEADERS"
 )
 
 var ErrEmptyHostMap = errors.New("backend host url map is empty")
@@ -214,6 +216,13 @@ func ReadConfig() Config {
 	parsedProxyBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyBackendHostURLMap)
 	parsedProxyPruningBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyPruningBackendHostURLMap)
 
+	whitelistedHeaders := os.Getenv(WHITELISTED_HEADERS_ENVIRONMENT_KEY)
+	parsedWhitelistedHeaders := strings.Split(whitelistedHeaders, ",")
+	// strings.Split("", sep) returns []string{""} (slice with one empty string) which can be unexpected, so override it with more reasonable behaviour
+	if whitelistedHeaders == "" {
+		parsedWhitelistedHeaders = []string{}
+	}
+
 	return Config{
 		ProxyServicePort:                          os.Getenv(PROXY_SERVICE_PORT_ENVIRONMENT_KEY),
 		LogLevel:                                  EnvOrDefault(LOG_LEVEL_ENVIRONMENT_KEY, DEFAULT_LOG_LEVEL),
@@ -252,5 +261,6 @@ func ReadConfig() Config {
 		CacheTTL:                                  time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
 		CacheIndefinitely:                         EnvOrDefaultBool(CACHE_INDEFINITELY_KEY, false),
 		CachePrefix:                               os.Getenv(CACHE_PREFIX_ENVIRONMENT_KEY),
+		WhitelistedHeaders:                        parsedWhitelistedHeaders,
 	}
 }

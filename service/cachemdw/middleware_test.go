@@ -33,6 +33,7 @@ func TestUnitTestServiceCacheMiddleware(t *testing.T) {
 		service.DecodedRequestContextKey,
 		defaultCachePrefixString,
 		true,
+		[]string{},
 		&logger,
 	)
 
@@ -118,6 +119,7 @@ func TestUnitTestServiceCacheMiddleware_CacheIsDisabled(t *testing.T) {
 		service.DecodedRequestContextKey,
 		defaultCachePrefixString,
 		false,
+		[]string{},
 		&logger,
 	)
 

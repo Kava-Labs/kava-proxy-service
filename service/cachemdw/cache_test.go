@@ -82,6 +82,7 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 		service.DecodedRequestContextKey,
 		defaultCachePrefixString,
 		true,
+		[]string{},
 		&logger,
 	)
 
@@ -90,12 +91,12 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 	require.Equal(t, cache.ErrNotFound, err)
 	require.Empty(t, resp)
 
-	err = serviceCache.CacheQueryResponse(ctxb, req, defaultQueryResp)
+	err = serviceCache.CacheQueryResponse(ctxb, req, defaultQueryResp, map[string]string{})
 	require.NoError(t, err)
 
 	resp, err = serviceCache.GetCachedQueryResponse(ctxb, req)
 	require.NoError(t, err)
-	require.JSONEq(t, string(defaultQueryResp), string(resp))
+	require.JSONEq(t, string(defaultQueryResp), string(resp.JsonRpcResponseResult))
 }
 
 func mkEVMRPCRequestEnvelope(blockNumber string) *decode.EVMRPCRequestEnvelope {
