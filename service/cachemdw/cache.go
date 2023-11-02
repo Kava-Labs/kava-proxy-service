@@ -24,8 +24,9 @@ type ServiceCache struct {
 	cacheIndefinitely        bool
 	decodedRequestContextKey any
 	// cachePrefix is used as prefix for any key in the cache
-	cachePrefix  string
-	cacheEnabled bool
+	cachePrefix        string
+	cacheEnabled       bool
+	whitelistedHeaders []string
 
 	*logging.ServiceLogger
 }
@@ -38,6 +39,7 @@ func NewServiceCache(
 	decodedRequestContextKey any,
 	cachePrefix string,
 	cacheEnabled bool,
+	whitelistedHeaders []string,
 	logger *logging.ServiceLogger,
 ) *ServiceCache {
 	return &ServiceCache{
@@ -48,8 +50,17 @@ func NewServiceCache(
 		decodedRequestContextKey: decodedRequestContextKey,
 		cachePrefix:              cachePrefix,
 		cacheEnabled:             cacheEnabled,
+		whitelistedHeaders:       whitelistedHeaders,
 		ServiceLogger:            logger,
 	}
+}
+
+// QueryResponse represents the structure which stored in the cache for every cacheable request
+type QueryResponse struct {
+	// JsonRpcResponseResult is an EVM JSON-RPC response's result
+	JsonRpcResponseResult []byte `json:"json_rpc_response_result"`
+	// HeaderMap is a map of HTTP headers which is cached along with the EVM JSON-RPC response
+	HeaderMap map[string]string `json:"header_map"`
 }
 
 // IsCacheable checks if EVM request is cacheable.
@@ -89,7 +100,7 @@ func IsCacheable(
 func (c *ServiceCache) GetCachedQueryResponse(
 	ctx context.Context,
 	req *decode.EVMRPCRequestEnvelope,
-) ([]byte, error) {
+) (*QueryResponse, error) {
 	// if request isn't cacheable - there is no point to try to get it from cache so exit early with an error
 	cacheable := IsCacheable(c.ServiceLogger, req)
 	if !cacheable {
@@ -101,9 +112,16 @@ func (c *ServiceCache) GetCachedQueryResponse(
 		return nil, err
 	}
 
-	// get JSON-RPC response's result from the cache
-	result, err := c.cacheClient.Get(ctx, key)
+	// get Query Response from the cache
+	queryResponseInJSON, err := c.cacheClient.Get(ctx, key)
 	if err != nil {
+		return nil, err
+	}
+
+	// Query Response consists of JSON-RPC response's result and headers map.
+	// Unmarshal it and later update JSON-RPC response's result to match JSON-RPC request.
+	var queryResponse QueryResponse
+	if err := json.Unmarshal(queryResponseInJSON, &queryResponse); err != nil {
 		return nil, err
 	}
 
@@ -112,14 +130,18 @@ func (c *ServiceCache) GetCachedQueryResponse(
 	response := JsonRpcResponse{
 		Version: req.JSONRPCVersion,
 		ID:      []byte(id),
-		Result:  result,
+		Result:  queryResponse.JsonRpcResponseResult,
 	}
 	responseInJSON, err := json.Marshal(response)
 	if err != nil {
 		return nil, err
 	}
+	responseInJSON = append(responseInJSON, '\n')
 
-	return responseInJSON, nil
+	// update JSON-RPC response's result before returning Query Response
+	queryResponse.JsonRpcResponseResult = responseInJSON
+
+	return &queryResponse, nil
 }
 
 // CacheQueryResponse calculates cache key for request and then saves response to the cache.
@@ -130,6 +152,7 @@ func (c *ServiceCache) CacheQueryResponse(
 	ctx context.Context,
 	req *decode.EVMRPCRequestEnvelope,
 	responseInBytes []byte,
+	headerMap map[string]string,
 ) error {
 	// don't cache uncacheable requests
 	if !IsCacheable(c.ServiceLogger, req) {
@@ -150,7 +173,17 @@ func (c *ServiceCache) CacheQueryResponse(
 		return err
 	}
 
-	return c.cacheClient.Set(ctx, key, response.Result, c.cacheTTL, c.cacheIndefinitely)
+	// cache JSON-RPC response's result and HTTP Header Map
+	queryResponse := &QueryResponse{
+		JsonRpcResponseResult: response.Result,
+		HeaderMap:             headerMap,
+	}
+	queryResponseInJSON, err := json.Marshal(queryResponse)
+	if err != nil {
+		return err
+	}
+
+	return c.cacheClient.Set(ctx, key, queryResponseInJSON, c.cacheTTL, c.cacheIndefinitely)
 }
 
 func (c *ServiceCache) Healthcheck(ctx context.Context) error {

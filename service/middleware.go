@@ -236,7 +236,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			isCached := cachemdw.IsRequestCached(r.Context())
 			cachedResponse := r.Context().Value(cachemdw.ResponseContextKey)
-			typedCachedResponse, ok := cachedResponse.([]byte)
+			typedCachedResponse, ok := cachedResponse.(*cachemdw.QueryResponse)
 
 			// if cache is enabled, request is cached and response is present in context - serve the request from the cache
 			// otherwise proxy to the actual backend
@@ -250,7 +250,11 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheHitHeaderValue)
 				w.Header().Add("Content-Type", "application/json")
-				_, err := w.Write(typedCachedResponse)
+				// add cached headers
+				for headerName, headerValue := range typedCachedResponse.HeaderMap {
+					w.Header().Add(headerName, headerValue)
+				}
+				_, err := w.Write(typedCachedResponse.JsonRpcResponseResult)
 				if err != nil {
 					serviceLogger.Logger.Error().Msg(fmt.Sprintf("can't write cached response: %v", err))
 				}

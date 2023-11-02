@@ -480,9 +480,9 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 			// check that cached and non-cached responses are equal
 
 			// eth_getBlockByNumber - cache MISS
-			resp1 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
-			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
-			body1, err := io.ReadAll(resp1.Body)
+			cacheMissResp := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, cacheMissResp.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(cacheMissResp.Body)
 			require.NoError(t, err)
 			err = checkJsonRpcErr(body1)
 			require.NoError(t, err)
@@ -491,16 +491,20 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 			containsKey(t, redisClient, expectedKey)
 
 			// eth_getBlockByNumber - cache HIT
-			resp2 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
-			require.Equal(t, cachemdw.CacheHitHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
-			body2, err := io.ReadAll(resp2.Body)
+			cacheHitResp := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheHitHeaderValue, cacheHitResp.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(cacheHitResp.Body)
 			require.NoError(t, err)
 			err = checkJsonRpcErr(body2)
 			require.NoError(t, err)
 			expectKeysNum(t, redisClient, tc.keysNum)
 			containsKey(t, redisClient, expectedKey)
 
+			// check that response bodies are the same
 			require.JSONEq(t, string(body1), string(body2), "blocks should be the same")
+
+			// check that response headers are the same
+			equalHeaders(t, cacheMissResp.Header, cacheHitResp.Header)
 		})
 	}
 
@@ -524,6 +528,27 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 	}
 
 	cleanUpRedis(t, redisClient)
+}
+
+// equalHeaders checks that headers of headersMap1 and headersMap2 are equal
+// NOTE: it completely ignores presence/absence of cachemdw.CacheHeaderKey,
+// it's done in that way to allow comparison of headers for cache miss and cache hit cases
+func equalHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
+	containsHeaders(t, headersMap1, headersMap2)
+	containsHeaders(t, headersMap2, headersMap1)
+}
+
+// containsHeaders checks that headersMap1 contains all headers from headersMap2 and that values for headers are the same
+// NOTE: it completely ignores presence/absence of cachemdw.CacheHeaderKey,
+// it's done in that way to allow comparison of headers for cache miss and cache hit cases
+func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
+	for name, value := range headersMap1 {
+		if name == cachemdw.CacheHeaderKey {
+			continue
+		}
+
+		require.Equal(t, value, headersMap2[name])
+	}
 }
 
 func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
