@@ -474,20 +474,22 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 			CacheHit:                    isCached,
 		}
 
-		// save metric to database
-		err = metric.Save(context.Background(), service.Database.DB)
+		// save metric to database async
+		go func() {
+			// using background context so save won't be terminated when request finishes
+			err = metric.Save(context.Background(), service.Database.DB)
 
-		if err != nil {
-			// TODO: consider only logging
-			//  if it's not due to connection exhaustion, e.g.
-			// FATAL: remaining connection slots are reserved for non-replication
-			// superuser connections; SQLState: 53300
-			// OR
-			// FATAL: sorry, too many clients already; SQLState: 53300
-			service.ServiceLogger.Error().Msg(fmt.Sprintf("error %s saving metric %+v using database %+v", err, metric, service.Database))
-			return
-		}
-
-		service.ServiceLogger.Trace().Msg("created request metric")
+			if err != nil {
+				// TODO: consider only logging
+				//  if it's not due to connection exhaustion, e.g.
+				// FATAL: remaining connection slots are reserved for non-replication
+				// superuser connections; SQLState: 53300
+				// OR
+				// FATAL: sorry, too many clients already; SQLState: 53300
+				service.ServiceLogger.Error().Msg(fmt.Sprintf("error %s saving metric %+v using database %+v", err, metric, service.Database))
+				return
+			}
+			service.ServiceLogger.Trace().Msg("created request metric")
+		}()
 	}
 }
