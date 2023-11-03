@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/kava-labs/kava-proxy-service/config"
@@ -99,4 +100,28 @@ func TestUnitTestValidateConfigReturnsErrorIfInvalidMetricPartitioningPrefillPer
 	err := config.Validate(testConfig)
 
 	assert.NotNil(t, err)
+}
+
+func TestUnitTestValidHostnameToHeaderValueMap(t *testing.T) {
+	testConfig := defaultConfig
+	testConfig.HostnameToAccessControlAllowOriginValueMapRaw = "localhost:7777>*,evm.kava.io>*"
+
+	err := config.Validate(testConfig)
+	require.NoError(t, err)
+}
+
+func TestUnitTestEmptyHostnameToHeaderValueMap(t *testing.T) {
+	testConfig := defaultConfig
+	testConfig.HostnameToAccessControlAllowOriginValueMapRaw = ""
+
+	err := config.Validate(testConfig)
+	require.NoError(t, err)
+}
+
+func TestUnitTestInvalidHostnameToHeaderValueMap(t *testing.T) {
+	testConfig := defaultConfig
+	testConfig.HostnameToAccessControlAllowOriginValueMapRaw = "invalidmap"
+
+	err := config.Validate(testConfig)
+	require.Error(t, err)
 }
