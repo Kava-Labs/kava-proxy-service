@@ -254,6 +254,11 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 				for headerName, headerValue := range typedCachedResponse.HeaderMap {
 					w.Header().Add(headerName, headerValue)
 				}
+				// add CORS headers
+				accessControlAllowOriginValue := config.GetAccessControlAllowOriginValue(r.Host)
+				if accessControlAllowOriginValue != "" {
+					w.Header().Add("Access-Control-Allow-Origin", accessControlAllowOriginValue)
+				}
 				_, err := w.Write(typedCachedResponse.JsonRpcResponseResult)
 				if err != nil {
 					serviceLogger.Logger.Error().Msg(fmt.Sprintf("can't write cached response: %v", err))

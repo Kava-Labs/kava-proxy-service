@@ -28,6 +28,9 @@ type ServiceCache struct {
 	cacheEnabled       bool
 	whitelistedHeaders []string
 
+	defaultAccessControlAllowOriginValue       string
+	hostnameToAccessControlAllowOriginValueMap map[string]string
+
 	*logging.ServiceLogger
 }
 
@@ -40,18 +43,22 @@ func NewServiceCache(
 	cachePrefix string,
 	cacheEnabled bool,
 	whitelistedHeaders []string,
+	defaultAccessControlAllowOriginValue string,
+	hostnameToAccessControlAllowOriginValueMap map[string]string,
 	logger *logging.ServiceLogger,
 ) *ServiceCache {
 	return &ServiceCache{
-		cacheClient:              cacheClient,
-		blockGetter:              blockGetter,
-		cacheTTL:                 cacheTTL,
-		cacheIndefinitely:        cacheIndefinitely,
-		decodedRequestContextKey: decodedRequestContextKey,
-		cachePrefix:              cachePrefix,
-		cacheEnabled:             cacheEnabled,
-		whitelistedHeaders:       whitelistedHeaders,
-		ServiceLogger:            logger,
+		cacheClient:                          cacheClient,
+		blockGetter:                          blockGetter,
+		cacheTTL:                             cacheTTL,
+		cacheIndefinitely:                    cacheIndefinitely,
+		decodedRequestContextKey:             decodedRequestContextKey,
+		cachePrefix:                          cachePrefix,
+		cacheEnabled:                         cacheEnabled,
+		whitelistedHeaders:                   whitelistedHeaders,
+		defaultAccessControlAllowOriginValue: defaultAccessControlAllowOriginValue,
+		hostnameToAccessControlAllowOriginValueMap: hostnameToAccessControlAllowOriginValueMap,
+		ServiceLogger: logger,
 	}
 }
 

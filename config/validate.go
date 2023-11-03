@@ -77,6 +77,10 @@ func Validate(config Config) error {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not be empty", CACHE_PREFIX_ENVIRONMENT_KEY, config.CachePrefix))
 	}
 
+	if err = validateHostnameToHeaderValueMap(config.HostnameToAccessControlAllowOriginValueMapRaw, true); err != nil {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", HOSTNAME_TO_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_MAP_ENVIRONMENT_KEY, config.HostnameToAccessControlAllowOriginValueMapRaw), err)
+	}
+
 	return allErrs
 }
 
@@ -84,6 +88,15 @@ func Validate(config Config) error {
 func validateHostURLMap(raw string, allowEmpty bool) error {
 	_, err := ParseRawProxyBackendHostURLMap(raw)
 	if allowEmpty && errors.Is(err, ErrEmptyHostMap) {
+		err = nil
+	}
+	return err
+}
+
+// validateHostnameToHeaderValueMap validates a raw hostname to header value map, optionally allowing the map to be empty
+func validateHostnameToHeaderValueMap(raw string, allowEmpty bool) error {
+	_, err := ParseRawHostnameToHeaderValueMap(raw)
+	if allowEmpty && errors.Is(err, ErrEmptyHostnameToHeaderValueMap) {
 		err = nil
 	}
 	return err

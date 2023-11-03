@@ -216,6 +216,8 @@ func createServiceCache(
 		config.CachePrefix,
 		config.CacheEnabled,
 		config.WhitelistedHeaders,
+		config.DefaultAccessControlAllowOriginValue,
+		config.HostnameToAccessControlAllowOriginValueMap,
 		logger,
 	)
 

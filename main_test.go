@@ -31,6 +31,8 @@ import (
 
 const (
 	EthClientUserAgent = "Go-http-client/1.1"
+
+	accessControlAllowOriginHeaderName = "Access-Control-Allow-Origin"
 )
 
 var (
@@ -505,6 +507,9 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 
 			// check that response headers are the same
 			equalHeaders(t, cacheMissResp.Header, cacheHitResp.Header)
+
+			// check that CORS headers are present for cache hit scenario
+			require.Equal(t, cacheHitResp.Header[accessControlAllowOriginHeaderName], []string{"*"})
 		})
 	}
 
@@ -533,6 +538,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 // equalHeaders checks that headers of headersMap1 and headersMap2 are equal
 // NOTE: it completely ignores presence/absence of cachemdw.CacheHeaderKey,
 // it's done in that way to allow comparison of headers for cache miss and cache hit cases
+// also it ignores presence/absence of CORS headers
 func equalHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
 	containsHeaders(t, headersMap1, headersMap2)
 	containsHeaders(t, headersMap2, headersMap1)
@@ -541,9 +547,10 @@ func equalHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
 // containsHeaders checks that headersMap1 contains all headers from headersMap2 and that values for headers are the same
 // NOTE: it completely ignores presence/absence of cachemdw.CacheHeaderKey,
 // it's done in that way to allow comparison of headers for cache miss and cache hit cases
+// also it ignores presence/absence of CORS headers
 func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
 	for name, value := range headersMap1 {
-		if name == cachemdw.CacheHeaderKey {
+		if name == cachemdw.CacheHeaderKey || name == "Server" || name == accessControlAllowOriginHeaderName {
 			continue
 		}
 
