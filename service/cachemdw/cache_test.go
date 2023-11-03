@@ -83,6 +83,8 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 		defaultCachePrefixString,
 		true,
 		[]string{},
+		"*",
+		map[string]string{},
 		&logger,
 	)
 

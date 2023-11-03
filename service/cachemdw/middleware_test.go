@@ -34,6 +34,8 @@ func TestUnitTestServiceCacheMiddleware(t *testing.T) {
 		defaultCachePrefixString,
 		true,
 		[]string{},
+		"*",
+		map[string]string{},
 		&logger,
 	)
 
@@ -120,6 +122,8 @@ func TestUnitTestServiceCacheMiddleware_CacheIsDisabled(t *testing.T) {
 		defaultCachePrefixString,
 		false,
 		[]string{},
+		"*",
+		map[string]string{},
 		&logger,
 	)
 
