@@ -47,11 +47,7 @@ func (c *ServiceCache) IsCachedMiddleware(
 		req := r.Context().Value(c.decodedRequestContextKey)
 		decodedReq, ok := (req).(*decode.EVMRPCRequestEnvelope)
 		if !ok {
-			c.Logger.Error().
-				Str("method", r.Method).
-				Str("url", r.URL.String()).
-				Str("host", r.Host).
-				Msg("can't cast request to *EVMRPCRequestEnvelope type")
+			LogCannotCastRequestError(c.ServiceLogger, r)
 
 			next.ServeHTTP(w, r.WithContext(uncachedContext))
 			return

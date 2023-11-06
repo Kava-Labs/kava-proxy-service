@@ -1,9 +1,12 @@
 package cachemdw
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 
 	"github.com/kava-labs/kava-proxy-service/decode"
+	"github.com/kava-labs/kava-proxy-service/logging"
 )
 
 // CachingMiddleware returns kava-proxy-service compatible middleware which works in the following way:
@@ -35,11 +38,7 @@ func (c *ServiceCache) CachingMiddleware(
 		req := r.Context().Value(c.decodedRequestContextKey)
 		decodedReq, ok := (req).(*decode.EVMRPCRequestEnvelope)
 		if !ok {
-			c.Logger.Error().
-				Str("method", r.Method).
-				Str("url", r.URL.String()).
-				Str("host", r.Host).
-				Msg("can't cast request to *EVMRPCRequestEnvelope type")
+			LogCannotCastRequestError(c.ServiceLogger, r)
 
 			next.ServeHTTP(w, r)
 			return
@@ -65,6 +64,26 @@ func (c *ServiceCache) CachingMiddleware(
 
 		next.ServeHTTP(w, r)
 	}
+}
+
+func LogCannotCastRequestError(logger *logging.ServiceLogger, r *http.Request) {
+	var bodyCopy bytes.Buffer
+	tee := io.TeeReader(r.Body, &bodyCopy)
+	// read all body from reader into bodyBytes, and copy into bodyCopy
+	bodyBytes, err := io.ReadAll(tee)
+	if err != nil {
+		logger.Error().Err(err).Msg("can't read lrw.body")
+	}
+
+	// replace empty body reader with fresh copy
+	r.Body = io.NopCloser(&bodyCopy)
+
+	logger.Error().
+		Str("method", r.Method).
+		Str("url", r.URL.String()).
+		Str("host", r.Host).
+		Str("body", string(bodyBytes)).
+		Msg("can't cast request to *EVMRPCRequestEnvelope type")
 }
 
 // getHeadersToCache gets header map which has to be cached along with EVM JSON-RPC response
