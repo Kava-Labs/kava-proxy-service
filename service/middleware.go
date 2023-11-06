@@ -157,10 +157,22 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 			req := r.Context().Value(DecodedRequestContextKey)
 			decodedReq, ok := (req).(*decode.EVMRPCRequestEnvelope)
 			if !ok {
+				var bodyCopy bytes.Buffer
+				tee := io.TeeReader(r.Body, &bodyCopy)
+				// read all body from reader into bodyBytes, and copy into bodyCopy
+				bodyBytes, err := io.ReadAll(tee)
+				if err != nil {
+					serviceLogger.Error().Err(err).Msg("can't read lrw.body")
+				}
+
+				// replace empty body reader with fresh copy
+				r.Body = io.NopCloser(&bodyCopy)
+
 				serviceLogger.Logger.Error().
 					Str("method", r.Method).
 					Str("url", r.URL.String()).
 					Str("host", r.Host).
+					Str("body", string(bodyBytes)).
 					Msg("can't cast request to *EVMRPCRequestEnvelope type")
 
 				// if we can't get decoded request then assign it empty structure to avoid panics
