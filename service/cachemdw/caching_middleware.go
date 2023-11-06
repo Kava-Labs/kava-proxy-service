@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
@@ -52,12 +53,13 @@ func (c *ServiceCache) CachingMiddleware(
 		// if request isn't already cached, request is cacheable and response is present in context - cache the response
 		if !isCached && cacheable && ok {
 			headersToCache := getHeadersToCache(w, c.whitelistedHeaders)
+			memoryLimitIsReachedError := "OOM command not allowed when used memory > 'maxmemory'"
 			if err := c.CacheQueryResponse(
 				r.Context(),
 				decodedReq,
 				typedResponse,
 				headersToCache,
-			); err != nil {
+			); err != nil && !strings.Contains(err.Error(), memoryLimitIsReachedError) {
 				c.Logger.Error().Msgf("can't validate and cache response: %v", err)
 			}
 		}
