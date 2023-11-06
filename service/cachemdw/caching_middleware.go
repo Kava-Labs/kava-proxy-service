@@ -78,7 +78,7 @@ func LogCannotCastRequestError(logger *logging.ServiceLogger, r *http.Request) {
 	// replace empty body reader with fresh copy
 	r.Body = io.NopCloser(&bodyCopy)
 
-	logger.Error().
+	logger.Trace().
 		Str("method", r.Method).
 		Str("url", r.URL.String()).
 		Str("host", r.Host).

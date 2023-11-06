@@ -38,7 +38,7 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (*httputil.Rev
 	req := r.Context().Value(DecodedRequestContextKey)
 	decodedReq, ok := (req).(*decode.EVMRPCRequestEnvelope)
 	if !ok {
-		hsp.Error().Msg("HeightShardingProxies failed to find & cast the decoded request envelope from the request context")
+		hsp.Trace().Msg("HeightShardingProxies failed to find & cast the decoded request envelope from the request context")
 		return hsp.defaultProxies.ProxyForRequest(r)
 	}
 
