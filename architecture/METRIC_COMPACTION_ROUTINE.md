@@ -11,7 +11,7 @@ The Metric Pruning routine is responsible for deleting any metrics that are olde
 ```bash
 # Whether metric pruning routines should run on the configured interval, defaults to true
 METRIC_PRUNING_ENABLED=true
-# How frequenlty metric pruning routines should run
+# How frequently metric pruning routines should run
 # defaults to 1 day
 METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS=10
 # how long (after the proxy service starts) it will wait

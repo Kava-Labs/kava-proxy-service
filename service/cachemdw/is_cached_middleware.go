@@ -61,7 +61,7 @@ func (c *ServiceCache) IsCachedMiddleware(
 		// 1. if not cached or we encounter an error then mark as uncached and forward to next middleware
 		// 2. if cached then mark as cached, set cached response in context and forward to next middleware
 		cachedQueryResponse, err := c.GetCachedQueryResponse(r.Context(), decodedReq)
-		if err != nil && err != cache.ErrNotFound {
+		if err != nil && err != cache.ErrNotFound && err != ErrRequestIsNotCacheable {
 			// log unexpected error
 			c.Logger.Error().
 				Err(err).

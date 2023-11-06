@@ -135,6 +135,8 @@ func main() {
 	// create the main proxy service
 	service, err := service.New(serviceContext, serviceConfig, &serviceLogger)
 
+	serviceLogger.Trace().Msg(fmt.Sprintf("service initialized: %+v", service))
+
 	if err != nil {
 		serviceLogger.Panic().Msg(fmt.Sprintf("%v", errors.Unwrap(err)))
 	}

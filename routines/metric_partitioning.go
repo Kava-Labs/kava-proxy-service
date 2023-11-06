@@ -115,7 +115,8 @@ func partitionsForPeriod(start time.Time, numDaysToPrefill int) ([]PartitionPeri
 
 	daysInCurrentMonth := daysInMonth(start)
 
-	newDaysRemainingInCurrentMonth := daysInCurrentMonth - currentDay
+	// add one to include the current day
+	newDaysRemainingInCurrentMonth := daysInCurrentMonth - currentDay + 1
 
 	// generate partitions for current month
 	totalPartitionsToGenerate := numDaysToPrefill

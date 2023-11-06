@@ -248,7 +248,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 			isCached := cachemdw.IsRequestCached(r.Context())
 			cachedResponse := r.Context().Value(cachemdw.ResponseContextKey)
-			typedCachedResponse, ok := cachedResponse.([]byte)
+			typedCachedResponse, ok := cachedResponse.(*cachemdw.QueryResponse)
 
 			// if cache is enabled, request is cached and response is present in context - serve the request from the cache
 			// otherwise proxy to the actual backend
@@ -262,7 +262,16 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 
 				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheHitHeaderValue)
 				w.Header().Add("Content-Type", "application/json")
-				_, err := w.Write(typedCachedResponse)
+				// add cached headers
+				for headerName, headerValue := range typedCachedResponse.HeaderMap {
+					w.Header().Add(headerName, headerValue)
+				}
+				// add CORS headers
+				accessControlAllowOriginValue := config.GetAccessControlAllowOriginValue(r.Host)
+				if accessControlAllowOriginValue != "" {
+					w.Header().Add("Access-Control-Allow-Origin", accessControlAllowOriginValue)
+				}
+				_, err := w.Write(typedCachedResponse.JsonRpcResponseResult)
 				if err != nil {
 					serviceLogger.Logger.Error().Msg(fmt.Sprintf("can't write cached response: %v", err))
 				}
@@ -486,20 +495,22 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 			CacheHit:                    isCached,
 		}
 
-		// save metric to database
-		err = metric.Save(context.Background(), service.Database.DB)
+		// save metric to database async
+		go func() {
+			// using background context so save won't be terminated when request finishes
+			err = metric.Save(context.Background(), service.Database.DB)
 
-		if err != nil {
-			// TODO: consider only logging
-			//  if it's not due to connection exhaustion, e.g.
-			// FATAL: remaining connection slots are reserved for non-replication
-			// superuser connections; SQLState: 53300
-			// OR
-			// FATAL: sorry, too many clients already; SQLState: 53300
-			service.ServiceLogger.Error().Msg(fmt.Sprintf("error %s saving metric %+v using database %+v", err, metric, service.Database))
-			return
-		}
-
-		service.ServiceLogger.Trace().Msg("created request metric")
+			if err != nil {
+				// TODO: consider only logging
+				//  if it's not due to connection exhaustion, e.g.
+				// FATAL: remaining connection slots are reserved for non-replication
+				// superuser connections; SQLState: 53300
+				// OR
+				// FATAL: sorry, too many clients already; SQLState: 53300
+				service.ServiceLogger.Error().Msg(fmt.Sprintf("error %s saving metric %+v using database %+v", err, metric, service.Database))
+				return
+			}
+			service.ServiceLogger.Trace().Msg("created request metric")
+		}()
 	}
 }
