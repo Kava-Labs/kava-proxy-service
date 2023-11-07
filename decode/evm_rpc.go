@@ -89,6 +89,23 @@ func MethodHasBlockHashParam(method string) bool {
 	return includesBlockHashParam
 }
 
+// StaticMethods is a list of static EVM methods which can be cached indefinitely, response will never change.
+var StaticMethods = []string{
+	"eth_chainId",
+	"net_version",
+}
+
+// IsMethodStatic checks if method is static. In this context static means that response will never change and can be cached indefinitely.
+func IsMethodStatic(method string) bool {
+	for _, staticMethod := range StaticMethods {
+		if method == staticMethod {
+			return true
+		}
+	}
+
+	return false
+}
+
 // NoHistoryMethods is a list of JSON-RPC methods that rely only on the present state of the chain.
 // They can always be safely routed to an up-to-date pruning cluster.
 var NoHistoryMethods = []string{

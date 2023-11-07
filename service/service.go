@@ -207,17 +207,27 @@ func createServiceCache(
 		return nil, err
 	}
 
+	cacheConfig := cachemdw.Config{
+		CacheTTL:                                   config.CacheTTL,
+		CacheMethodHasBlockNumberParamTTL:          config.CacheMethodHasBlockNumberParamTTL,
+		CacheMethodHasBlockHashParamTTL:            config.CacheMethodHasBlockHashParamTTL,
+		CacheStaticMethodTTL:                       config.CacheStaticMethodTTL,
+		CacheIndefinitely:                          config.CacheIndefinitely,
+		CacheMethodHasBlockNumberParamIndefinitely: config.CacheMethodHasBlockNumberParamIndefinitely,
+		CacheMethodHasBlockHashParamIndefinitely:   config.CacheMethodHasBlockHashParamIndefinitely,
+		CacheStaticMethodIndefinitely:              config.CacheStaticMethodIndefinitely,
+	}
+
 	serviceCache := cachemdw.NewServiceCache(
 		redisCache,
 		evmclient,
-		config.CacheTTL,
-		config.CacheIndefinitely,
 		DecodedRequestContextKey,
 		config.CachePrefix,
 		config.CacheEnabled,
 		config.WhitelistedHeaders,
 		config.DefaultAccessControlAllowOriginValue,
 		config.HostnameToAccessControlAllowOriginValueMap,
+		&cacheConfig,
 		logger,
 	)
 

@@ -13,15 +13,24 @@ import (
 	"github.com/kava-labs/kava-proxy-service/logging"
 )
 
+type Config struct {
+	// TTL for cached evm requests
+	CacheTTL                          time.Duration
+	CacheMethodHasBlockNumberParamTTL time.Duration
+	CacheMethodHasBlockHashParamTTL   time.Duration
+	CacheStaticMethodTTL              time.Duration
+	// if cacheIndefinitely set to true it overrides cacheTTL and sets TTL to infinity
+	CacheIndefinitely                          bool
+	CacheMethodHasBlockNumberParamIndefinitely bool
+	CacheMethodHasBlockHashParamIndefinitely   bool
+	CacheStaticMethodIndefinitely              bool
+}
+
 // ServiceCache is responsible for caching EVM requests and provides corresponding middleware
 // ServiceCache can work with any underlying storage which implements simple cache.Cache interface
 type ServiceCache struct {
-	cacheClient cache.Cache
-	blockGetter decode.EVMBlockGetter
-	// TTL for cached evm requests
-	cacheTTL time.Duration
-	// if cacheIndefinitely set to true it overrides cacheTTL and sets TTL to infinity
-	cacheIndefinitely        bool
+	cacheClient              cache.Cache
+	blockGetter              decode.EVMBlockGetter
 	decodedRequestContextKey any
 	// cachePrefix is used as prefix for any key in the cache
 	cachePrefix        string
@@ -31,33 +40,33 @@ type ServiceCache struct {
 	defaultAccessControlAllowOriginValue       string
 	hostnameToAccessControlAllowOriginValueMap map[string]string
 
+	config *Config
+
 	*logging.ServiceLogger
 }
 
 func NewServiceCache(
 	cacheClient cache.Cache,
 	blockGetter decode.EVMBlockGetter,
-	cacheTTL time.Duration,
-	cacheIndefinitely bool,
 	decodedRequestContextKey any,
 	cachePrefix string,
 	cacheEnabled bool,
 	whitelistedHeaders []string,
 	defaultAccessControlAllowOriginValue string,
 	hostnameToAccessControlAllowOriginValueMap map[string]string,
+	config *Config,
 	logger *logging.ServiceLogger,
 ) *ServiceCache {
 	return &ServiceCache{
 		cacheClient:                          cacheClient,
 		blockGetter:                          blockGetter,
-		cacheTTL:                             cacheTTL,
-		cacheIndefinitely:                    cacheIndefinitely,
 		decodedRequestContextKey:             decodedRequestContextKey,
 		cachePrefix:                          cachePrefix,
 		cacheEnabled:                         cacheEnabled,
 		whitelistedHeaders:                   whitelistedHeaders,
 		defaultAccessControlAllowOriginValue: defaultAccessControlAllowOriginValue,
 		hostnameToAccessControlAllowOriginValueMap: hostnameToAccessControlAllowOriginValueMap,
+		config:        config,
 		ServiceLogger: logger,
 	}
 }
@@ -80,10 +89,6 @@ func IsCacheable(
 		return false
 	}
 
-	if decode.MethodHasBlockHashParam(req.Method) {
-		return true
-	}
-
 	if decode.MethodHasBlockNumberParam(req.Method) {
 		blockNumber, err := decode.ParseBlockNumberFromParams(req.Method, req.Params)
 		if err != nil {
@@ -98,7 +103,31 @@ func IsCacheable(
 		return blockNumber > 0 || blockNumber == decode.BlockTagToNumberCodec[decode.BlockTagEarliest]
 	}
 
+	if decode.MethodHasBlockHashParam(req.Method) {
+		return true
+	}
+
+	if decode.IsMethodStatic(req.Method) {
+		return true
+	}
+
 	return false
+}
+
+func (c *ServiceCache) GetTTL(method string) (time.Duration, bool) {
+	if decode.MethodHasBlockNumberParam(method) {
+		return c.config.CacheMethodHasBlockNumberParamTTL, c.config.CacheMethodHasBlockNumberParamIndefinitely
+	}
+
+	if decode.MethodHasBlockHashParam(method) {
+		return c.config.CacheMethodHasBlockHashParamTTL, c.config.CacheMethodHasBlockHashParamIndefinitely
+	}
+
+	if decode.IsMethodStatic(method) {
+		return c.config.CacheStaticMethodTTL, c.config.CacheStaticMethodIndefinitely
+	}
+
+	return c.config.CacheTTL, c.config.CacheStaticMethodIndefinitely
 }
 
 // GetCachedQueryResponse calculates cache key for request and then tries to get it from cache.
@@ -190,7 +219,9 @@ func (c *ServiceCache) CacheQueryResponse(
 		return err
 	}
 
-	return c.cacheClient.Set(ctx, key, queryResponseInJSON, c.cacheTTL, c.cacheIndefinitely)
+	cacheTTL, cacheIndefinitely := c.GetTTL(req.Method)
+
+	return c.cacheClient.Set(ctx, key, queryResponseInJSON, cacheTTL, cacheIndefinitely)
 }
 
 func (c *ServiceCache) Healthcheck(ctx context.Context) error {
