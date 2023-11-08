@@ -94,6 +94,21 @@ For example:
 
 `redis-cli KEYS "local-chain:evm-request:*" | xargs redis-cli DEL`
 
+### Invalidating all cache
+
+If you want to invalidate all cache the best way to do it is to use this command:
+
+`redis-cli -h <redis-endpoint> FLUSHDB`
+
+and then to make sure that cache is empty you can run:
+
+`redis-cli -h <redis-endpoint> KEYS "*"`
+
+### Redis endpoints (NOTE: it may change in the future):
+- internal-testnet: `kava-proxy-redis-internal-testnet.ba6rtz.ng.0001.use1.cache.amazonaws.com`
+- public-testnet: `kava-proxy-redis-public-testnet.ba6rtz.ng.0001.use1.cache.amazonaws.com`
+- mainnet: `kava-proxy-redis-mainnet.ba6rtz.ng.0001.use1.cache.amazonaws.com`
+
 ## Architecture Diagrams
 
 ### Serve request from the cache (avoiding call to actual backend)
