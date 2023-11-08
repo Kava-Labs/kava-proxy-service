@@ -66,16 +66,13 @@ func Validate(config Config) error {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not be empty", REDIS_ENDPOINT_URL_ENVIRONMENT_KEY, config.RedisEndpointURL))
 	}
 
-	if err := checkTTLConfig(config.CacheIndefinitely, config.CacheTTL, CACHE_INDEFINITELY_ENVIRONMENT_KEY, CACHE_TTL_ENVIRONMENT_KEY); err != nil {
+	if err := checkTTLConfig(config.CacheMethodHasBlockNumberParamTTL, CACHE_METHOD_HAS_BLOCK_NUMBER_PARAM_TTL_ENVIRONMENT_KEY); err != nil {
 		allErrs = errors.Join(allErrs, err)
 	}
-	if err := checkTTLConfig(config.CacheMethodHasBlockNumberParamIndefinitely, config.CacheMethodHasBlockNumberParamTTL, CACHE_METHOD_HAS_BLOCK_NUMBER_PARAM_INDEFINITELY_ENVIRONMENT_KEY, CACHE_METHOD_HAS_BLOCK_NUMBER_PARAM_TTL_ENVIRONMENT_KEY); err != nil {
+	if err := checkTTLConfig(config.CacheMethodHasBlockHashParamTTL, CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_ENVIRONMENT_KEY); err != nil {
 		allErrs = errors.Join(allErrs, err)
 	}
-	if err := checkTTLConfig(config.CacheMethodHasBlockHashParamIndefinitely, config.CacheMethodHasBlockHashParamTTL, CACHE_METHOD_HAS_BLOCK_HASH_PARAM_INDEFINITELY_ENVIRONMENT_KEY, CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_ENVIRONMENT_KEY); err != nil {
-		allErrs = errors.Join(allErrs, err)
-	}
-	if err := checkTTLConfig(config.CacheStaticMethodIndefinitely, config.CacheStaticMethodTTL, CACHE_STATIC_METHOD_INDEFINITELY_ENVIRONMENT_KEY, CACHE_STATIC_METHOD_TTL_ENVIRONMENT_KEY); err != nil {
+	if err := checkTTLConfig(config.CacheStaticMethodTTL, CACHE_STATIC_METHOD_TTL_ENVIRONMENT_KEY); err != nil {
 		allErrs = errors.Join(allErrs, err)
 	}
 
@@ -93,15 +90,15 @@ func Validate(config Config) error {
 	return allErrs
 }
 
-func checkTTLConfig(cacheIndefinitely bool, cacheTTL time.Duration, cacheIndefinitelyKey, cacheTTLKey string) error {
-	if !cacheIndefinitely && cacheTTL <= 0 {
-		return fmt.Errorf("invalid %s specified %s, must be greater than zero (when %v is false)", cacheTTLKey, cacheTTL, cacheIndefinitelyKey)
+func checkTTLConfig(cacheTTL time.Duration, cacheTTLKey string) error {
+	if cacheTTL > 0 {
+		return nil
 	}
-	if cacheIndefinitely && cacheTTL != 0 {
-		return fmt.Errorf("invalid %s specified %s, must be zero (when %v is true)", cacheTTLKey, cacheTTL, cacheIndefinitelyKey)
+	if cacheTTL == -1 {
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("invalid %s specified %s, must be greater than zero or -1", cacheTTLKey, cacheTTL)
 }
 
 // validateHostURLMap validates a raw backend host URL map, optionally allowing the map to be empty

@@ -15,15 +15,11 @@ import (
 
 type Config struct {
 	// TTL for cached evm requests
-	CacheTTL                          time.Duration
+	// Different evm method groups may have different TTLs
+	// TTL should be either greater than zero or equal to -1, -1 means cache indefinitely
 	CacheMethodHasBlockNumberParamTTL time.Duration
 	CacheMethodHasBlockHashParamTTL   time.Duration
 	CacheStaticMethodTTL              time.Duration
-	// if cacheIndefinitely set to true it overrides cacheTTL and sets TTL to infinity
-	CacheIndefinitely                          bool
-	CacheMethodHasBlockNumberParamIndefinitely bool
-	CacheMethodHasBlockHashParamIndefinitely   bool
-	CacheStaticMethodIndefinitely              bool
 }
 
 // ServiceCache is responsible for caching EVM requests and provides corresponding middleware
@@ -114,20 +110,21 @@ func IsCacheable(
 	return false
 }
 
-func (c *ServiceCache) GetTTL(method string) (time.Duration, bool) {
+// GetTTL returns TTL for specified EVM method.
+func (c *ServiceCache) GetTTL(method string) (time.Duration, error) {
 	if decode.MethodHasBlockNumberParam(method) {
-		return c.config.CacheMethodHasBlockNumberParamTTL, c.config.CacheMethodHasBlockNumberParamIndefinitely
+		return c.config.CacheMethodHasBlockNumberParamTTL, nil
 	}
 
 	if decode.MethodHasBlockHashParam(method) {
-		return c.config.CacheMethodHasBlockHashParamTTL, c.config.CacheMethodHasBlockHashParamIndefinitely
+		return c.config.CacheMethodHasBlockHashParamTTL, nil
 	}
 
 	if decode.IsMethodStatic(method) {
-		return c.config.CacheStaticMethodTTL, c.config.CacheStaticMethodIndefinitely
+		return c.config.CacheStaticMethodTTL, nil
 	}
 
-	return c.config.CacheTTL, c.config.CacheStaticMethodIndefinitely
+	return 0, ErrRequestIsNotCacheable
 }
 
 // GetCachedQueryResponse calculates cache key for request and then tries to get it from cache.
@@ -219,9 +216,12 @@ func (c *ServiceCache) CacheQueryResponse(
 		return err
 	}
 
-	cacheTTL, cacheIndefinitely := c.GetTTL(req.Method)
+	cacheTTL, err := c.GetTTL(req.Method)
+	if err != nil {
+		return fmt.Errorf("can't get cache TTL for %v method: %v", req.Method, err)
+	}
 
-	return c.cacheClient.Set(ctx, key, queryResponseInJSON, cacheTTL, cacheIndefinitely)
+	return c.cacheClient.Set(ctx, key, queryResponseInJSON, cacheTTL)
 }
 
 func (c *ServiceCache) Healthcheck(ctx context.Context) error {

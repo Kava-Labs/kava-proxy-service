@@ -2,10 +2,11 @@ package cachemdw_test
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/kava-labs/kava-proxy-service/clients/cache"
 	"github.com/kava-labs/kava-proxy-service/decode"
