@@ -86,6 +86,15 @@ For example:
 {"jsonrpc":"2.0","method":"net_version","params":[],"id":67}
 ```
 
+### Where to find list of methods for every group?
+
+It can be found in source code: https://github.com/Kava-Labs/kava-proxy-service/blob/main/decode/evm_rpc.go
+
+Look for corresponding lists:
+- CacheableByBlockNumberMethods
+- CacheableByBlockHashMethods
+- StaticMethods
+
 ### TTL
 
 TTL can be specified independently for each group, for ex:
