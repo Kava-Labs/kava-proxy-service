@@ -34,14 +34,14 @@ func (c *InMemoryCache) Set(
 	key string,
 	data []byte,
 	expiration time.Duration,
-	cacheIndefinitely bool,
 ) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	expiry := time.Now().Add(expiration)
 
-	if cacheIndefinitely {
+	// -1 means cache indefinitely.
+	if expiration == -1 {
 		// 100 years in the future to prevent expiry
 		expiry = time.Now().AddDate(100, 0, 0)
 	}

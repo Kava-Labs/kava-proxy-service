@@ -45,10 +45,11 @@ type Config struct {
 	MetricPruningRoutineDelayFirstRun             time.Duration
 	MetricPruningMaxRequestMetricsHistoryDays     int
 	CacheEnabled                                  bool
-	CacheIndefinitely                             bool
 	RedisEndpointURL                              string
 	RedisPassword                                 string
-	CacheTTL                                      time.Duration
+	CacheMethodHasBlockNumberParamTTL             time.Duration
+	CacheMethodHasBlockHashParamTTL               time.Duration
+	CacheStaticMethodTTL                          time.Duration
 	CachePrefix                                   string
 	WhitelistedHeaders                            []string
 	DefaultAccessControlAllowOriginValue          string
@@ -110,8 +111,9 @@ const (
 	CACHE_ENABLED_ENVIRONMENT_KEY                                     = "CACHE_ENABLED"
 	REDIS_ENDPOINT_URL_ENVIRONMENT_KEY                                = "REDIS_ENDPOINT_URL"
 	REDIS_PASSWORD_ENVIRONMENT_KEY                                    = "REDIS_PASSWORD"
-	CACHE_INDEFINITELY_KEY                                            = "CACHE_INDEFINITELY"
-	CACHE_TTL_ENVIRONMENT_KEY                                         = "CACHE_TTL_SECONDS"
+	CACHE_METHOD_HAS_BLOCK_NUMBER_PARAM_TTL_ENVIRONMENT_KEY           = "CACHE_METHOD_HAS_BLOCK_NUMBER_PARAM_TTL_SECONDS"
+	CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_ENVIRONMENT_KEY             = "CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_SECONDS"
+	CACHE_STATIC_METHOD_TTL_ENVIRONMENT_KEY                           = "CACHE_STATIC_METHOD_TTL_SECONDS"
 	CACHE_PREFIX_ENVIRONMENT_KEY                                      = "CACHE_PREFIX"
 	WHITELISTED_HEADERS_ENVIRONMENT_KEY                               = "WHITELISTED_HEADERS"
 	DEFAULT_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_ENVIRONMENT_KEY         = "DEFAULT_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE"
@@ -302,8 +304,9 @@ func ReadConfig() Config {
 		CacheEnabled:                                  EnvOrDefaultBool(CACHE_ENABLED_ENVIRONMENT_KEY, false),
 		RedisEndpointURL:                              os.Getenv(REDIS_ENDPOINT_URL_ENVIRONMENT_KEY),
 		RedisPassword:                                 os.Getenv(REDIS_PASSWORD_ENVIRONMENT_KEY),
-		CacheTTL:                                      time.Duration(EnvOrDefaultInt(CACHE_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
-		CacheIndefinitely:                             EnvOrDefaultBool(CACHE_INDEFINITELY_KEY, false),
+		CacheMethodHasBlockNumberParamTTL:             time.Duration(EnvOrDefaultInt(CACHE_METHOD_HAS_BLOCK_NUMBER_PARAM_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
+		CacheMethodHasBlockHashParamTTL:               time.Duration(EnvOrDefaultInt(CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
+		CacheStaticMethodTTL:                          time.Duration(EnvOrDefaultInt(CACHE_STATIC_METHOD_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
 		CachePrefix:                                   os.Getenv(CACHE_PREFIX_ENVIRONMENT_KEY),
 		WhitelistedHeaders:                            parsedWhitelistedHeaders,
 		DefaultAccessControlAllowOriginValue:          os.Getenv(DEFAULT_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_ENVIRONMENT_KEY),

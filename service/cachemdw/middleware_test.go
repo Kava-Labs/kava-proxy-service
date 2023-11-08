@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -22,20 +21,17 @@ func TestUnitTestServiceCacheMiddleware(t *testing.T) {
 
 	inMemoryCache := cache.NewInMemoryCache()
 	blockGetter := NewMockEVMBlockGetter()
-	cacheTTL := time.Duration(0)
-	cacheIndefinitely := true
 
 	serviceCache := cachemdw.NewServiceCache(
 		inMemoryCache,
 		blockGetter,
-		cacheTTL,
-		cacheIndefinitely,
 		service.DecodedRequestContextKey,
 		defaultCachePrefixString,
 		true,
 		[]string{},
 		"*",
 		map[string]string{},
+		&defaultConfig,
 		&logger,
 	)
 
@@ -110,20 +106,17 @@ func TestUnitTestServiceCacheMiddleware_CacheIsDisabled(t *testing.T) {
 
 	inMemoryCache := cache.NewInMemoryCache()
 	blockGetter := NewMockEVMBlockGetter()
-	cacheTTL := time.Duration(0)
-	cacheIndefinitely := true
 
 	serviceCache := cachemdw.NewServiceCache(
 		inMemoryCache,
 		blockGetter,
-		cacheTTL,
-		cacheIndefinitely,
 		service.DecodedRequestContextKey,
 		defaultCachePrefixString,
 		false,
 		[]string{},
 		"*",
 		map[string]string{},
+		&defaultConfig,
 		&logger,
 	)
 

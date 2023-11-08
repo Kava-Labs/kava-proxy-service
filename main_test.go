@@ -943,3 +943,99 @@ func checkJsonRpcErr(body []byte) error {
 
 	return nil
 }
+
+func TestE2ETestCachingMdwForStaticMethods(t *testing.T) {
+	// create api and database clients
+	client, err := ethclient.Dial(proxyServiceURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	for _, tc := range []struct {
+		desc        string
+		method      string
+		params      []interface{}
+		keysNum     int
+		expectedKey string
+	}{
+		{
+			desc:        "test case #1",
+			method:      "eth_chainId",
+			params:      []interface{}{},
+			keysNum:     1,
+			expectedKey: "local-chain:evm-request:eth_chainId:sha256:*",
+		},
+		{
+			desc:        "test case #2",
+			method:      "net_version",
+			params:      []interface{}{},
+			keysNum:     2,
+			expectedKey: "local-chain:evm-request:net_version:sha256:*",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			// test cache MISS and cache HIT scenarios for specified method
+			// check corresponding values in cachemdw.CacheHeaderKey HTTP header
+			// check that cached and non-cached responses are equal
+
+			// cache MISS
+			cacheMissResp := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, cacheMissResp.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(cacheMissResp.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body1)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+			containsKey(t, redisClient, tc.expectedKey)
+
+			// cache HIT
+			cacheHitResp := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheHitHeaderValue, cacheHitResp.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(cacheHitResp.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body2)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+			containsKey(t, redisClient, tc.expectedKey)
+
+			// check that response bodies are the same
+			require.JSONEq(t, string(body1), string(body2), "blocks should be the same")
+
+			// check that response headers are the same
+			equalHeaders(t, cacheMissResp.Header, cacheHitResp.Header)
+
+			// check that CORS headers are present for cache hit scenario
+			require.Equal(t, cacheHitResp.Header[accessControlAllowOriginHeaderName], []string{"*"})
+		})
+	}
+
+	cleanUpRedis(t, redisClient)
+	// test cache MISS and cache HIT scenarios for eth_chainId method
+	// check that cached and non-cached responses are equal
+	{
+		// eth_getBlockByNumber - cache MISS
+		block1, err := client.ChainID(testContext)
+		require.NoError(t, err)
+		expectKeysNum(t, redisClient, 1)
+		expectedKey := "local-chain:evm-request:eth_chainId:sha256:*"
+		containsKey(t, redisClient, expectedKey)
+
+		// eth_getBlockByNumber - cache HIT
+		block2, err := client.ChainID(testContext)
+		require.NoError(t, err)
+		expectKeysNum(t, redisClient, 1)
+		containsKey(t, redisClient, expectedKey)
+
+		require.Equal(t, block1, block2, "blocks should be the same")
+	}
+
+	cleanUpRedis(t, redisClient)
+}

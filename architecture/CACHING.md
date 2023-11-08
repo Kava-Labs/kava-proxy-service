@@ -34,7 +34,13 @@ package provides two different middlewares:
 
 ## What requests are cached?
 
-As of now we cache requests which has `specific block number` in request, for example:
+As of now we have 3 different groups of cacheable EVM methods:
+- cacheable by block number (for ex.: `eth_getBlockByNumber`)
+- cacheable by block hash (for ex.: `eth_getBlockByHash`)
+- static methods (for ex.: `eth_chainId`, `net_version`)
+
+### Example of cacheable eth_getBlockByNumber method
+
 ```json
 {
 	"jsonrpc":"2.0",
@@ -47,7 +53,14 @@ As of now we cache requests which has `specific block number` in request, for ex
 }
 ```
 
-we don't cache requests without `specific block number` or requests which uses magic tags as a block number: "latest", "pending", "earliest", etc...
+NOTE: we don't cache requests which uses magic tags as a block number: "latest", "pending", etc...
+
+TTL can be specified independently for each group, for ex:
+```
+CACHE_METHOD_HAS_BLOCK_NUMBER_PARAM_TTL_SECONDS=600
+CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_SECONDS=1200
+CACHE_STATIC_METHOD_TTL_SECONDS=-1
+```
 
 ## Cache Invalidation
 

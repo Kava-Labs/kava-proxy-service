@@ -23,6 +23,12 @@ const (
 
 var (
 	defaultQueryResp = []byte(testEVMQueries[TestRequestWeb3ClientVersion].ResponseBody)
+
+	defaultConfig = cachemdw.Config{
+		CacheMethodHasBlockNumberParamTTL: time.Hour,
+		CacheMethodHasBlockHashParamTTL:   time.Hour,
+		CacheStaticMethodTTL:              time.Hour,
+	}
 )
 
 type MockEVMBlockGetter struct{}
@@ -70,21 +76,18 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 
 	inMemoryCache := cache.NewInMemoryCache()
 	blockGetter := NewMockEVMBlockGetter()
-	cacheTTL := time.Hour
-	cacheIndefinitely := false
 	ctxb := context.Background()
 
 	serviceCache := cachemdw.NewServiceCache(
 		inMemoryCache,
 		blockGetter,
-		cacheTTL,
-		cacheIndefinitely,
 		service.DecodedRequestContextKey,
 		defaultCachePrefixString,
 		true,
 		[]string{},
 		"*",
 		map[string]string{},
+		&defaultConfig,
 		&logger,
 	)
 

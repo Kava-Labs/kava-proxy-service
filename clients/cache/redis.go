@@ -45,16 +45,15 @@ func (rc *RedisCache) Set(
 	key string,
 	value []byte,
 	expiration time.Duration,
-	cacheIndefinitely bool,
 ) error {
 	rc.Logger.Trace().
 		Str("key", key).
 		Str("value", string(value)).
 		Dur("expiration", expiration).
-		Bool("cache-indefinitely", cacheIndefinitely).
 		Msg("setting value in redis")
 
-	if cacheIndefinitely {
+	// -1 means cache indefinitely.
+	if expiration == -1 {
 		// In redis zero expiration means the key has no expiration time.
 		expiration = 0
 	}

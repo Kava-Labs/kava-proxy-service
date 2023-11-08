@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -64,12 +65,17 @@ func Validate(config Config) error {
 	if config.RedisEndpointURL == "" {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not be empty", REDIS_ENDPOINT_URL_ENVIRONMENT_KEY, config.RedisEndpointURL))
 	}
-	if !config.CacheIndefinitely && config.CacheTTL <= 0 {
-		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must be greater than zero (when CACHE_INDEFINITELY is false)", CACHE_TTL_ENVIRONMENT_KEY, config.CacheTTL))
+
+	if err := checkTTLConfig(config.CacheMethodHasBlockNumberParamTTL, CACHE_METHOD_HAS_BLOCK_NUMBER_PARAM_TTL_ENVIRONMENT_KEY); err != nil {
+		allErrs = errors.Join(allErrs, err)
 	}
-	if config.CacheIndefinitely && config.CacheTTL != 0 {
-		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must be zero (when CACHE_INDEFINITELY is true)", CACHE_TTL_ENVIRONMENT_KEY, config.CacheTTL))
+	if err := checkTTLConfig(config.CacheMethodHasBlockHashParamTTL, CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_ENVIRONMENT_KEY); err != nil {
+		allErrs = errors.Join(allErrs, err)
 	}
+	if err := checkTTLConfig(config.CacheStaticMethodTTL, CACHE_STATIC_METHOD_TTL_ENVIRONMENT_KEY); err != nil {
+		allErrs = errors.Join(allErrs, err)
+	}
+
 	if strings.Contains(config.CachePrefix, ":") {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not contain colon symbol", CACHE_PREFIX_ENVIRONMENT_KEY, config.CachePrefix))
 	}
@@ -82,6 +88,17 @@ func Validate(config Config) error {
 	}
 
 	return allErrs
+}
+
+func checkTTLConfig(cacheTTL time.Duration, cacheTTLKey string) error {
+	if cacheTTL > 0 {
+		return nil
+	}
+	if cacheTTL == -1 {
+		return nil
+	}
+
+	return fmt.Errorf("invalid %s specified %s, must be greater than zero or -1", cacheTTLKey, cacheTTL)
 }
 
 // validateHostURLMap validates a raw backend host URL map, optionally allowing the map to be empty
