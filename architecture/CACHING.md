@@ -39,8 +39,17 @@ As of now we have 3 different groups of cacheable EVM methods:
 - cacheable by block hash (for ex.: `eth_getBlockByHash`)
 - static methods (for ex.: `eth_chainId`, `net_version`)
 
-### Example of cacheable eth_getBlockByNumber method
+### Cacheable by block number
 
+Cacheable by block number means that for specific:
+- method
+- params
+- block height (which is part of params)
+response won't change over time, so we can cache it indefinitely
+
+NOTE: we don't cache requests which uses magic tags as a block number: "latest", "pending", etc... Because for such requests answer may change over time.
+
+Example of cacheable `eth_getBlockByNumber` method
 ```json
 {
 	"jsonrpc":"2.0",
@@ -53,7 +62,17 @@ As of now we have 3 different groups of cacheable EVM methods:
 }
 ```
 
-NOTE: we don't cache requests which uses magic tags as a block number: "latest", "pending", etc...
+### Cacheable by block hash
+
+Cacheable by block hash means that for specific:
+- method
+- params
+- block hash (which is part of params)
+response won't change over time, so we can cache it indefinitely
+
+So it similar to cacheable by block number, but even simplier because we don't have to deal with magic tags: "latest", "pending", etc...
+
+### TTL
 
 TTL can be specified independently for each group, for ex:
 ```
