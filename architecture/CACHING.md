@@ -72,6 +72,20 @@ response won't change over time, so we can cache it indefinitely
 
 So it similar to cacheable by block number, but even simplier because we don't have to deal with magic tags: "latest", "pending", etc...
 
+### Static methods
+
+Static methods doesn't depend on anything, so we can cache them indefinitely. 
+
+For example:
+
+```json
+{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}
+```
+
+```json
+{"jsonrpc":"2.0","method":"net_version","params":[],"id":67}
+```
+
 ### TTL
 
 TTL can be specified independently for each group, for ex:
