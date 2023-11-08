@@ -104,6 +104,12 @@ and then to make sure that cache is empty you can run:
 
 `redis-cli -h <redis-endpoint> KEYS "*"`
 
+alternative approach may be using this command:
+
+`redis-cli KEYS "*" | xargs redis-cli DEL`
+
+but it will fail due to big number of keys, so FLUSHDB is better
+
 ### Redis endpoints (NOTE: it may change in the future):
 - internal-testnet: `kava-proxy-redis-internal-testnet.ba6rtz.ng.0001.use1.cache.amazonaws.com`
 - public-testnet: `kava-proxy-redis-public-testnet.ba6rtz.ng.0001.use1.cache.amazonaws.com`
