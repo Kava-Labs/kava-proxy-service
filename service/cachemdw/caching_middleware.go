@@ -57,7 +57,10 @@ func (c *ServiceCache) CachingMiddleware(
 				decodedReq,
 				typedResponse,
 				headersToCache,
-			); err != nil {
+				// In this context ErrResponseIsNotCacheable isn't an actual error, it means that we can't cache the response
+				// because it may change in the future.
+				// For ex. it can be empty/null response for future blocks.
+			); err != nil && err != ErrResponseIsNotCacheable {
 				c.Logger.Error().Msgf("can't validate and cache response: %v", err)
 			}
 		}

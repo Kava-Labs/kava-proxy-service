@@ -3,7 +3,6 @@ package cachemdw
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -88,7 +87,11 @@ func IsCacheable(
 	if decode.MethodHasBlockNumberParam(req.Method) {
 		blockNumber, err := decode.ParseBlockNumberFromParams(req.Method, req.Params)
 		if err != nil {
+			paramsInJSON, _ := json.Marshal(req.Params)
+
 			logger.Logger.Error().
+				Str("method", req.Method).
+				Str("params", string(paramsInJSON)).
 				Err(err).
 				Msg("can't parse block number from params")
 			return false
@@ -189,7 +192,7 @@ func (c *ServiceCache) CacheQueryResponse(
 ) error {
 	// don't cache uncacheable requests
 	if !IsCacheable(c.ServiceLogger, req) {
-		return errors.New("query isn't cacheable")
+		return ErrRequestIsNotCacheable
 	}
 
 	response, err := UnmarshalJsonRpcResponse(responseInBytes)
@@ -198,7 +201,7 @@ func (c *ServiceCache) CacheQueryResponse(
 	}
 	// don't cache uncacheable responses
 	if !response.IsCacheable() {
-		return fmt.Errorf("response isn't cacheable")
+		return ErrResponseIsNotCacheable
 	}
 
 	key, err := GetQueryKey(c.cachePrefix, req)
