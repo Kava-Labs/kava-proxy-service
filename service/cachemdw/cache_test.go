@@ -28,6 +28,7 @@ var (
 		CacheMethodHasBlockNumberParamTTL: time.Hour,
 		CacheMethodHasBlockHashParamTTL:   time.Hour,
 		CacheStaticMethodTTL:              time.Hour,
+		CacheMethodHasTxHashParamTTL:      time.Hour,
 	}
 )
 

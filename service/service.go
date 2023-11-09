@@ -211,6 +211,7 @@ func createServiceCache(
 		CacheMethodHasBlockNumberParamTTL: config.CacheMethodHasBlockNumberParamTTL,
 		CacheMethodHasBlockHashParamTTL:   config.CacheMethodHasBlockHashParamTTL,
 		CacheStaticMethodTTL:              config.CacheStaticMethodTTL,
+		CacheMethodHasTxHashParamTTL:      config.CacheMethodHasTxHashParamTTL,
 	}
 
 	serviceCache := cachemdw.NewServiceCache(

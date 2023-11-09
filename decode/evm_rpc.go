@@ -106,6 +106,24 @@ func IsMethodStatic(method string) bool {
 	return false
 }
 
+// CacheableByTxHashMethods is a list of EVM methods which can be cached indefinitely by transaction hash.
+// It means that for specific method and params (which includes tx hash) response will never change.
+var CacheableByTxHashMethods = []string{
+	"eth_getTransactionReceipt",
+	"eth_getTransactionByHash",
+}
+
+// MethodHasTxHashParam checks if method is cacheable by tx hash.
+func MethodHasTxHashParam(method string) bool {
+	for _, cacheableByTxHashMethod := range CacheableByTxHashMethods {
+		if method == cacheableByTxHashMethod {
+			return true
+		}
+	}
+
+	return false
+}
+
 // NoHistoryMethods is a list of JSON-RPC methods that rely only on the present state of the chain.
 // They can always be safely routed to an up-to-date pruning cluster.
 var NoHistoryMethods = []string{
