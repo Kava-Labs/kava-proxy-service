@@ -87,7 +87,12 @@ func IsCacheable(
 	if decode.MethodHasBlockNumberParam(req.Method) {
 		blockNumber, err := decode.ParseBlockNumberFromParams(req.Method, req.Params)
 		if err != nil {
-			paramsInJSON, _ := json.Marshal(req.Params)
+			paramsInJSON, marshalErr := json.Marshal(req.Params)
+			if marshalErr != nil {
+				logger.Logger.Error().
+					Err(marshalErr).
+					Msg("can't marshal EVM request params into json")
+			}
 
 			logger.Logger.Error().
 				Str("method", req.Method).
