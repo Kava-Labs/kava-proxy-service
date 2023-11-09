@@ -454,7 +454,10 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 		rawBlockNumber, err := decodedRequestBody.ExtractBlockNumberFromEVMRPCRequest(r.Context(), service.evmClient)
 
 		if err != nil {
-			service.ServiceLogger.Trace().Msg(fmt.Sprintf("error %s parsing block number from request %+v", err, decodedRequestBody))
+			service.ServiceLogger.
+				Error().
+				Str("method", decodedRequestBody.Method).
+				Msg(fmt.Sprintf("error %s parsing block number from request %+v", err, decodedRequestBody))
 
 			blockNumber = nil
 		} else {
