@@ -451,7 +451,8 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 
 		var blockNumber *int64
 		// TODO: Redundant ExtractBlockNumberFromEVMRPCRequest call here if request is cached
-		rawBlockNumber, err := decodedRequestBody.ExtractBlockNumberFromEVMRPCRequest(r.Context(), service.evmClient)
+		// using background context so method won't be terminated when request finishes
+		rawBlockNumber, err := decodedRequestBody.ExtractBlockNumberFromEVMRPCRequest(context.Background(), service.evmClient)
 
 		if err != nil {
 			service.ServiceLogger.
