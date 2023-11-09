@@ -38,6 +38,7 @@ As of now we have 3 different groups of cacheable EVM methods:
 - cacheable by block number (for ex.: `eth_getBlockByNumber`)
 - cacheable by block hash (for ex.: `eth_getBlockByHash`)
 - static methods (for ex.: `eth_chainId`, `net_version`)
+- cacheable by tx hash (for ex.: `eth_getTransactionReceipt`)
 
 ### Cacheable by block number
 
@@ -85,6 +86,14 @@ For example:
 ```json
 {"jsonrpc":"2.0","method":"net_version","params":[],"id":67}
 ```
+
+### Cacheable by tx hash
+
+Cacheable by tx hash means that for specific:
+- method
+- params
+- tx hash (which is part of params)
+response won't change over time, so we can cache it indefinitely
 
 ### Where to find list of methods for every group?
 
