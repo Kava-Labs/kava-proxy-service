@@ -19,6 +19,7 @@ type Config struct {
 	CacheMethodHasBlockNumberParamTTL time.Duration
 	CacheMethodHasBlockHashParamTTL   time.Duration
 	CacheStaticMethodTTL              time.Duration
+	CacheMethodHasTxHashParamTTL      time.Duration
 }
 
 // ServiceCache is responsible for caching EVM requests and provides corresponding middleware
@@ -115,6 +116,10 @@ func IsCacheable(
 		return true
 	}
 
+	if decode.MethodHasTxHashParam(req.Method) {
+		return true
+	}
+
 	return false
 }
 
@@ -130,6 +135,10 @@ func (c *ServiceCache) GetTTL(method string) (time.Duration, error) {
 
 	if decode.IsMethodStatic(method) {
 		return c.config.CacheStaticMethodTTL, nil
+	}
+
+	if decode.MethodHasTxHashParam(method) {
+		return c.config.CacheMethodHasTxHashParamTTL, nil
 	}
 
 	return 0, ErrRequestIsNotCacheable

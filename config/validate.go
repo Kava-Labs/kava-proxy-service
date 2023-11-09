@@ -75,6 +75,9 @@ func Validate(config Config) error {
 	if err := checkTTLConfig(config.CacheStaticMethodTTL, CACHE_STATIC_METHOD_TTL_ENVIRONMENT_KEY); err != nil {
 		allErrs = errors.Join(allErrs, err)
 	}
+	if err := checkTTLConfig(config.CacheMethodHasTxHashParamTTL, CACHE_METHOD_HAS_TX_HASH_PARAM_TTL_ENVIRONMENT_KEY); err != nil {
+		allErrs = errors.Join(allErrs, err)
+	}
 
 	if strings.Contains(config.CachePrefix, ":") {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not contain colon symbol", CACHE_PREFIX_ENVIRONMENT_KEY, config.CachePrefix))
