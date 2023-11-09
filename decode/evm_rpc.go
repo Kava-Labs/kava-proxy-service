@@ -268,7 +268,12 @@ func (r *EVMRPCRequestEnvelope) ExtractBlockNumberFromEVMRPCRequest(ctx context.
 	}
 	// handle cacheable by block hash
 	if MethodHasBlockHashParam(r.Method) {
-		return lookupBlockNumberFromHashParam(ctx, blockGetter, r.Method, r.Params)
+		blockNumber, err := lookupBlockNumberFromHashParam(ctx, blockGetter, r.Method, r.Params)
+		if err != nil {
+			return 0, fmt.Errorf("can't lookup block number from hash param: %v", err)
+		}
+
+		return blockNumber, nil
 	}
 	// handle unable to cached
 	return 0, ErrUncachaebleByBlockNumberEthRequest
@@ -291,7 +296,7 @@ func lookupBlockNumberFromHashParam(ctx context.Context, blockGetter EVMBlockGet
 
 	header, err := blockGetter.HeaderByHash(ctx, common.HexToHash(blockHash))
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("can't get header by %v block hash: %v", blockHash, err)
 	}
 
 	return header.Number.Int64(), nil

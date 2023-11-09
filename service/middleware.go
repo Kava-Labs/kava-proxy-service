@@ -457,8 +457,9 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 		if err != nil {
 			service.ServiceLogger.
 				Error().
+				Err(err).
 				Str("method", decodedRequestBody.Method).
-				Msg(fmt.Sprintf("error %s parsing block number from request %+v", err, decodedRequestBody))
+				Msg(fmt.Sprintf("can't parse block number from request %+v", decodedRequestBody))
 
 			blockNumber = nil
 		} else {
