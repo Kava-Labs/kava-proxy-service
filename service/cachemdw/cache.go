@@ -16,10 +16,11 @@ type Config struct {
 	// TTL for cached evm requests
 	// Different evm method groups may have different TTLs
 	// TTL should be either greater than zero or equal to -1, -1 means cache indefinitely
-	CacheMethodHasBlockNumberParamTTL time.Duration
-	CacheMethodHasBlockHashParamTTL   time.Duration
-	CacheStaticMethodTTL              time.Duration
-	CacheMethodHasTxHashParamTTL      time.Duration
+	CacheMethodHasBlockNumberParamTTL   time.Duration
+	CacheMethodHasBlockHashParamTTL     time.Duration
+	CacheStaticMethodTTL                time.Duration
+	CacheMethodHasTxHashParamTTL        time.Duration
+	CacheMethodCacheableForShortTimeTTL time.Duration
 }
 
 // ServiceCache is responsible for caching EVM requests and provides corresponding middleware
@@ -120,6 +121,10 @@ func IsCacheable(
 		return true
 	}
 
+	if decode.IsMethodCacheableForShortTime(req.Method) {
+		return true
+	}
+
 	return false
 }
 
@@ -139,6 +144,10 @@ func (c *ServiceCache) GetTTL(method string) (time.Duration, error) {
 
 	if decode.MethodHasTxHashParam(method) {
 		return c.config.CacheMethodHasTxHashParamTTL, nil
+	}
+
+	if decode.IsMethodCacheableForShortTime(method) {
+		return c.config.CacheMethodCacheableForShortTimeTTL, nil
 	}
 
 	return 0, ErrRequestIsNotCacheable

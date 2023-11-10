@@ -1039,3 +1039,133 @@ func TestE2ETestCachingMdwForStaticMethods(t *testing.T) {
 
 	cleanUpRedis(t, redisClient)
 }
+
+func TestE2ETestCachingMdwForCacheableForShortTimeMethods(t *testing.T) {
+	methodCacheableForShortTimeTTL := 2 * time.Second
+
+	// create api and database clients
+	client, err := ethclient.Dial(proxyServiceURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	for _, tc := range []struct {
+		desc               string
+		method             string
+		params             []interface{}
+		keysNum            int
+		expectedKey        string
+		sleepAfterTestCase time.Duration
+	}{
+		// run the same test case 2 times to make sure that keys from cache will expire between tests
+		{
+			desc:        "test case #1",
+			method:      "eth_blockNumber",
+			params:      []interface{}{},
+			keysNum:     1,
+			expectedKey: "local-chain:evm-request:eth_blockNumber:sha256:*",
+			// wait until keys from cache will expire
+			sleepAfterTestCase: methodCacheableForShortTimeTTL + time.Second,
+		},
+		{
+			desc:        "test case #2",
+			method:      "eth_blockNumber",
+			params:      []interface{}{},
+			keysNum:     1,
+			expectedKey: "local-chain:evm-request:eth_blockNumber:sha256:*",
+			// wait until keys from cache will expire
+			sleepAfterTestCase: methodCacheableForShortTimeTTL + time.Second,
+		},
+		{
+			desc:        "test case #3",
+			method:      "eth_gasPrice",
+			params:      []interface{}{},
+			keysNum:     1,
+			expectedKey: "local-chain:evm-request:eth_gasPrice:sha256:*",
+			// wait until keys from cache will expire
+			sleepAfterTestCase: methodCacheableForShortTimeTTL + time.Second,
+		},
+		{
+			desc:        "test case #4",
+			method:      "eth_gasPrice",
+			params:      []interface{}{},
+			keysNum:     1,
+			expectedKey: "local-chain:evm-request:eth_gasPrice:sha256:*",
+			// wait until keys from cache will expire
+			sleepAfterTestCase: methodCacheableForShortTimeTTL + time.Second,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			// test cache MISS and cache HIT scenarios for specified method
+			// check corresponding values in cachemdw.CacheHeaderKey HTTP header
+			// check that cached and non-cached responses are equal
+			//
+			// cache MISS
+			cacheMissResp := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, cacheMissResp.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(cacheMissResp.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body1)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+			containsKey(t, redisClient, tc.expectedKey)
+
+			// cache HIT
+			cacheHitResp := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheHitHeaderValue, cacheHitResp.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(cacheHitResp.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body2)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+			containsKey(t, redisClient, tc.expectedKey)
+
+			// check that response bodies are the same
+			require.JSONEq(t, string(body1), string(body2), "block numbers should be the same")
+
+			// check that response headers are the same
+			equalHeaders(t, cacheMissResp.Header, cacheHitResp.Header)
+
+			// check that CORS headers are present for cache hit scenario
+			require.Equal(t, cacheHitResp.Header[accessControlAllowOriginHeaderName], []string{"*"})
+
+			// wait until keys from cache will expire
+			time.Sleep(tc.sleepAfterTestCase)
+		})
+	}
+
+	// run the same test case 2 times to make sure that keys from cache will expire between tests
+	for i := 0; i < 2; i++ {
+		// test cache MISS and cache HIT scenarios for eth_blockNumber method
+		// check that cached and non-cached responses are equal
+		{
+			// eth_blockNumber - cache MISS
+			blockNumber1, err := client.BlockNumber(testContext)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, 1)
+			expectedKey := "local-chain:evm-request:eth_blockNumber:sha256:*"
+			containsKey(t, redisClient, expectedKey)
+
+			// eth_blockNumber - cache HIT
+			blockNumber2, err := client.BlockNumber(testContext)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, 1)
+			containsKey(t, redisClient, expectedKey)
+
+			require.Equal(t, blockNumber1, blockNumber2, "block numbers should be the same")
+
+			// wait until keys from cache will expire
+			time.Sleep(methodCacheableForShortTimeTTL + time.Second)
+		}
+	}
+
+	cleanUpRedis(t, redisClient)
+}

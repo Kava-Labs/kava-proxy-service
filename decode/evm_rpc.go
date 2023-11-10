@@ -124,6 +124,24 @@ func MethodHasTxHashParam(method string) bool {
 	return false
 }
 
+// CacheableForShortTimeMethods is a list of EVM methods which works with latest state/block therefore can be cached only for
+// a short period of time (few seconds).
+var CacheableForShortTimeMethods = []string{
+	"eth_blockNumber",
+	"eth_gasPrice",
+}
+
+// IsMethodCacheableForShortTime checks if method is cacheable for a short period of time (few seconds).
+func IsMethodCacheableForShortTime(method string) bool {
+	for _, cacheableForShortTimeMethod := range CacheableForShortTimeMethods {
+		if method == cacheableForShortTimeMethod {
+			return true
+		}
+	}
+
+	return false
+}
+
 // NoHistoryMethods is a list of JSON-RPC methods that rely only on the present state of the chain.
 // They can always be safely routed to an up-to-date pruning cluster.
 var NoHistoryMethods = []string{

@@ -25,10 +25,11 @@ var (
 	defaultQueryResp = []byte(testEVMQueries[TestRequestWeb3ClientVersion].ResponseBody)
 
 	defaultConfig = cachemdw.Config{
-		CacheMethodHasBlockNumberParamTTL: time.Hour,
-		CacheMethodHasBlockHashParamTTL:   time.Hour,
-		CacheStaticMethodTTL:              time.Hour,
-		CacheMethodHasTxHashParamTTL:      time.Hour,
+		CacheMethodHasBlockNumberParamTTL:   time.Hour,
+		CacheMethodHasBlockHashParamTTL:     time.Hour,
+		CacheStaticMethodTTL:                time.Hour,
+		CacheMethodHasTxHashParamTTL:        time.Hour,
+		CacheMethodCacheableForShortTimeTTL: time.Hour,
 	}
 )
 

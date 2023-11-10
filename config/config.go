@@ -51,6 +51,7 @@ type Config struct {
 	CacheMethodHasBlockHashParamTTL               time.Duration
 	CacheStaticMethodTTL                          time.Duration
 	CacheMethodHasTxHashParamTTL                  time.Duration
+	CacheMethodCacheableForShortTimeTTL           time.Duration
 	CachePrefix                                   string
 	WhitelistedHeaders                            []string
 	DefaultAccessControlAllowOriginValue          string
@@ -116,6 +117,7 @@ const (
 	CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_ENVIRONMENT_KEY             = "CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_SECONDS"
 	CACHE_STATIC_METHOD_TTL_ENVIRONMENT_KEY                           = "CACHE_STATIC_METHOD_TTL_SECONDS"
 	CACHE_METHOD_HAS_TX_HASH_PARAM_TTL_ENVIRONMENT_KEY                = "CACHE_METHOD_HAS_TX_HASH_PARAM_TTL_SECONDS"
+	CACHE_METHOD_CACHEABLE_FOR_SHORT_TIME_TTL_ENVIRONMENT_KEY         = "CACHE_METHOD_CACHEABLE_FOR_SHORT_TIME_TTL_SECONDS"
 	CACHE_PREFIX_ENVIRONMENT_KEY                                      = "CACHE_PREFIX"
 	WHITELISTED_HEADERS_ENVIRONMENT_KEY                               = "WHITELISTED_HEADERS"
 	DEFAULT_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_ENVIRONMENT_KEY         = "DEFAULT_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE"
@@ -310,6 +312,7 @@ func ReadConfig() Config {
 		CacheMethodHasBlockHashParamTTL:               time.Duration(EnvOrDefaultInt(CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
 		CacheStaticMethodTTL:                          time.Duration(EnvOrDefaultInt(CACHE_STATIC_METHOD_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
 		CacheMethodHasTxHashParamTTL:                  time.Duration(EnvOrDefaultInt(CACHE_METHOD_HAS_TX_HASH_PARAM_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
+		CacheMethodCacheableForShortTimeTTL:           time.Duration(EnvOrDefaultInt(CACHE_METHOD_CACHEABLE_FOR_SHORT_TIME_TTL_ENVIRONMENT_KEY, 0)) * time.Second,
 		CachePrefix:                                   os.Getenv(CACHE_PREFIX_ENVIRONMENT_KEY),
 		WhitelistedHeaders:                            parsedWhitelistedHeaders,
 		DefaultAccessControlAllowOriginValue:          os.Getenv(DEFAULT_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_ENVIRONMENT_KEY),
