@@ -3,10 +3,12 @@ package main_test
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -14,8 +16,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/redis/go-redis/v9"
@@ -33,6 +38,9 @@ const (
 	EthClientUserAgent = "Go-http-client/1.1"
 
 	accessControlAllowOriginHeaderName = "Access-Control-Allow-Origin"
+
+	evmFaucetPrivateKeyHex = "296da4e8defa5691077b310e10f0ed0ee4993e6418a0df86b155be5d24ae1b7c"
+	evmFaucetAddressHex    = "0x661C3ECC5bf3cdB64FC14c9fE9Fb64a21D24c51c"
 )
 
 var (
@@ -545,12 +553,23 @@ func equalHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
 }
 
 // containsHeaders checks that headersMap1 contains all headers from headersMap2 and that values for headers are the same
-// NOTE: it completely ignores presence/absence of cachemdw.CacheHeaderKey,
+// it completely ignores presence/absence of cachemdw.CacheHeaderKey,
 // it's done in that way to allow comparison of headers for cache miss and cache hit cases
-// also it ignores presence/absence of CORS headers
+// it ignores presence/absence of CORS headers,
+// it's because caching layer forcefully sets CORS headers in cache hit scenario, even if they didn't exist before
+// we skip Date header, because time between requests can change a bit, and we don't want random test fails due to this
+// we skip Server header because it's not included in our allow list for headers, consult .env.WHITELISTED_HEADERS for allow list
 func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
+	headersToSkip := map[string]struct{}{
+		cachemdw.CacheHeaderKey:            {},
+		accessControlAllowOriginHeaderName: {},
+		"Date":                             {},
+		"Server":                           {},
+	}
+
 	for name, value := range headersMap1 {
-		if name == cachemdw.CacheHeaderKey || name == "Server" || name == accessControlAllowOriginHeaderName {
+		_, skip := headersToSkip[name]
+		if skip {
 			continue
 		}
 
@@ -1038,4 +1057,188 @@ func TestE2ETestCachingMdwForStaticMethods(t *testing.T) {
 	}
 
 	cleanUpRedis(t, redisClient)
+}
+
+func TestE2ETestCachingMdwForCacheableByTxHashMethods(t *testing.T) {
+	// create api and database clients
+	evmClient, err := ethclient.Dial(proxyServiceURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	addr := common.HexToAddress(evmFaucetAddressHex)
+	balance, err := evmClient.BalanceAt(testContext, addr, nil)
+	if err != nil {
+		log.Fatalf("can't get balance for evm faucet: %v\n", err)
+	}
+	require.NotEqual(t, "0", balance.String())
+
+	addressToFund := common.HexToAddress("0x4592d8f8d7b001e72cb26a73e4fa1806a51ac79d")
+	// submit eth tx
+	tx := fundEVMAddress(t, evmClient, addressToFund)
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	expectedKey := "local-chain:evm-request:eth_getTransactionByHash:sha256:*"
+	// getting tx by hash in the loop until JSON-RPC response result won't be null
+	// NOTE: it's Cache Miss scenario, because we don't cache null responses
+	waitUntilTxAppearsInMempool(t, tx.Hash())
+	expectKeysNum(t, redisClient, 0)
+	// getting tx by hash in the loop until JSON-RPC response result won't indicate that tx included in block
+	// NOTE: it's Cache Miss scenario, because we don't cache txs which is in mempool
+	cacheMissBody, cacheMissHeaders := getTxByHashFromBlock(t, tx.Hash(), cachemdw.CacheMissHeaderValue)
+	expectKeysNum(t, redisClient, 1)
+	containsKey(t, redisClient, expectedKey)
+	// on previous step we already got tx which is included in block, so calling this again triggers Cache Hit scenario
+	cacheHitBody, cacheHitHeaders := getTxByHashFromBlock(t, tx.Hash(), cachemdw.CacheHitHeaderValue)
+	expectKeysNum(t, redisClient, 1)
+	containsKey(t, redisClient, expectedKey)
+
+	// check that response bodies are the same
+	require.JSONEq(t, string(cacheMissBody), string(cacheHitBody), "blocks should be the same")
+
+	// check that response headers are the same
+	equalHeaders(t, cacheMissHeaders, cacheHitHeaders)
+
+	// check that CORS headers are present for cache hit scenario
+	require.Equal(t, cacheHitHeaders[accessControlAllowOriginHeaderName], []string{"*"})
+}
+
+// waitUntilTxAppearsInMempool gets tx by hash in the loop until JSON-RPC response result won't be null
+// also it checks that it always cache miss scenario
+func waitUntilTxAppearsInMempool(t *testing.T, hash common.Hash) {
+	err := backoff.Retry(func() error {
+		method := "eth_getTransactionByHash"
+		params := []interface{}{hash}
+		cacheMissResp := mkJsonRpcRequest(t, proxyServiceURL, 1, method, params)
+		require.Equal(t, cachemdw.CacheMissHeaderValue, cacheMissResp.Header[cachemdw.CacheHeaderKey][0])
+		body, err := io.ReadAll(cacheMissResp.Body)
+		require.NoError(t, err)
+		err = checkJsonRpcErr(body)
+		require.NoError(t, err)
+
+		var tx getTxByHashResponse
+		err = json.Unmarshal(body, &tx)
+		require.NoError(t, err)
+
+		if tx.Result == nil {
+			return errors.New("tx is not found")
+		}
+
+		return nil
+	}, backoff.NewConstantBackOff(time.Millisecond*10))
+	require.NoError(t, err)
+}
+
+// getTxByHashFromBlock gets tx by hash in the loop until JSON-RPC response result won't indicate that tx included in block
+func getTxByHashFromBlock(t *testing.T, hash common.Hash, expectedCacheHeaderValue string) ([]byte, http.Header) {
+	var (
+		body []byte
+		resp *http.Response
+	)
+	err := backoff.Retry(func() error {
+		method := "eth_getTransactionByHash"
+		params := []interface{}{hash}
+		resp = mkJsonRpcRequest(t, proxyServiceURL, 1, method, params)
+		require.Equal(t, expectedCacheHeaderValue, resp.Header[cachemdw.CacheHeaderKey][0])
+		var err error
+		body, err = io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		err = checkJsonRpcErr(body)
+		require.NoError(t, err)
+
+		var tx getTxByHashResponse
+		err = json.Unmarshal(body, &tx)
+		require.NoError(t, err)
+
+		if !tx.IsIncludedInBlock() {
+			return errors.New("tx is not included in block yet")
+		}
+
+		return nil
+	}, backoff.NewConstantBackOff(time.Millisecond*10))
+	require.NoError(t, err)
+
+	return body, resp.Header
+}
+
+type getTxByHashResponse struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Id      int    `json:"id"`
+	Result  *struct {
+		BlockHash        interface{} `json:"blockHash"`
+		BlockNumber      interface{} `json:"blockNumber"`
+		From             string      `json:"from"`
+		Gas              string      `json:"gas"`
+		GasPrice         string      `json:"gasPrice"`
+		Hash             string      `json:"hash"`
+		Input            string      `json:"input"`
+		Nonce            string      `json:"nonce"`
+		To               string      `json:"to"`
+		TransactionIndex interface{} `json:"transactionIndex"`
+		Value            string      `json:"value"`
+		Type             string      `json:"type"`
+		ChainId          string      `json:"chainId"`
+		V                string      `json:"v"`
+		R                string      `json:"r"`
+		S                string      `json:"s"`
+	} `json:"result"`
+}
+
+// IsIncludedInBlock checks if transaction included in block
+// transaction included in block if block hash, block number, and tx index are not null
+func (tx *getTxByHashResponse) IsIncludedInBlock() bool {
+	if tx.Result == nil {
+		return false
+	}
+
+	return tx.Result.BlockHash != nil &&
+		tx.Result.BlockHash != "" &&
+		tx.Result.BlockNumber != nil &&
+		tx.Result.BlockNumber != 0 &&
+		tx.Result.TransactionIndex != nil
+}
+
+// fundEVMAddress sends money from evm faucet to provided address
+func fundEVMAddress(t *testing.T, evmClient *ethclient.Client, addressToFund common.Address) *types.Transaction {
+	privateKey, err := crypto.HexToECDSA(evmFaucetPrivateKeyHex)
+	require.NoError(t, err)
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		t.Fatal(t, "cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+	}
+
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+	require.Equal(t, common.HexToAddress(evmFaucetAddressHex), fromAddress)
+	nonce, err := evmClient.PendingNonceAt(testContext, fromAddress)
+	require.NoError(t, err)
+
+	value := big.NewInt(1000000000000000000) // in wei (1 eth)
+	gasLimit := uint64(21000)                // in units
+	gasPrice, err := evmClient.SuggestGasPrice(testContext)
+	require.NoError(t, err)
+
+	var data []byte
+	tx := types.NewTransaction(nonce, addressToFund, value, gasLimit, gasPrice, data)
+
+	chainID, err := evmClient.NetworkID(testContext)
+	require.NoError(t, err)
+
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	require.NoError(t, err)
+
+	err = evmClient.SendTransaction(testContext, signedTx)
+	require.NoErrorf(t, err, "can't send tx")
+
+	return signedTx
 }
