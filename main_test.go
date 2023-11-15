@@ -39,8 +39,8 @@ const (
 
 	accessControlAllowOriginHeaderName = "Access-Control-Allow-Origin"
 
-	evmFaucetPrivateKeyHex = "296da4e8defa5691077b310e10f0ed0ee4993e6418a0df86b155be5d24ae1b7c"
-	evmFaucetAddressHex    = "0x661C3ECC5bf3cdB64FC14c9fE9Fb64a21D24c51c"
+	evmFaucetPrivateKeyHex = "247069f0bc3a5914cb2fd41e4133bbdaa6dbed9f47a01b9f110b5602c6e4cdd9"
+	evmFaucetAddressHex    = "0x6767114FFAA17c6439D7aEA480738b982ce63A02"
 )
 
 var (
@@ -865,8 +865,6 @@ func TestE2ETestCachingMdwWithBlockNumberParam_ErrorResult(t *testing.T) {
 }
 
 func TestE2ETestCachingMdwWithBlockNumberParam_FutureBlocks(t *testing.T) {
-	t.Skip()
-
 	futureBlockNumber := "0x3B9ACA00" // block # 1000_000_000, which doesn't exist
 	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
 	testAddress := common.HexToAddress(testRandomAddressHex)
@@ -967,9 +965,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam_FutureBlocks(t *testing.T) {
 			body1, err := io.ReadAll(resp1.Body)
 			require.NoError(t, err)
 			err = checkJsonRpcErr(body1)
-			if tc.errorMsg == "" {
-				require.NoError(t, err)
-			} else {
+			if tc.errorMsg != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.errorMsg)
 			}
@@ -981,9 +977,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam_FutureBlocks(t *testing.T) {
 			body2, err := io.ReadAll(resp2.Body)
 			require.NoError(t, err)
 			err = checkJsonRpcErr(body2)
-			if tc.errorMsg == "" {
-				require.NoError(t, err)
-			} else {
+			if tc.errorMsg != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.errorMsg)
 			}
@@ -1252,8 +1246,6 @@ func TestE2ETestCachingMdwForStaticMethods(t *testing.T) {
 }
 
 func TestE2ETestCachingMdwForGetTxByHashMethod(t *testing.T) {
-	t.Skip()
-
 	// create api and database clients
 	evmClient, err := ethclient.Dial(proxyServiceURL)
 	if err != nil {
@@ -1418,8 +1410,8 @@ func fundEVMAddress(t *testing.T, evmClient *ethclient.Client, addressToFund com
 	nonce, err := evmClient.PendingNonceAt(testContext, fromAddress)
 	require.NoError(t, err)
 
-	value := big.NewInt(1000000000000000000) // in wei (1 eth)
-	gasLimit := uint64(21000)                // in units
+	value := big.NewInt(1_000_000) // in wei (10^-18 ETH)
+	gasLimit := uint64(21000)      // in units
 	gasPrice, err := evmClient.SuggestGasPrice(testContext)
 	require.NoError(t, err)
 
@@ -1439,8 +1431,6 @@ func fundEVMAddress(t *testing.T, evmClient *ethclient.Client, addressToFund com
 }
 
 func TestE2ETestCachingMdwForGetTxReceiptByHashMethod(t *testing.T) {
-	t.Skip()
-
 	// create api and database clients
 	evmClient, err := ethclient.Dial(proxyServiceURL)
 	if err != nil {
