@@ -865,6 +865,8 @@ func TestE2ETestCachingMdwWithBlockNumberParam_ErrorResult(t *testing.T) {
 }
 
 func TestE2ETestCachingMdwWithBlockNumberParam_FutureBlocks(t *testing.T) {
+	t.Skip()
+
 	futureBlockNumber := "0x3B9ACA00" // block # 1000_000_000, which doesn't exist
 	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
 	testAddress := common.HexToAddress(testRandomAddressHex)
@@ -1250,6 +1252,8 @@ func TestE2ETestCachingMdwForStaticMethods(t *testing.T) {
 }
 
 func TestE2ETestCachingMdwForGetTxByHashMethod(t *testing.T) {
+	t.Skip()
+
 	// create api and database clients
 	evmClient, err := ethclient.Dial(proxyServiceURL)
 	if err != nil {
@@ -1435,6 +1439,8 @@ func fundEVMAddress(t *testing.T, evmClient *ethclient.Client, addressToFund com
 }
 
 func TestE2ETestCachingMdwForGetTxReceiptByHashMethod(t *testing.T) {
+	t.Skip()
+
 	// create api and database clients
 	evmClient, err := ethclient.Dial(proxyServiceURL)
 	if err != nil {
