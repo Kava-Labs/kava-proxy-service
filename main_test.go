@@ -864,6 +864,134 @@ func TestE2ETestCachingMdwWithBlockNumberParam_ErrorResult(t *testing.T) {
 	cleanUpRedis(t, redisClient)
 }
 
+func TestE2ETestCachingMdwWithBlockNumberParam_FutureBlocks(t *testing.T) {
+	futureBlockNumber := "0x3B9ACA00" // block # 1000_000_000, which doesn't exist
+	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
+	testAddress := common.HexToAddress(testRandomAddressHex)
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	for _, tc := range []struct {
+		desc     string
+		method   string
+		params   []interface{}
+		keysNum  int
+		errorMsg string
+	}{
+		{
+			desc:     "test case #1",
+			method:   "eth_getBalance",
+			params:   []interface{}{testAddress, futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "height 1000000000 must be less than or equal to the current blockchain height",
+		},
+		{
+			desc:     "test case #2",
+			method:   "eth_getStorageAt",
+			params:   []interface{}{testAddress, "0x6661e9d6d8b923d5bbaab1b96e1dd51ff6ea2a93520fdc9eb75d059238b8c5e9", futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "invalid height: cannot query with height in the future; please provide a valid height",
+		},
+		{
+			desc:     "test case #3",
+			method:   "eth_getTransactionCount",
+			params:   []interface{}{testAddress, futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #4",
+			method:   "eth_getBlockTransactionCountByNumber",
+			params:   []interface{}{futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #5",
+			method:   "eth_getUncleCountByBlockNumber",
+			params:   []interface{}{futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #6",
+			method:   "eth_getCode",
+			params:   []interface{}{testAddress, futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "invalid height: cannot query with height in the future; please provide a valid height",
+		},
+		{
+			desc:     "test case #7",
+			method:   "eth_getBlockByNumber",
+			params:   []interface{}{futureBlockNumber, false},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #8",
+			method:   "eth_getTransactionByBlockNumberAndIndex",
+			params:   []interface{}{futureBlockNumber, "0x0"},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #9",
+			method:   "eth_getUncleByBlockNumberAndIndex",
+			params:   []interface{}{futureBlockNumber, "0x0"},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #10",
+			method:   "eth_call",
+			params:   []interface{}{struct{}{}, futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "header not found",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			// both calls should lead to cache MISS scenario, because error results aren't cached
+			// check corresponding values in cachemdw.CacheHeaderKey HTTP header
+			//
+			// cache MISS
+			resp1 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(resp1.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body1)
+			if tc.errorMsg == "" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errorMsg)
+			}
+			expectKeysNum(t, redisClient, tc.keysNum)
+
+			// cache MISS again (error results aren't cached)
+			resp2 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(resp2.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body2)
+			if tc.errorMsg == "" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errorMsg)
+			}
+			expectKeysNum(t, redisClient, tc.keysNum)
+		})
+	}
+
+	cleanUpRedis(t, redisClient)
+}
+
 func TestE2ETestCachingMdwWithBlockNumberParam_DiffJsonRpcReqIDs(t *testing.T) {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisURL,
@@ -991,10 +1119,20 @@ func newJsonRpcRequest(id int, method string, params []interface{}) *jsonRpcRequ
 }
 
 type jsonRpcResponse struct {
-	Jsonrpc string      `json:"jsonrpc"`
-	Id      int         `json:"id"`
-	Result  interface{} `json:"result"`
-	Error   string      `json:"error"`
+	Jsonrpc      string        `json:"jsonrpc"`
+	Id           int           `json:"id"`
+	Result       interface{}   `json:"result"`
+	JsonRpcError *jsonRpcError `json:"error,omitempty"`
+}
+
+type jsonRpcError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+// String returns the string representation of the error
+func (e *jsonRpcError) String() string {
+	return fmt.Sprintf("%s (code: %d)", e.Message, e.Code)
 }
 
 func checkJsonRpcErr(body []byte) error {
@@ -1004,8 +1142,8 @@ func checkJsonRpcErr(body []byte) error {
 		return err
 	}
 
-	if resp.Error != "" {
-		return errors.New(resp.Error)
+	if resp.JsonRpcError != nil {
+		return errors.New(resp.JsonRpcError.String())
 	}
 
 	if resp.Result == "" {
