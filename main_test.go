@@ -1437,8 +1437,6 @@ func fundEVMAddress(t *testing.T, evmClient *ethclient.Client, addressToFund com
 }
 
 func TestE2ETestCachingMdwForGetTxReceiptByHashMethod(t *testing.T) {
-	t.Skip()
-
 	// create api and database clients
 	evmClient, err := ethclient.Dial(proxyServiceURL)
 	if err != nil {
