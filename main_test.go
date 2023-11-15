@@ -1252,8 +1252,6 @@ func TestE2ETestCachingMdwForStaticMethods(t *testing.T) {
 }
 
 func TestE2ETestCachingMdwForGetTxByHashMethod(t *testing.T) {
-	t.Skip()
-
 	// create api and database clients
 	evmClient, err := ethclient.Dial(proxyServiceURL)
 	if err != nil {
