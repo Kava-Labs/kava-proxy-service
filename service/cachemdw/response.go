@@ -135,6 +135,7 @@ func (tx *tx) IsIncludedInBlock() bool {
 	return tx.BlockHash != nil &&
 		tx.BlockHash != "" &&
 		tx.BlockNumber != nil &&
-		tx.BlockNumber != 0 &&
-		tx.TransactionIndex != nil
+		tx.BlockNumber != "" &&
+		tx.TransactionIndex != nil &&
+		tx.TransactionIndex != ""
 }
