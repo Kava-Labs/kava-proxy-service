@@ -95,9 +95,9 @@ Cacheable by tx hash means that for specific:
 - tx hash (which is part of params)
 response won't change over time, so we can cache it indefinitely
 
-`NOTE`: we can't cache txs which is in mempool, because response for same tx in mempool and in block is different:
+`NOTE`: `eth_getTransactionByHash` has an unexpected behaviour, responses for `tx in mempool` and `tx in block` are different:
 
-tx in mempool example:
+`tx in mempool` example:
 ```json
 {
   "jsonrpc": "2.0",
@@ -113,7 +113,7 @@ tx in mempool example:
 }
 ```
 
-tx in block example
+`tx in block` example
 ```json
 {
   "jsonrpc": "2.0",
@@ -126,6 +126,20 @@ tx in block example
     "gas": "0x5208",
     ...
   }
+}
+```
+
+we can't cache `txs which is in mempool` (because response will change after `tx will be included in block`), so in source code we check if `tx is already in block`, and only if this is the case we cache the response
+
+example how to check if tx is in a block:
+```go
+func (tx *tx) IsIncludedInBlock() bool {
+	return tx.BlockHash != nil &&
+		tx.BlockHash != "" &&
+		tx.BlockNumber != nil &&
+		tx.BlockNumber != "" &&
+		tx.TransactionIndex != nil &&
+		tx.TransactionIndex != ""
 }
 ```
 
