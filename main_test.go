@@ -865,8 +865,6 @@ func TestE2ETestCachingMdwWithBlockNumberParam_ErrorResult(t *testing.T) {
 }
 
 func TestE2ETestCachingMdwWithBlockNumberParam_FutureBlocks(t *testing.T) {
-	t.Skip()
-
 	futureBlockNumber := "0x3B9ACA00" // block # 1000_000_000, which doesn't exist
 	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
 	testAddress := common.HexToAddress(testRandomAddressHex)
