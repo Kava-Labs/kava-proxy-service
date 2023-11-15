@@ -965,9 +965,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam_FutureBlocks(t *testing.T) {
 			body1, err := io.ReadAll(resp1.Body)
 			require.NoError(t, err)
 			err = checkJsonRpcErr(body1)
-			if tc.errorMsg == "" {
-				require.NoError(t, err)
-			} else {
+			if tc.errorMsg != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.errorMsg)
 			}
@@ -979,9 +977,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam_FutureBlocks(t *testing.T) {
 			body2, err := io.ReadAll(resp2.Body)
 			require.NoError(t, err)
 			err = checkJsonRpcErr(body2)
-			if tc.errorMsg == "" {
-				require.NoError(t, err)
-			} else {
+			if tc.errorMsg != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.errorMsg)
 			}
