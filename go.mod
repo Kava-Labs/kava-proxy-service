@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	cosmossdk.io/math v1.0.0
+	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/ethereum/go-ethereum v1.11.2
 	github.com/google/uuid v1.3.0
 	github.com/redis/go-redis/v9 v9.2.1

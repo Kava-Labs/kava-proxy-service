@@ -97,3 +97,45 @@ func (resp *JsonRpcResponse) IsCacheable() bool {
 
 	return true
 }
+
+func (resp *JsonRpcResponse) IsFinal(method string) bool {
+	switch method {
+	case "eth_getTransactionByHash":
+		var tx tx
+		if err := json.Unmarshal(resp.Result, &tx); err != nil {
+			return false
+		}
+
+		return tx.IsIncludedInBlock()
+	default:
+		return true
+	}
+}
+
+type tx struct {
+	BlockHash        interface{} `json:"blockHash"`
+	BlockNumber      interface{} `json:"blockNumber"`
+	From             string      `json:"from"`
+	Gas              string      `json:"gas"`
+	GasPrice         string      `json:"gasPrice"`
+	Hash             string      `json:"hash"`
+	Input            string      `json:"input"`
+	Nonce            string      `json:"nonce"`
+	To               string      `json:"to"`
+	TransactionIndex interface{} `json:"transactionIndex"`
+	Value            string      `json:"value"`
+	Type             string      `json:"type"`
+	ChainId          string      `json:"chainId"`
+	V                string      `json:"v"`
+	R                string      `json:"r"`
+	S                string      `json:"s"`
+}
+
+func (tx *tx) IsIncludedInBlock() bool {
+	return tx.BlockHash != nil &&
+		tx.BlockHash != "" &&
+		tx.BlockNumber != nil &&
+		tx.BlockNumber != "" &&
+		tx.TransactionIndex != nil &&
+		tx.TransactionIndex != ""
+}

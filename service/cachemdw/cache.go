@@ -217,6 +217,9 @@ func (c *ServiceCache) CacheQueryResponse(
 	if !response.IsCacheable() {
 		return ErrResponseIsNotCacheable
 	}
+	if !response.IsFinal(req.Method) {
+		return ErrResponseIsNotFinal
+	}
 
 	key, err := GetQueryKey(c.cachePrefix, req)
 	if err != nil {

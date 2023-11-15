@@ -3,10 +3,12 @@ package main_test
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -14,8 +16,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/redis/go-redis/v9"
@@ -33,6 +38,9 @@ const (
 	EthClientUserAgent = "Go-http-client/1.1"
 
 	accessControlAllowOriginHeaderName = "Access-Control-Allow-Origin"
+
+	evmFaucetPrivateKeyHex = "296da4e8defa5691077b310e10f0ed0ee4993e6418a0df86b155be5d24ae1b7c"
+	evmFaucetAddressHex    = "0x661C3ECC5bf3cdB64FC14c9fE9Fb64a21D24c51c"
 )
 
 var (
@@ -545,12 +553,23 @@ func equalHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
 }
 
 // containsHeaders checks that headersMap1 contains all headers from headersMap2 and that values for headers are the same
-// NOTE: it completely ignores presence/absence of cachemdw.CacheHeaderKey,
+// it completely ignores presence/absence of cachemdw.CacheHeaderKey,
 // it's done in that way to allow comparison of headers for cache miss and cache hit cases
-// also it ignores presence/absence of CORS headers
+// it ignores presence/absence of CORS headers,
+// it's because caching layer forcefully sets CORS headers in cache hit scenario, even if they didn't exist before
+// we skip Date header, because time between requests can change a bit, and we don't want random test fails due to this
+// we skip Server header because it's not included in our allow list for headers, consult .env.WHITELISTED_HEADERS for allow list
 func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
+	headersToSkip := map[string]struct{}{
+		cachemdw.CacheHeaderKey:            {},
+		accessControlAllowOriginHeaderName: {},
+		"Date":                             {},
+		"Server":                           {},
+	}
+
 	for name, value := range headersMap1 {
-		if name == cachemdw.CacheHeaderKey || name == "Server" || name == accessControlAllowOriginHeaderName {
+		_, skip := headersToSkip[name]
+		if skip {
 			continue
 		}
 
@@ -793,6 +812,186 @@ func TestE2ETestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
 	cleanUpRedis(t, redisClient)
 }
 
+func TestE2ETestCachingMdwWithBlockNumberParam_ErrorResult(t *testing.T) {
+	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
+	testAddress := common.HexToAddress(testRandomAddressHex)
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	for _, tc := range []struct {
+		desc    string
+		method  string
+		params  []interface{}
+		keysNum int
+	}{
+		{
+			desc:    "test case #1",
+			method:  "eth_getBalance",
+			params:  []interface{}{testAddress, "0x3B9ACA00"}, // block # 1000_000_000, which doesn't exist
+			keysNum: 0,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			// both calls should lead to cache MISS scenario, because error results aren't cached
+			// check corresponding values in cachemdw.CacheHeaderKey HTTP header
+			//
+			// cache MISS
+			resp1 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(resp1.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body1)
+			require.Error(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+
+			// cache MISS again (error results aren't cached)
+			resp2 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(resp2.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body2)
+			require.Error(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+		})
+	}
+
+	cleanUpRedis(t, redisClient)
+}
+
+func TestE2ETestCachingMdwWithBlockNumberParam_FutureBlocks(t *testing.T) {
+	futureBlockNumber := "0x3B9ACA00" // block # 1000_000_000, which doesn't exist
+	testRandomAddressHex := "0x6767114FFAA17C6439D7AEA480738B982CE63A02"
+	testAddress := common.HexToAddress(testRandomAddressHex)
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	for _, tc := range []struct {
+		desc     string
+		method   string
+		params   []interface{}
+		keysNum  int
+		errorMsg string
+	}{
+		{
+			desc:     "test case #1",
+			method:   "eth_getBalance",
+			params:   []interface{}{testAddress, futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "height 1000000000 must be less than or equal to the current blockchain height",
+		},
+		{
+			desc:     "test case #2",
+			method:   "eth_getStorageAt",
+			params:   []interface{}{testAddress, "0x6661e9d6d8b923d5bbaab1b96e1dd51ff6ea2a93520fdc9eb75d059238b8c5e9", futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "invalid height: cannot query with height in the future; please provide a valid height",
+		},
+		{
+			desc:     "test case #3",
+			method:   "eth_getTransactionCount",
+			params:   []interface{}{testAddress, futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #4",
+			method:   "eth_getBlockTransactionCountByNumber",
+			params:   []interface{}{futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #5",
+			method:   "eth_getUncleCountByBlockNumber",
+			params:   []interface{}{futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #6",
+			method:   "eth_getCode",
+			params:   []interface{}{testAddress, futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "invalid height: cannot query with height in the future; please provide a valid height",
+		},
+		{
+			desc:     "test case #7",
+			method:   "eth_getBlockByNumber",
+			params:   []interface{}{futureBlockNumber, false},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #8",
+			method:   "eth_getTransactionByBlockNumberAndIndex",
+			params:   []interface{}{futureBlockNumber, "0x0"},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #9",
+			method:   "eth_getUncleByBlockNumberAndIndex",
+			params:   []interface{}{futureBlockNumber, "0x0"},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #10",
+			method:   "eth_call",
+			params:   []interface{}{struct{}{}, futureBlockNumber},
+			keysNum:  0,
+			errorMsg: "header not found",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			// both calls should lead to cache MISS scenario, because error results aren't cached
+			// check corresponding values in cachemdw.CacheHeaderKey HTTP header
+			//
+			// cache MISS
+			resp1 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(resp1.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body1)
+			if tc.errorMsg == "" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errorMsg)
+			}
+			expectKeysNum(t, redisClient, tc.keysNum)
+
+			// cache MISS again (error results aren't cached)
+			resp2 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(resp2.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body2)
+			if tc.errorMsg == "" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errorMsg)
+			}
+			expectKeysNum(t, redisClient, tc.keysNum)
+		})
+	}
+
+	cleanUpRedis(t, redisClient)
+}
+
 func TestE2ETestCachingMdwWithBlockNumberParam_DiffJsonRpcReqIDs(t *testing.T) {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisURL,
@@ -920,10 +1119,20 @@ func newJsonRpcRequest(id int, method string, params []interface{}) *jsonRpcRequ
 }
 
 type jsonRpcResponse struct {
-	Jsonrpc string      `json:"jsonrpc"`
-	Id      int         `json:"id"`
-	Result  interface{} `json:"result"`
-	Error   string      `json:"error"`
+	Jsonrpc      string        `json:"jsonrpc"`
+	Id           int           `json:"id"`
+	Result       interface{}   `json:"result"`
+	JsonRpcError *jsonRpcError `json:"error,omitempty"`
+}
+
+type jsonRpcError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+// String returns the string representation of the error
+func (e *jsonRpcError) String() string {
+	return fmt.Sprintf("%s (code: %d)", e.Message, e.Code)
 }
 
 func checkJsonRpcErr(body []byte) error {
@@ -933,8 +1142,8 @@ func checkJsonRpcErr(body []byte) error {
 		return err
 	}
 
-	if resp.Error != "" {
-		return errors.New(resp.Error)
+	if resp.JsonRpcError != nil {
+		return errors.New(resp.JsonRpcError.String())
 	}
 
 	if resp.Result == "" {
@@ -1038,4 +1247,308 @@ func TestE2ETestCachingMdwForStaticMethods(t *testing.T) {
 	}
 
 	cleanUpRedis(t, redisClient)
+}
+
+func TestE2ETestCachingMdwForGetTxByHashMethod(t *testing.T) {
+	// create api and database clients
+	evmClient, err := ethclient.Dial(proxyServiceURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	addr := common.HexToAddress(evmFaucetAddressHex)
+	balance, err := evmClient.BalanceAt(testContext, addr, nil)
+	if err != nil {
+		log.Fatalf("can't get balance for evm faucet: %v\n", err)
+	}
+	require.NotEqual(t, "0", balance.String())
+
+	addressToFund := common.HexToAddress("0x4592d8f8d7b001e72cb26a73e4fa1806a51ac79d")
+	// submit eth tx
+	tx := fundEVMAddress(t, evmClient, addressToFund)
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	expectedKey := "local-chain:evm-request:eth_getTransactionByHash:sha256:*"
+	// getting tx by hash in the loop until JSON-RPC response result won't be null
+	// NOTE: it's Cache Miss scenario, because we don't cache null responses
+	waitUntilTxAppearsInMempool(t, tx.Hash())
+	expectKeysNum(t, redisClient, 0)
+	// getting tx by hash in the loop until JSON-RPC response result won't indicate that tx included in block
+	// NOTE: it's Cache Miss scenario, because we don't cache txs which is in mempool
+	cacheMissBody, cacheMissHeaders := getTxByHashFromBlock(t, tx.Hash(), cachemdw.CacheMissHeaderValue)
+	expectKeysNum(t, redisClient, 1)
+	containsKey(t, redisClient, expectedKey)
+	// on previous step we already got tx which is included in block, so calling this again triggers Cache Hit scenario
+	cacheHitBody, cacheHitHeaders := getTxByHashFromBlock(t, tx.Hash(), cachemdw.CacheHitHeaderValue)
+	expectKeysNum(t, redisClient, 1)
+	containsKey(t, redisClient, expectedKey)
+
+	// check that response bodies are the same
+	require.JSONEq(t, string(cacheMissBody), string(cacheHitBody), "blocks should be the same")
+
+	// check that response headers are the same
+	equalHeaders(t, cacheMissHeaders, cacheHitHeaders)
+
+	// check that CORS headers are present for cache hit scenario
+	require.Equal(t, cacheHitHeaders[accessControlAllowOriginHeaderName], []string{"*"})
+}
+
+// waitUntilTxAppearsInMempool gets tx by hash in the loop until JSON-RPC response result won't be null
+// also it checks that it always cache miss scenario
+func waitUntilTxAppearsInMempool(t *testing.T, hash common.Hash) {
+	err := backoff.Retry(func() error {
+		method := "eth_getTransactionByHash"
+		params := []interface{}{hash}
+		cacheMissResp := mkJsonRpcRequest(t, proxyServiceURL, 1, method, params)
+		require.Equal(t, cachemdw.CacheMissHeaderValue, cacheMissResp.Header[cachemdw.CacheHeaderKey][0])
+		body, err := io.ReadAll(cacheMissResp.Body)
+		require.NoError(t, err)
+		err = checkJsonRpcErr(body)
+		require.NoError(t, err)
+
+		var tx getTxByHashResponse
+		err = json.Unmarshal(body, &tx)
+		require.NoError(t, err)
+
+		if tx.Result == nil {
+			return errors.New("tx is not found")
+		}
+
+		return nil
+	}, backoff.NewConstantBackOff(time.Millisecond*10))
+	require.NoError(t, err)
+}
+
+// getTxByHashFromBlock gets tx by hash in the loop until JSON-RPC response result won't indicate that tx included in block
+func getTxByHashFromBlock(t *testing.T, hash common.Hash, expectedCacheHeaderValue string) ([]byte, http.Header) {
+	var (
+		body []byte
+		resp *http.Response
+	)
+	err := backoff.Retry(func() error {
+		method := "eth_getTransactionByHash"
+		params := []interface{}{hash}
+		resp = mkJsonRpcRequest(t, proxyServiceURL, 1, method, params)
+		require.Equal(t, expectedCacheHeaderValue, resp.Header[cachemdw.CacheHeaderKey][0])
+		var err error
+		body, err = io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		err = checkJsonRpcErr(body)
+		require.NoError(t, err)
+
+		var tx getTxByHashResponse
+		err = json.Unmarshal(body, &tx)
+		require.NoError(t, err)
+
+		if !tx.IsIncludedInBlock() {
+			return errors.New("tx is not included in block yet")
+		}
+
+		return nil
+	}, backoff.NewConstantBackOff(time.Millisecond*10))
+	require.NoError(t, err)
+
+	return body, resp.Header
+}
+
+type getTxByHashResponse struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Id      int    `json:"id"`
+	Result  *struct {
+		BlockHash        interface{} `json:"blockHash"`
+		BlockNumber      interface{} `json:"blockNumber"`
+		From             string      `json:"from"`
+		Gas              string      `json:"gas"`
+		GasPrice         string      `json:"gasPrice"`
+		Hash             string      `json:"hash"`
+		Input            string      `json:"input"`
+		Nonce            string      `json:"nonce"`
+		To               string      `json:"to"`
+		TransactionIndex interface{} `json:"transactionIndex"`
+		Value            string      `json:"value"`
+		Type             string      `json:"type"`
+		ChainId          string      `json:"chainId"`
+		V                string      `json:"v"`
+		R                string      `json:"r"`
+		S                string      `json:"s"`
+	} `json:"result"`
+}
+
+// IsIncludedInBlock checks if transaction included in block
+// transaction included in block if block hash, block number, and tx index are not null
+func (tx *getTxByHashResponse) IsIncludedInBlock() bool {
+	if tx.Result == nil {
+		return false
+	}
+
+	return tx.Result.BlockHash != nil &&
+		tx.Result.BlockHash != "" &&
+		tx.Result.BlockNumber != nil &&
+		tx.Result.BlockNumber != "" &&
+		tx.Result.TransactionIndex != nil &&
+		tx.Result.TransactionIndex != ""
+}
+
+// fundEVMAddress sends money from evm faucet to provided address
+func fundEVMAddress(t *testing.T, evmClient *ethclient.Client, addressToFund common.Address) *types.Transaction {
+	privateKey, err := crypto.HexToECDSA(evmFaucetPrivateKeyHex)
+	require.NoError(t, err)
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		t.Fatal(t, "cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+	}
+
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+	require.Equal(t, common.HexToAddress(evmFaucetAddressHex), fromAddress)
+	nonce, err := evmClient.PendingNonceAt(testContext, fromAddress)
+	require.NoError(t, err)
+
+	value := big.NewInt(1000000000000000000) // in wei (1 eth)
+	gasLimit := uint64(21000)                // in units
+	gasPrice, err := evmClient.SuggestGasPrice(testContext)
+	require.NoError(t, err)
+
+	var data []byte
+	tx := types.NewTransaction(nonce, addressToFund, value, gasLimit, gasPrice, data)
+
+	chainID, err := evmClient.NetworkID(testContext)
+	require.NoError(t, err)
+
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+	require.NoError(t, err)
+
+	err = evmClient.SendTransaction(testContext, signedTx)
+	require.NoErrorf(t, err, "can't send tx")
+
+	return signedTx
+}
+
+func TestE2ETestCachingMdwForGetTxReceiptByHashMethod(t *testing.T) {
+	// create api and database clients
+	evmClient, err := ethclient.Dial(proxyServiceURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	addr := common.HexToAddress(evmFaucetAddressHex)
+	balance, err := evmClient.BalanceAt(testContext, addr, nil)
+	if err != nil {
+		log.Fatalf("can't get balance for evm faucet: %v\n", err)
+	}
+	require.NotEqual(t, "0", balance.String())
+
+	addressToFund := common.HexToAddress("0x4592d8f8d7b001e72cb26a73e4fa1806a51ac79d")
+	// submit eth tx
+	tx := fundEVMAddress(t, evmClient, addressToFund)
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	expectedKey := "local-chain:evm-request:eth_getTransactionReceipt:sha256:*"
+	// getting tx receipt by hash in the loop until JSON-RPC response result won't be null
+	// it's Cache Miss scenario, because we don't cache null responses
+	// NOTE: eth_getTransactionReceipt returns null JSON-RPC response result for txs in mempool, so at this point
+	// tx already included in block
+	cacheMissBody, cacheMissHeaders := getTxReceiptByHash(t, tx.Hash(), cachemdw.CacheMissHeaderValue)
+	expectKeysNum(t, redisClient, 1)
+	containsKey(t, redisClient, expectedKey)
+	// on previous step we already got tx which is included in block, so calling this again triggers Cache Hit scenario
+	cacheHitBody, cacheHitHeaders := getTxReceiptByHash(t, tx.Hash(), cachemdw.CacheHitHeaderValue)
+	expectKeysNum(t, redisClient, 1)
+	containsKey(t, redisClient, expectedKey)
+
+	// check that response bodies are the same
+	require.JSONEq(t, string(cacheMissBody), string(cacheHitBody), "blocks should be the same")
+
+	// check that response headers are the same
+	equalHeaders(t, cacheMissHeaders, cacheHitHeaders)
+
+	// check that CORS headers are present for cache hit scenario
+	require.Equal(t, cacheHitHeaders[accessControlAllowOriginHeaderName], []string{"*"})
+}
+
+// getting tx receipt by hash in the loop until JSON-RPC response result won't be null
+// NOTE: eth_getTransactionReceipt returns null JSON-RPC response result for txs in mempool, so returned tx will be included in block
+func getTxReceiptByHash(t *testing.T, hash common.Hash, expectedCacheHeaderValue string) ([]byte, http.Header) {
+	var (
+		body      []byte
+		resp      *http.Response
+		txReceipt getTxReceiptByHashResponse
+	)
+	err := backoff.Retry(func() error {
+		method := "eth_getTransactionReceipt"
+		params := []interface{}{hash}
+		resp = mkJsonRpcRequest(t, proxyServiceURL, 1, method, params)
+		require.Equal(t, expectedCacheHeaderValue, resp.Header[cachemdw.CacheHeaderKey][0])
+		var err error
+		body, err = io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		err = checkJsonRpcErr(body)
+		require.NoError(t, err)
+
+		err = json.Unmarshal(body, &txReceipt)
+		require.NoError(t, err)
+
+		if txReceipt.Result == nil {
+			return errors.New("tx is not found")
+		}
+
+		return nil
+	}, backoff.NewConstantBackOff(time.Millisecond*10))
+	require.NoError(t, err)
+
+	// NOTE: eth_getTransactionReceipt returns null JSON-RPC response result for txs in mempool, so returned tx must be included in block
+	require.True(t, txReceipt.IsIncludedInBlock())
+
+	return body, resp.Header
+}
+
+type getTxReceiptByHashResponse struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Id      int    `json:"id"`
+	Result  *struct {
+		BlockHash         string        `json:"blockHash"`
+		BlockNumber       string        `json:"blockNumber"`
+		ContractAddress   interface{}   `json:"contractAddress"`
+		CumulativeGasUsed string        `json:"cumulativeGasUsed"`
+		From              string        `json:"from"`
+		GasUsed           string        `json:"gasUsed"`
+		Logs              []interface{} `json:"logs"`
+		LogsBloom         string        `json:"logsBloom"`
+		Status            string        `json:"status"`
+		To                string        `json:"to"`
+		TransactionHash   string        `json:"transactionHash"`
+		TransactionIndex  string        `json:"transactionIndex"`
+		Type              string        `json:"type"`
+	} `json:"result"`
+}
+
+// IsIncludedInBlock checks if transaction included in block
+// transaction included in block if block hash, block number, and tx index are not empty
+func (tx *getTxReceiptByHashResponse) IsIncludedInBlock() bool {
+	if tx.Result == nil {
+		return false
+	}
+
+	return tx.Result.BlockHash != "" &&
+		tx.Result.BlockNumber != "" &&
+		tx.Result.TransactionIndex != ""
 }

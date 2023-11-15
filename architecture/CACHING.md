@@ -34,7 +34,7 @@ package provides two different middlewares:
 
 ## What requests are cached?
 
-As of now we have 3 different groups of cacheable EVM methods:
+As of now we have 4 different groups of cacheable EVM methods:
 - cacheable by block number (for ex.: `eth_getBlockByNumber`)
 - cacheable by block hash (for ex.: `eth_getBlockByHash`)
 - static methods (for ex.: `eth_chainId`, `net_version`)
@@ -94,6 +94,54 @@ Cacheable by tx hash means that for specific:
 - params
 - tx hash (which is part of params)
 response won't change over time, so we can cache it indefinitely
+
+`NOTE`: `eth_getTransactionByHash` has an unexpected behaviour, responses for `tx in mempool` and `tx in block` are different:
+
+`tx in mempool` example:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "blockHash": null,
+    "blockNumber": null,
+    "transactionIndex": null,
+    "from": "0x57852ef74abc9f0da78b49d16604bbf2d81c559e",
+    "gas": "0x5208",
+    ...
+  }
+}
+```
+
+`tx in block` example
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "blockHash": "0xcc62755636e265e1f40cc0ea757477a79a233b6a417e3a8813be2ffe6859c0aa",
+    "blockNumber": "0x7e8e5e",
+    "transactionIndex": "0x0",
+    "from": "0x57852ef74abc9f0da78b49d16604bbf2d81c559e",
+    "gas": "0x5208",
+    ...
+  }
+}
+```
+
+we can't cache `txs which is in mempool` (because response will change after `tx will be included in block`), so in source code we check if `tx is already in block`, and only if this is the case we cache the response
+
+example how to check if tx is in a block:
+```go
+func (tx *tx) IsIncludedInBlock() bool {
+	return tx.BlockHash != nil &&
+		tx.BlockHash != "" &&
+		tx.BlockNumber != nil &&
+		tx.BlockNumber != "" &&
+		tx.TransactionIndex != nil &&
+		tx.TransactionIndex != ""
+}
+```
 
 ### Where to find list of methods for every group?
 
