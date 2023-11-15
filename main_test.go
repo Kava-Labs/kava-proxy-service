@@ -39,8 +39,8 @@ const (
 
 	accessControlAllowOriginHeaderName = "Access-Control-Allow-Origin"
 
-	evmFaucetPrivateKeyHex = "296da4e8defa5691077b310e10f0ed0ee4993e6418a0df86b155be5d24ae1b7c"
-	evmFaucetAddressHex    = "0x661C3ECC5bf3cdB64FC14c9fE9Fb64a21D24c51c"
+	evmFaucetPrivateKeyHex = "247069f0bc3a5914cb2fd41e4133bbdaa6dbed9f47a01b9f110b5602c6e4cdd9"
+	evmFaucetAddressHex    = "0x6767114FFAA17c6439D7aEA480738b982ce63A02"
 )
 
 var (

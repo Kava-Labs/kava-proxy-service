@@ -3,9 +3,9 @@
 # log all commands to stdout and stop the script on the first error
 set -ex
 
-evmFaucetMnemonic='canvas category slow immune screen van spirit ring blossom vanish mail pencil resource scan razor online gap void time marine topic swarm exhaust oak'
-# Private Key in hex: 296da4e8defa5691077b310e10f0ed0ee4993e6418a0df86b155be5d24ae1b7c
-# EVM Address in hex: 0x661C3ECC5bf3cdB64FC14c9fE9Fb64a21D24c51c
+evmFaucetMnemonic='sweet ocean blush coil mobile ten floor sample nuclear power legend where place swamp young marble grit observe enforce lake blossom lesson upon plug'
+# Private Key in hex: 247069f0bc3a5914cb2fd41e4133bbdaa6dbed9f47a01b9f110b5602c6e4cdd9
+# EVM Address in hex: 0x6767114FFAA17c6439D7aEA480738b982ce63A02
 
 # exit early if geneis.json already exists
 # which will happen if the kava docker container is stopped and later restarted
