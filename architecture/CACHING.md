@@ -161,6 +161,46 @@ CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_SECONDS=1200
 CACHE_STATIC_METHOD_TTL_SECONDS=-1
 ```
 
+## HTTP Headers
+
+### Caching Headers
+
+On top of HTTP Body we also cache whitelisted HTTP Headers, whitelisted HTTP headers can be found in `WHITELISTED_HEADERS` environment variable.
+
+As of now it contains such Headers:
+
+```json
+{
+	"name" : "WHITELISTED_HEADERS",
+	"value" : "Vary,Access-Control-Expose-Headers,Access-Control-Allow-Origin,Access-Control-Allow-Methods,Access-Control-Allow-Headers,Access-Control-Allow-Credentials,Access-Control-Max-Age"
+}
+```
+
+So basically we iterate over `WHITELISTED_HEADERS` and if value isn't empty we add this to cache along with `cached HTTP Response Body`.
+
+### Access-Control-Allow-Origin Headers (Cache Hit Path)
+
+Moreover on top of it, in cache-hit path we set value for `Access-Control-Allow-Origin` header (if it's not already set), the exact value is taken from configuration and depends on the hostname, but default is `*`.
+
+Let's describe why we need it and why it won't work without it, for this we need to consider 3 different scenarios:
+
+1st scenario browser environemnt:
+- EVM API is called 1st time from browser enrionment (cache miss), Access-Control-Allow-Origin Header is set and cached
+- EVM API is called 2nd time from browser enrionment (cache hit),  Access-Control-Allow-Origin Header is taken from the cache and set
+- everything works fine
+
+2nd scenario console/curl environemnt:
+- EVM API is called 1st time from console/curl enrionment (cache miss), Access-Control-Allow-Origin Header isn't needed so it isn't set and it isn't cached
+- EVM API is called 2nd time from console/curl enrionment (cache hit),  Access-Control-Allow-Origin Header isn't present in the cache, so won't be set
+- but because we don't need it in console/curl environemnt, it will work anyway
+
+3nd (most trickier) scenario mixed environemnt:
+- EVM API is called 1st time from console/curl enrionment (cache miss), Access-Control-Allow-Origin Header isn't needed so it isn't set and it isn't cached
+- EVM API is called 2nd time from browser enrionment (cache hit),  Access-Control-Allow-Origin Header isn't present in the cache, so won't be set
+- at this point browser will complain that Access-Control-Allow-Origin Header isn't set
+
+So to bypass 3rd scenario we decided that we have to set header ourselves according to algorithm above.
+
 ## Cache Invalidation
 
 ### Keys Structure
