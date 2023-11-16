@@ -161,7 +161,9 @@ CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_SECONDS=1200
 CACHE_STATIC_METHOD_TTL_SECONDS=-1
 ```
 
-### HTTP Headers
+## HTTP Headers
+
+### Caching Headers
 
 On top of HTTP Body we also cache whitelisted HTTP Headers, whitelisted HTTP headers can be found in `WHITELISTED_HEADERS` environment variable.
 
@@ -176,7 +178,11 @@ As of now it contains such Headers:
 
 So basically we iterate over `WHITELISTED_HEADERS` and if value isn't empty we add this to cache along with `cached HTTP Response Body`.
 
-Moreover on top of it, TODO...
+### Access-Control-Allow-Origin Headers (Cache Hit Path)
+
+Moreover on top of it, in cache-hit path we set value for `Access-Control-Allow-Origin` header (if it's not already set), the exact value is taken from configuration and depends on the hostname, but default is `*`.
+
+It has to be done due to very tricky case...
 
 ## Cache Invalidation
 
