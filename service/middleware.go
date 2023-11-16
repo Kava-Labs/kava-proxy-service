@@ -244,16 +244,18 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 					Str("evm-method", decodedReq.Method).
 					Msg("cache hit")
 
-				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheHitHeaderValue)
-				w.Header().Add("Content-Type", "application/json")
-				// add cached headers
+				w.Header().Set(cachemdw.CacheHeaderKey, cachemdw.CacheHitHeaderValue)
+				w.Header().Set("Content-Type", "application/json")
+				// add cached headers (if not already added)
 				for headerName, headerValue := range typedCachedResponse.HeaderMap {
-					w.Header().Add(headerName, headerValue)
+					if w.Header().Get(headerName) == "" && headerValue != "" {
+						w.Header().Set(headerName, headerValue)
+					}
 				}
 				// add CORS headers (if not already added)
 				accessControlAllowOriginValue := config.GetAccessControlAllowOriginValue(r.Host)
 				if w.Header().Get("Access-Control-Allow-Origin") == "" && accessControlAllowOriginValue != "" {
-					w.Header().Add("Access-Control-Allow-Origin", accessControlAllowOriginValue)
+					w.Header().Set("Access-Control-Allow-Origin", accessControlAllowOriginValue)
 				}
 				_, err := w.Write(typedCachedResponse.JsonRpcResponseResult)
 				if err != nil {
