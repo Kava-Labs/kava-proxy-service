@@ -26,3 +26,4 @@ jobs:
   trigger-webapp-e2e-tests:
     needs: [ release-docker-images ]
     uses: ./.github/workflows/ci-webapp-e2e-tests.yml
+    secrets: inherit
