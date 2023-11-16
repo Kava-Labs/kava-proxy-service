@@ -12,7 +12,7 @@ jobs:
         with:
           owner: Kava-Labs
           repo: webapp
-          github_token: ${{ secrets.GITHUB_ACCESS_TOKEN }}
+          github_token: ${{ secrets.CI_GITHUB_ACCESS_TOKEN }}
           workflow_file_name: e2e.yaml
           ref: main
           wait_interval: 10
