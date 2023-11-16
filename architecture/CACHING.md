@@ -161,6 +161,23 @@ CACHE_METHOD_HAS_BLOCK_HASH_PARAM_TTL_SECONDS=1200
 CACHE_STATIC_METHOD_TTL_SECONDS=-1
 ```
 
+### HTTP Headers
+
+On top of HTTP Body we also cache whitelisted HTTP Headers, whitelisted HTTP headers can be found in `WHITELISTED_HEADERS` environment variable.
+
+As of now it contains such Headers:
+
+```json
+{
+	"name" : "WHITELISTED_HEADERS",
+	"value" : "Vary,Access-Control-Expose-Headers,Access-Control-Allow-Origin,Access-Control-Allow-Methods,Access-Control-Allow-Headers,Access-Control-Allow-Credentials,Access-Control-Max-Age"
+}
+```
+
+So basically we iterate over `WHITELISTED_HEADERS` and if value isn't empty we add this to cache along with `cached HTTP Response Body`.
+
+Moreover on top of it, TODO...
+
 ## Cache Invalidation
 
 ### Keys Structure
