@@ -1,0 +1,21 @@
+name: Continuous Integration (Trigger Webapp E2E Tests)
+
+on:
+  workflow_call:
+
+jobs:
+  trigger-webapp-e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger webapp e2e tests
+        uses: convictional/trigger-workflow-and-wait@v1.6.1
+        with:
+          owner: Kava-Labs
+          repo: webapp
+          github_token: ${{ secrets.GITHUB_ACCESS_TOKEN }}
+          workflow_file_name: e2e.yaml
+          ref: main
+          wait_interval: 10
+          propagate_failure: true
+          trigger_workflow: true
+          wait_workflow: true
