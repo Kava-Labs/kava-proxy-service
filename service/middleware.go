@@ -250,9 +250,9 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 				for headerName, headerValue := range typedCachedResponse.HeaderMap {
 					w.Header().Add(headerName, headerValue)
 				}
-				// add CORS headers
+				// add CORS headers (if not already added)
 				accessControlAllowOriginValue := config.GetAccessControlAllowOriginValue(r.Host)
-				if accessControlAllowOriginValue != "" {
+				if w.Header().Get("Access-Control-Allow-Origin") == "" && accessControlAllowOriginValue != "" {
 					w.Header().Add("Access-Control-Allow-Origin", accessControlAllowOriginValue)
 				}
 				_, err := w.Write(typedCachedResponse.JsonRpcResponseResult)
