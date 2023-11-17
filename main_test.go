@@ -988,6 +988,93 @@ func TestE2ETestCachingMdwWithBlockNumberParam_FutureBlocks(t *testing.T) {
 	cleanUpRedis(t, redisClient)
 }
 
+func TestE2ETestCachingMdwWithBlockHashParam_UnexistingBlockHashes(t *testing.T) {
+	unexistingBlockHash := "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: redisPassword,
+		DB:       0,
+	})
+	cleanUpRedis(t, redisClient)
+	expectKeysNum(t, redisClient, 0)
+
+	for _, tc := range []struct {
+		desc     string
+		method   string
+		params   []interface{}
+		keysNum  int
+		errorMsg string
+	}{
+		{
+			desc:     "test case #1",
+			method:   "eth_getBlockTransactionCountByHash",
+			params:   []interface{}{unexistingBlockHash},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #2",
+			method:   "eth_getUncleCountByBlockHash",
+			params:   []interface{}{unexistingBlockHash},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #3",
+			method:   "eth_getBlockByHash",
+			params:   []interface{}{unexistingBlockHash, false},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #4",
+			method:   "eth_getUncleByBlockHashAndIndex",
+			params:   []interface{}{unexistingBlockHash, "0x0"},
+			keysNum:  0,
+			errorMsg: "",
+		},
+		{
+			desc:     "test case #5",
+			method:   "eth_getTransactionByBlockHashAndIndex",
+			params:   []interface{}{unexistingBlockHash, "0x0"},
+			keysNum:  0,
+			errorMsg: "",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			// both calls should lead to cache MISS scenario, because error results aren't cached
+			// check corresponding values in cachemdw.CacheHeaderKey HTTP header
+			//
+			// cache MISS
+			resp1 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp1.Header[cachemdw.CacheHeaderKey][0])
+			body1, err := io.ReadAll(resp1.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body1)
+			if tc.errorMsg != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errorMsg)
+			}
+			expectKeysNum(t, redisClient, tc.keysNum)
+
+			// cache MISS again (error results aren't cached)
+			resp2 := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheMissHeaderValue, resp2.Header[cachemdw.CacheHeaderKey][0])
+			body2, err := io.ReadAll(resp2.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body2)
+			if tc.errorMsg != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errorMsg)
+			}
+			expectKeysNum(t, redisClient, tc.keysNum)
+		})
+	}
+
+	cleanUpRedis(t, redisClient)
+}
+
 func TestE2ETestCachingMdwWithBlockNumberParam_DiffJsonRpcReqIDs(t *testing.T) {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisURL,
