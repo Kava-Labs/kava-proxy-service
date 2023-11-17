@@ -1,7 +1,10 @@
 name: Continuous Integration (Trigger Webapp E2E Tests)
-
+# trigger webapp e2e tests against just redeployed internal-testnet
 on:
-  workflow_call:
+  workflow_run:
+    workflows: [Continuous Deployment (Internal Testnet)]
+    types:
+      - completed
 
 jobs:
   trigger-webapp-e2e-tests:
