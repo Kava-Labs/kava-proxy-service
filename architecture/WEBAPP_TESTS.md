@@ -21,6 +21,8 @@ In another words:
 
 `Backend Tests` -> `Deploy to Internal Testnet` -> `Trigger Webapp E2E Tests`
 
+`NOTE`: webapp tests are running against Internal Testnet so we have to redeploy it, before running tests. 
+
 ## Accessing Dev Ops Account
 
 Email: devops@kava.io
