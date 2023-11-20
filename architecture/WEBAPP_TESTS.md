@@ -13,6 +13,14 @@ Plugin requires using of GITHUB_PERSONAL_ACCESS_TOKEN, we used devops account fo
 
 Token name: `trigger-workflow-and-wait-token`
 
+## Job execution order
+
+`Continuous Integration (Main Branch)` -> `Continuous Deployment (Internal Testnet)` -> `Continuous Integration (Trigger Webapp E2E Tests)`
+
+In another words:
+
+`backend e2e-tests` -> `Deploy to Internal Testnet` -> `Trigger Webapp E2E Tests`
+
 ## Accessing Dev Ops Account
 
 Email: devops@kava.io
