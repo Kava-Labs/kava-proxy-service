@@ -19,7 +19,7 @@ Token name: `trigger-workflow-and-wait-token`
 
 In another words:
 
-`backend e2e-tests` -> `Deploy to Internal Testnet` -> `Trigger Webapp E2E Tests`
+`Backend Tests` -> `Deploy to Internal Testnet` -> `Trigger Webapp E2E Tests`
 
 ## Accessing Dev Ops Account
 
