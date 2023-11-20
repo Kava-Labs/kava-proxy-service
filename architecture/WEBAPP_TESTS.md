@@ -8,7 +8,7 @@ Webapp e2e tests is triggered in this job: `Continuous Integration (Trigger Weba
 
 We use https://github.com/convictional/trigger-workflow-and-wait `github actions plugin` to facilitate triggering `webapp github actions job` from our github actions setup.
 
-Plugin requires using of GITHUB_PERSONAL_ACCESS_TOKEN, we used devops account for this purposes. We created `Personal access tokens (classic)` on devops account with such permissions:
+Plugin requires using of `GITHUB_PERSONAL_ACCESS_TOKEN`, we used devops account for this purposes. We created `Personal access tokens (classic)` on devops account with such permissions:
 <img width="771" alt="image" src="https://github.com/Kava-Labs/kava-proxy-service/assets/37836031/93e7388c-3e00-4a49-8332-dbdf747c0c3b">
 
 Token name: `trigger-workflow-and-wait-token`
