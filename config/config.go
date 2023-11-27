@@ -20,6 +20,9 @@ type Config struct {
 	EnableHeightBasedRouting                      bool
 	ProxyPruningBackendHostURLMapRaw              string
 	ProxyPruningBackendHostURLMap                 map[string]url.URL
+	EnableShardedRouting                          bool
+	ProxyShardBackendHostURLMapRaw                string
+	ProxyShardBackendHostURLMap                   map[string]IntervalURLMap
 	ProxyMaximumBatchSize                         int
 	EvmQueryServiceURL                            string
 	DatabaseName                                  string
@@ -65,6 +68,8 @@ const (
 	PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY         = "PROXY_BACKEND_HOST_URL_MAP"
 	PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY             = "PROXY_HEIGHT_BASED_ROUTING_ENABLED"
 	PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY = "PROXY_PRUNING_BACKEND_HOST_URL_MAP"
+	PROXY_SHARDED_ROUTING_ENABLED_ENVIRONMENT_KEY      = "PROXY_SHARDED_ROUTING_ENABLED"
+	PROXY_SHARD_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY   = "PROXY_SHARD_BACKEND_HOST_URL_MAP"
 	PROXY_MAXIMUM_BATCH_SIZE_ENVIRONMENT_KEY           = "PROXY_MAXIMUM_REQ_BATCH_SIZE"
 	DEFAULT_PROXY_MAXIMUM_BATCH_SIZE                   = 500
 	PROXY_SERVICE_PORT_ENVIRONMENT_KEY                 = "PROXY_SERVICE_PORT"
@@ -220,6 +225,50 @@ func ParseRawProxyBackendHostURLMap(raw string) (map[string]url.URL, error) {
 	return hostURLMap, combinedErr
 }
 
+// ParseRawShardRoutingBackendHostURLMap attempts to parse backend host URL mapping for shards.
+// The shard map is a map of host name => (map of end block => backend route)
+// returning the mapping and error (if any)
+func ParseRawShardRoutingBackendHostURLMap(raw string) (map[string]IntervalURLMap, error) {
+	parsed := make(map[string]IntervalURLMap)
+	hostConfigs := strings.Split(raw, ",")
+	for _, hc := range hostConfigs {
+		pieces := strings.Split(hc, ">")
+		if len(pieces) != 2 {
+			return parsed, fmt.Errorf("expected shard definition like <host>:<end-height>|<backend-route>, found '%s'", hc)
+		}
+
+		host := pieces[0]
+		endpointBackendValues := strings.Split(pieces[1], "|")
+		if len(endpointBackendValues)%2 != 0 {
+			return parsed, fmt.Errorf("unexpected <end-height>|<backend-route> sequence for %s: %s",
+				host, pieces[1],
+			)
+		}
+
+		backendByEndHeight := make(map[uint64]*url.URL, len(endpointBackendValues)/2)
+		for i := 0; i < len(endpointBackendValues); i += 2 {
+			endHeight, err := strconv.ParseUint(endpointBackendValues[i], 10, 64)
+			if err != nil || endHeight == 0 {
+				return parsed, fmt.Errorf("invalid shard end height (%s) for host %s: %s",
+					endpointBackendValues[i], host, err,
+				)
+			}
+
+			backendRoute, err := url.Parse(endpointBackendValues[i+1])
+			if err != nil || backendRoute.String() == "" {
+				return parsed, fmt.Errorf("invalid shard backend route (%s) for height %d of host %s: %s",
+					endpointBackendValues[i+1], endHeight, host, err,
+				)
+			}
+			backendByEndHeight[endHeight] = backendRoute
+		}
+
+		parsed[host] = NewIntervalURLMap(backendByEndHeight)
+	}
+
+	return parsed, nil
+}
+
 // ParseRawHostnameToHeaderValueMap attempts to parse mappings of hostname to corresponding header value.
 // For example hostname to access-control-allow-origin header value.
 func ParseRawHostnameToHeaderValueMap(raw string) (map[string]string, error) {
@@ -257,10 +306,12 @@ func ParseRawHostnameToHeaderValueMap(raw string) (map[string]string, error) {
 func ReadConfig() Config {
 	rawProxyBackendHostURLMap := os.Getenv(PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY)
 	rawProxyPruningBackendHostURLMap := os.Getenv(PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY)
+	rawProxyShardedBackendHostURLMap := os.Getenv(PROXY_SHARD_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY)
 	// best effort to parse, callers are responsible for validating
 	// before using any values read
 	parsedProxyBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyBackendHostURLMap)
 	parsedProxyPruningBackendHostURLMap, _ := ParseRawProxyBackendHostURLMap(rawProxyPruningBackendHostURLMap)
+	parsedProxyShardedBackendHostURLMap, _ := ParseRawShardRoutingBackendHostURLMap(rawProxyShardedBackendHostURLMap)
 
 	whitelistedHeaders := os.Getenv(WHITELISTED_HEADERS_ENVIRONMENT_KEY)
 	parsedWhitelistedHeaders := strings.Split(whitelistedHeaders, ",")
@@ -282,6 +333,9 @@ func ReadConfig() Config {
 		EnableHeightBasedRouting:                      EnvOrDefaultBool(PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY, false),
 		ProxyPruningBackendHostURLMapRaw:              rawProxyPruningBackendHostURLMap,
 		ProxyPruningBackendHostURLMap:                 parsedProxyPruningBackendHostURLMap,
+		EnableShardedRouting:                          EnvOrDefaultBool(PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY, false),
+		ProxyShardBackendHostURLMapRaw:                rawProxyShardedBackendHostURLMap,
+		ProxyShardBackendHostURLMap:                   parsedProxyShardedBackendHostURLMap,
 		ProxyMaximumBatchSize:                         EnvOrDefaultInt(PROXY_MAXIMUM_BATCH_SIZE_ENVIRONMENT_KEY, DEFAULT_PROXY_MAXIMUM_BATCH_SIZE),
 		DatabaseName:                                  os.Getenv(DATABASE_NAME_ENVIRONMENT_KEY),
 		DatabaseEndpointURL:                           os.Getenv(DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY),
