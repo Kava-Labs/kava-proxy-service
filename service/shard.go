@@ -10,23 +10,23 @@ import (
 	"github.com/kava-labs/kava-proxy-service/logging"
 )
 
-// HeightShardingProxies routes traffic based on the host _and_ the height of the query.
+// PruningOrDefaultProxies routes traffic based on the host _and_ the height of the query.
 // If the height is "latest" (or equivalent), return Pruning node proxy host.
 // Otherwise return default node proxy host.
-type HeightShardingProxies struct {
+type PruningOrDefaultProxies struct {
 	*logging.ServiceLogger
 
 	pruningProxies HostProxies
 	defaultProxies HostProxies
 }
 
-var _ Proxies = HeightShardingProxies{}
+var _ Proxies = PruningOrDefaultProxies{}
 
 // ProxyForRequest implements Proxies.
 // Decodes height of request
 // - routes to Pruning proxy if defined & height is "latest"
 // - otherwise routes to Default proxy
-func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, ProxyMetadata, bool) {
+func (hsp PruningOrDefaultProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, ProxyMetadata, bool) {
 	_, _, found := hsp.pruningProxies.ProxyForRequest(r)
 	// if the host isn't in the pruning proxies, short circuit fallback to default
 	if !found {
@@ -38,7 +38,7 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (*httputil.Rev
 	req := r.Context().Value(DecodedRequestContextKey)
 	decodedReq, ok := (req).(*decode.EVMRPCRequestEnvelope)
 	if !ok {
-		hsp.Trace().Msg("HeightShardingProxies failed to find & cast the decoded request envelope from the request context")
+		hsp.Trace().Msg("PruningOrDefaultProxies failed to find & cast the decoded request envelope from the request context")
 		return hsp.defaultProxies.ProxyForRequest(r)
 	}
 
@@ -70,9 +70,9 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (*httputil.Rev
 	return hsp.defaultProxies.ProxyForRequest(r)
 }
 
-// newHeightShardingProxies creates a new HeightShardingProxies from the service config.
-func newHeightShardingProxies(config config.Config, serviceLogger *logging.ServiceLogger) HeightShardingProxies {
-	return HeightShardingProxies{
+// newPruningOrDefaultProxies creates a new PruningOrDefaultProxies from the service config.
+func newPruningOrDefaultProxies(config config.Config, serviceLogger *logging.ServiceLogger) PruningOrDefaultProxies {
+	return PruningOrDefaultProxies{
 		ServiceLogger:  serviceLogger,
 		pruningProxies: newHostProxies(ResponseBackendPruning, config.ProxyPruningBackendHostURLMap, serviceLogger),
 		defaultProxies: newHostProxies(ResponseBackendDefault, config.ProxyBackendHostURLMapParsed, serviceLogger),
