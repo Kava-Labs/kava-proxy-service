@@ -33,11 +33,11 @@ type ProxyMetadata struct {
 
 // NewProxies creates a Proxies instance based on the service configuration:
 // - for non-sharding configuration, it returns a HostProxies
-// - for sharding configurations, it returns a HeightShardingProxies
+// - for height-based-routing configurations, it returns a PruningOrDefaultProxies
 func NewProxies(config config.Config, serviceLogger *logging.ServiceLogger) Proxies {
 	if config.EnableHeightBasedRouting {
-		serviceLogger.Debug().Msg("configuring reverse proxies based on host AND height")
-		return newHeightShardingProxies(config, serviceLogger)
+		serviceLogger.Debug().Msg("configuring reverse proxies based on host AND height (pruning or default)")
+		return newPruningOrDefaultProxies(config, serviceLogger)
 	}
 	serviceLogger.Debug().Msg("configuring reverse proxies based solely on request host")
 	return newHostProxies(ResponseBackendDefault, config.ProxyBackendHostURLMapParsed, serviceLogger)

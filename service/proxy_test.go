@@ -37,10 +37,10 @@ func TestUnitTest_NewProxies(t *testing.T) {
 		require.IsType(t, service.HostProxies{}, proxies)
 	})
 
-	t.Run("returns a HeightShardingProxies when sharding enabled", func(t *testing.T) {
+	t.Run("returns a PruningOrDefaultProxies when sharding enabled", func(t *testing.T) {
 		config := newConfig(t, dummyConfig.ProxyBackendHostURLMapRaw, dummyConfig.ProxyPruningBackendHostURLMapRaw)
 		proxies := service.NewProxies(config, dummyLogger)
-		require.IsType(t, service.HeightShardingProxies{}, proxies)
+		require.IsType(t, service.PruningOrDefaultProxies{}, proxies)
 	})
 }
 

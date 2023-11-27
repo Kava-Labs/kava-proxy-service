@@ -16,6 +16,8 @@ var (
 	proxyServiceBackendHostURLMap        = os.Getenv("TEST_PROXY_BACKEND_HOST_URL_MAP")
 	proxyServiceHeightBasedRouting       = os.Getenv("TEST_PROXY_HEIGHT_BASED_ROUTING_ENABLED")
 	proxyServicePruningBackendHostURLMap = os.Getenv("TEST_PROXY_PRUNING_BACKEND_HOST_URL_MAP")
+	proxyServiceShardedRoutingEnabled    = os.Getenv("TEST_PROXY_HEIGHT_BASED_ROUTING_ENABLED")
+	proxyServiceShardBackendHostURLMap   = os.Getenv("TEST_PROXY_SHARD_BACKEND_HOST_URL_MAP")
 )
 
 func TestUnitTestEnvODefaultReturnsDefaultIfEnvironmentVariableNotSet(t *testing.T) {
@@ -83,6 +85,8 @@ func setDefaultEnv() {
 	os.Setenv(config.PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, proxyServiceBackendHostURLMap)
 	os.Setenv(config.PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY, proxyServiceHeightBasedRouting)
 	os.Setenv(config.PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, proxyServicePruningBackendHostURLMap)
+	os.Setenv(config.PROXY_SHARDED_ROUTING_ENABLED_ENVIRONMENT_KEY, proxyServiceShardedRoutingEnabled)
+	os.Setenv(config.PROXY_SHARD_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, proxyServiceShardBackendHostURLMap)
 	os.Setenv(config.PROXY_SERVICE_PORT_ENVIRONMENT_KEY, proxyServicePort)
 	os.Setenv(config.LOG_LEVEL_ENVIRONMENT_KEY, config.DEFAULT_LOG_LEVEL)
 }

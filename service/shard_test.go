@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnitTest_HeightShardingProxies(t *testing.T) {
+func TestUnitTest_PruningOrDefaultProxies(t *testing.T) {
 	archiveBackend := "archivenode.kava.io/"
 	pruningBackend := "pruningnode.kava.io/"
 	config := newConfig(t,
