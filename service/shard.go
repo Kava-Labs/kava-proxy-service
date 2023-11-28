@@ -94,3 +94,25 @@ var blockTagEncodingsRoutedToLatest = map[int64]bool{
 func shouldRouteToPruning(encodedHeight int64) bool {
 	return blockTagEncodingsRoutedToLatest[encodedHeight]
 }
+
+type ShardProxies struct {
+	defaultProxies Proxies
+	shardsByHost   map[string]config.IntervalURLMap
+}
+
+var _ Proxies = ShardProxies{}
+
+// ProxyForRequest implements Proxies.
+func (sp ShardProxies) ProxyForRequest(r *http.Request) (proxy *httputil.ReverseProxy, metadata ProxyMetadata, found bool) {
+	// parse height
+	// look for shard including height => route if found
+	// otherwise, route to default
+	return sp.defaultProxies.ProxyForRequest(r)
+}
+
+func newShardProxies(shardHostMap map[string]config.IntervalURLMap, beyondShardProxies Proxies, serviceLogger *logging.ServiceLogger) ShardProxies {
+	return ShardProxies{
+		shardsByHost:   shardHostMap,
+		defaultProxies: beyondShardProxies,
+	}
+}
