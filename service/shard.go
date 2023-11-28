@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/decode"
@@ -93,4 +94,75 @@ var blockTagEncodingsRoutedToLatest = map[int64]bool{
 // to the pruning cluster
 func shouldRouteToPruning(encodedHeight int64) bool {
 	return blockTagEncodingsRoutedToLatest[encodedHeight]
+}
+
+type ShardProxies struct {
+	*logging.ServiceLogger
+
+	defaultProxies Proxies
+	shardsByHost   map[string]config.IntervalURLMap
+	proxyByURL     map[*url.URL]*httputil.ReverseProxy
+}
+
+var _ Proxies = ShardProxies{}
+
+// ProxyForRequest implements Proxies.
+func (sp ShardProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, ProxyMetadata, bool) {
+	// short circuit if not host not in shards map
+	shardsForHost, found := sp.shardsByHost[r.Host]
+	if !found {
+		return sp.defaultProxies.ProxyForRequest(r)
+	}
+
+	// handle unsupported hosts or routing to pruning (if enabled)
+	proxy, metadata, found := sp.defaultProxies.ProxyForRequest(r)
+	if metadata.BackendName != ResponseBackendDefault || !found {
+		return proxy, metadata, found
+	}
+
+	// get decoded request
+	req := r.Context().Value(DecodedRequestContextKey)
+	decodedReq, ok := (req).(*decode.EVMRPCRequestEnvelope)
+	if !ok {
+		sp.Trace().Msg("PruningOrDefaultProxies failed to find & cast the decoded request envelope from the request context")
+		return sp.defaultProxies.ProxyForRequest(r)
+	}
+
+	// parse height from the request
+	height, err := decode.ParseBlockNumberFromParams(decodedReq.Method, decodedReq.Params)
+	if err != nil {
+		sp.Error().Msg(fmt.Sprintf("expected but failed to parse block number for %+v: %s", decodedReq, err))
+		return sp.defaultProxies.ProxyForRequest(r)
+	}
+
+	// look for shard including height
+	url, shardHeight, found := shardsForHost.Lookup(uint64(height))
+	if !found {
+		return sp.defaultProxies.ProxyForRequest(r)
+	}
+
+	// shard exists, route to it!
+	metadata = ProxyMetadata{
+		BackendName:    ResponseBackendShard,
+		BackendRoute:   *url,
+		ShardEndHeight: shardHeight,
+	}
+	return sp.proxyByURL[url], metadata, true
+}
+
+func newShardProxies(shardHostMap map[string]config.IntervalURLMap, beyondShardProxies Proxies, serviceLogger *logging.ServiceLogger) ShardProxies {
+	// create reverse proxy for each backend url
+	proxyByURL := make(map[*url.URL]*httputil.ReverseProxy)
+	for _, shards := range shardHostMap {
+		for _, route := range shards.UrlByEndHeight {
+			proxyByURL[route] = httputil.NewSingleHostReverseProxy(route)
+		}
+	}
+
+	return ShardProxies{
+		ServiceLogger:  serviceLogger,
+		shardsByHost:   shardHostMap,
+		defaultProxies: beyondShardProxies,
+		proxyByURL:     proxyByURL,
+	}
 }
