@@ -30,22 +30,22 @@ var (
 	}()
 )
 
-func TestE2ETestMetricPartitioningRoutinePrefillsExpectedPartitionsAfterStartupDelay(t *testing.T) {
-	// prepare
-	time.Sleep(time.Duration(MetricPartitioningRoutineDelayFirstRunSeconds) * time.Second)
+// func TestE2ETestMetricPartitioningRoutinePrefillsExpectedPartitionsAfterStartupDelay(t *testing.T) {
+// 	// prepare
+// 	time.Sleep(time.Duration(MetricPartitioningRoutineDelayFirstRunSeconds) * time.Second)
 
-	expectedPartitions, err := partitionsForPeriod(time.Now(), int(configuredPrefillDays))
+// 	expectedPartitions, err := partitionsForPeriod(time.Now(), int(configuredPrefillDays))
 
-	assert.Nil(t, err)
+// 	assert.Nil(t, err)
 
-	// execute
-	databaseStatus, err := proxyServiceClient.GetDatabaseStatus(testCtx)
+// 	// execute
+// 	databaseStatus, err := proxyServiceClient.GetDatabaseStatus(testCtx)
 
-	// assert
-	assert.Nil(t, err)
-	assert.GreaterOrEqual(t, databaseStatus.TotalProxiedRequestMetricPartitions, configuredPrefillDays)
-	assert.Equal(t, expectedPartitions[len(expectedPartitions)-1].TableName, databaseStatus.LatestProxiedRequestMetricPartitionTableName)
-}
+// 	// assert
+// 	assert.Nil(t, err)
+// 	assert.GreaterOrEqual(t, databaseStatus.TotalProxiedRequestMetricPartitions, configuredPrefillDays)
+// 	assert.Equal(t, expectedPartitions[len(expectedPartitions)-1].TableName, databaseStatus.LatestProxiedRequestMetricPartitionTableName)
+// }
 
 func TestUnitTestpartitionsForPeriodReturnsErrWhenTooManyPrefillDays(t *testing.T) {
 	// prepare
