@@ -111,7 +111,8 @@ func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Ti
 	// iterate in reverse order to start checking the most recent request metrics first
 	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
 		requestMetric := proxiedRequestMetrics[i]
-		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
+		sameTime := requestMetric.RequestTime.Equal(startTime) || requestMetric.RequestTime.Equal(endTime)
+		if sameTime || (requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime)) {
 			for _, testedMethod := range testedmethods {
 				if requestMetric.MethodName == testedMethod {
 					requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
