@@ -26,24 +26,26 @@ func TestUnitTestIntervalMap(t *testing.T) {
 	intervalmap := config.NewIntervalURLMap(valueByEndpoint)
 
 	testCases := []struct {
-		value        uint64
-		expectFound  bool
-		expectResult string
+		value           uint64
+		expectFound     bool
+		expectEndHeight uint64
+		expectResult    string
 	}{
-		{1, true, "A"},
-		{9, true, "A"},
-		{10, true, "B"},
-		{15, true, "B"},
-		{20, true, "C"},
-		{75, true, "C"},
-		{100, false, ""},
-		{300, false, ""},
+		{1, true, 10, "A"},
+		{9, true, 10, "A"},
+		{10, true, 20, "B"},
+		{15, true, 20, "B"},
+		{20, true, 100, "C"},
+		{75, true, 100, "C"},
+		{100, false, 0, ""},
+		{300, false, 0, ""},
 	}
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("Lookup(%d)", tc.value), func(t *testing.T) {
-			result, found := intervalmap.Lookup(tc.value)
+			result, endHeight, found := intervalmap.Lookup(tc.value)
 			require.Equal(t, tc.expectFound, found)
+			require.Equal(t, tc.expectEndHeight, endHeight)
 			if tc.expectResult == "" {
 				require.Nil(t, result)
 			} else {
