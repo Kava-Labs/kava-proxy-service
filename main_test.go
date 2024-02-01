@@ -649,11 +649,8 @@ func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 		require.Equal(t, block1, block2, "blocks should be the same")
 	}
 
-	// endTime is a time after last request
-	endTime := time.Now()
-	// get metrics within [startTime, endTime] time range for eth_getBlockByNumber requests
-	allMetrics := getAllMetrics(context.Background(), t, db)
-	filteredMetrics := filterMetrics(allMetrics, []string{"eth_getBlockByNumber"}, startTime, endTime)
+	// get metrics between startTime & now for eth_getBlockByNumber requests
+	filteredMetrics := findMetricsInWindowForMethods(db, startTime, []string{"eth_getBlockByNumber"})
 
 	// we expect 4 metrics, 2 of them are cache hits and two of them are cache misses
 	require.Len(t, filteredMetrics, 4)
@@ -670,63 +667,6 @@ func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 	require.Equal(t, 2, cacheMisses)
 
 	cleanUpRedis(t, redisClient)
-}
-
-// getAllMetrics gets all metrics from database
-func getAllMetrics(ctx context.Context, t *testing.T, db database.PostgresClient) []database.ProxiedRequestMetric {
-	var (
-		metrics        []database.ProxiedRequestMetric
-		cursor         int64
-		limit          int  = 10_000
-		firstIteration bool = true
-	)
-
-	for firstIteration || cursor != 0 {
-		metricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(
-			ctx,
-			db.DB,
-			cursor,
-			limit,
-		)
-		require.NoError(t, err)
-
-		metrics = append(metrics, metricsPage...)
-		cursor = nextCursor
-		firstIteration = false
-	}
-
-	return metrics
-}
-
-// filterMetrics filters metrics based on time range and method
-func filterMetrics(
-	metrics []database.ProxiedRequestMetric,
-	methods []string,
-	startTime time.Time,
-	endTime time.Time,
-) []database.ProxiedRequestMetric {
-	var metricsWithinTimerange []database.ProxiedRequestMetric
-	// iterate in reverse order to start checking the most recent metrics first
-	for i := len(metrics) - 1; i >= 0; i-- {
-		metric := metrics[i]
-		ok1 := metric.RequestTime.After(startTime) && metric.RequestTime.Before(endTime)
-		ok2 := contains(methods, metric.MethodName)
-		if ok1 && ok2 {
-			metricsWithinTimerange = append(metricsWithinTimerange, metric)
-		}
-	}
-
-	return metricsWithinTimerange
-}
-
-func contains(items []string, item string) bool {
-	for _, nextItem := range items {
-		if item == nextItem {
-			return true
-		}
-	}
-
-	return false
 }
 
 func TestE2ETestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
