@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -512,6 +513,26 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 
 			// check that CORS headers are present for cache hit scenario
 			require.Equal(t, cacheHitResp.Header[accessControlAllowOriginHeaderName], []string{"*"})
+
+			// eth_getBlockByNumber for request with different id - cache HIT
+			diffIdResp := mkJsonRpcRequest(t, proxyServiceURL, "a string id!", tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheHitHeaderValue, cacheHitResp.Header[cachemdw.CacheHeaderKey][0])
+			body3, err := io.ReadAll(diffIdResp.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body3)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+			containsKey(t, redisClient, expectedKey)
+
+			// check that response bodies are the same, except the id matches the request
+			expectedRes := strings.Replace(string(body1), "\"id\":1", "\"id\":\"a string id!\"", 1)
+			require.JSONEq(t, expectedRes, string(body3), "blocks should be the same")
+
+			// check that response headers are the same
+			equalHeaders(t, cacheMissResp.Header, diffIdResp.Header)
+
+			// check that CORS headers are present for cache hit scenario
+			require.Equal(t, diffIdResp.Header[accessControlAllowOriginHeaderName], []string{"*"})
 		})
 	}
 
@@ -542,8 +563,8 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 // it's done in that way to allow comparison of headers for cache miss and cache hit cases
 // also it ignores presence/absence of CORS headers
 func equalHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
-	containsHeaders(t, headersMap1, headersMap2)
-	containsHeaders(t, headersMap2, headersMap1)
+	containsHeaders(t, headersMap1, headersMap2, "headers 1 do not contain all of headers 2")
+	containsHeaders(t, headersMap2, headersMap1, "headers 2 do not contain all of headers 1")
 }
 
 // containsHeaders checks that headersMap1 contains all headers from headersMap2 and that values for headers are the same
@@ -551,12 +572,14 @@ func equalHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
 // it's done in that way to allow comparison of headers for cache miss and cache hit cases
 // it ignores presence/absence of CORS headers,
 // it's because caching layer forcefully sets CORS headers in cache hit scenario, even if they didn't exist before
+// we skip Content-Length, because content differences are expected to be verified irrespective of headers
 // we skip Date header, because time between requests can change a bit, and we don't want random test fails due to this
 // we skip Server header because it's not included in our allow list for headers, consult .env.WHITELISTED_HEADERS for allow list
-func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
+func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header, msg string) {
 	headersToSkip := map[string]struct{}{
 		cachemdw.CacheHeaderKey:            {},
 		accessControlAllowOriginHeaderName: {},
+		"Content-Length":                   {},
 		"Date":                             {},
 		"Server":                           {},
 	}
@@ -567,7 +590,7 @@ func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
 			continue
 		}
 
-		require.Equal(t, value, headersMap2[name])
+		require.Equal(t, value, headersMap2[name], fmt.Sprintf("mismatched %s header: %s", name, msg))
 	}
 }
 
@@ -1107,7 +1130,7 @@ func cleanUpRedis(t *testing.T, redisClient *redis.Client) {
 	}
 }
 
-func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id int, method string, params []interface{}) *http.Response {
+func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id interface{}, method string, params []interface{}) *http.Response {
 	req := newJsonRpcRequest(id, method, params)
 	reqInJSON, err := json.Marshal(req)
 	require.NoError(t, err)
@@ -1121,12 +1144,12 @@ func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id int, method strin
 
 type jsonRpcRequest struct {
 	JsonRpc string        `json:"jsonrpc"`
-	Id      int           `json:"id"`
+	Id      interface{}   `json:"id"`
 	Method  string        `json:"method"`
 	Params  []interface{} `json:"params"`
 }
 
-func newJsonRpcRequest(id int, method string, params []interface{}) *jsonRpcRequest {
+func newJsonRpcRequest(id interface{}, method string, params []interface{}) *jsonRpcRequest {
 	return &jsonRpcRequest{
 		JsonRpc: "2.0",
 		Id:      id,
@@ -1137,7 +1160,7 @@ func newJsonRpcRequest(id int, method string, params []interface{}) *jsonRpcRequ
 
 type jsonRpcResponse struct {
 	Jsonrpc      string        `json:"jsonrpc"`
-	Id           int           `json:"id"`
+	Id           interface{}   `json:"id"`
 	Result       interface{}   `json:"result"`
 	JsonRpcError *jsonRpcError `json:"error,omitempty"`
 }
