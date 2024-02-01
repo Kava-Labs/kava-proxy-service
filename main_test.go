@@ -80,8 +80,14 @@ var (
 )
 
 // lookup all the request metrics in the database paging as necessary
-// search for any request metrics during the time window for particular request methods
-func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, endTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
+// search for any request metrics between starTime and time.Now() for particular request methods
+func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
+	// on fast machines the expected metrics haven't finished being created by the time they are being queried.
+	// hackily sleep for 10 micro seconds & then get current time
+	adjustment := 10 * time.Microsecond
+	time.Sleep(adjustment)
+	endTime := time.Now()
+
 	var nextCursor int64
 	var proxiedRequestMetrics []database.ProxiedRequestMetric
 
@@ -163,11 +169,9 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	_, err = client.HeaderByNumber(testContext, nil)
 
-	endTime := time.Now()
-
 	require.NoError(t, err)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, []string{testEthMethodName})
 
 	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 
@@ -208,11 +212,9 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	_, err = client.HeaderByNumber(testContext, requestBlockNumber)
 
-	endTime := time.Now()
-
 	require.NoError(t, err)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, []string{testEthMethodName})
 
 	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
@@ -239,11 +241,9 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 	// will default to latest
 	_, err = client.HeaderByNumber(testContext, nil)
 
-	endTime := time.Now()
-
 	require.NoError(t, err)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, []string{testEthMethodName})
 
 	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
@@ -302,10 +302,7 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	// eth_call
 	_, _ = client.CallContract(testContext, ethereum.CallMsg{}, requestBlockNumber)
 
-	// plus a buffer for slower connections (amd64 lol) :)
-	endTime := time.Now().Add(10)
-
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, testedmethods)
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, testedmethods)
 
 	// should be the above but geth doesn't implement client methods for all of them
 	require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 7)
@@ -357,9 +354,8 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 
 	// eth_getTransactionByBlockHashAndIndex
 	_, _ = client.TransactionInBlock(testContext, requestBlockHash, 0)
-	endTime := time.Now()
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, testedmethods)
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, testedmethods)
 
 	// require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
 	// should be the above but geth doesn't implement client methods for all of them
@@ -444,12 +440,12 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 			err := rpc.Call(nil, tc.method, tc.params...)
 			require.NoError(t, err)
 
-			metrics := findMetricsInWindowForMethods(databaseClient, startTime, time.Now(), []string{tc.method})
+			metrics := findMetricsInWindowForMethods(databaseClient, startTime, []string{tc.method})
 
 			require.Len(t, metrics, 1)
 			fmt.Printf("%+v\n", metrics[0])
-			require.Equal(t, metrics[0].MethodName, tc.method)
-			require.Equal(t, metrics[0].ResponseBackend, tc.expectRoute)
+			require.Equal(t, tc.method, metrics[0].MethodName)
+			require.Equal(t, tc.expectRoute, metrics[0].ResponseBackend)
 		})
 	}
 }
