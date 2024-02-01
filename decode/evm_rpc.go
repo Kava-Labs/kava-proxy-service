@@ -238,9 +238,11 @@ type EVMRPCRequestEnvelope struct {
 	// version of the RPC spec being used
 	// https://www.jsonrpc.org/specification
 	JSONRPCVersion string `json:"jsonrpc"`
-	ID             int64
-	Method         string
-	Params         []interface{}
+	// ID is a unique id set by the client to match responses to requests
+	// it is often an int, but strings are also valid. bools also return valid responses.
+	ID     interface{}
+	Method string
+	Params []interface{}
 }
 
 // DecodeEVMRPCRequest attempts to decode the provided bytes into
