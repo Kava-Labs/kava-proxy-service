@@ -24,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kava-labs/kava-proxy-service/clients/database"
@@ -125,7 +124,7 @@ func TestE2ETestProxyReturnsNonZeroLatestBlockHeader(t *testing.T) {
 	header, err := client.HeaderByNumber(testContext, nil)
 	require.NoError(t, err)
 
-	assert.Greater(t, int(header.Number.Int64()), 0)
+	require.Greater(t, int(header.Number.Int64()), 0)
 }
 
 func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
@@ -136,7 +135,7 @@ func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
 	header, err := client.HeaderByNumber(testContext, nil)
 	require.NoError(t, err)
 
-	assert.Greater(t, int(header.Number.Int64()), 0)
+	require.Greater(t, int(header.Number.Int64()), 0)
 
 	pruningClient, err := ethclient.Dial(proxyServicePruningURL)
 
@@ -145,7 +144,7 @@ func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
 	header, err = pruningClient.HeaderByNumber(testContext, nil)
 	require.NoError(t, err)
 
-	assert.Greater(t, int(header.Number.Int64()), 0)
+	require.Greater(t, int(header.Number.Int64()), 0)
 }
 
 func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
@@ -170,17 +169,17 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
 
-	assert.Greater(t, len(requestMetricsDuringRequestWindow), 0)
+	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
 
-	assert.Greater(t, requestMetricDuringRequestWindow.ResponseLatencyMilliseconds, int64(0))
-	assert.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
-	assert.Equal(t, requestMetricDuringRequestWindow.Hostname, proxyServiceHostname)
-	assert.NotEqual(t, requestMetricDuringRequestWindow.RequestIP, "")
-	assert.Equal(t, *requestMetricDuringRequestWindow.UserAgent, EthClientUserAgent)
-	assert.NotEqual(t, *requestMetricDuringRequestWindow.Referer, "")
-	assert.NotEqual(t, *requestMetricDuringRequestWindow.Origin, "")
+	require.Greater(t, requestMetricDuringRequestWindow.ResponseLatencyMilliseconds, int64(0))
+	require.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
+	require.Equal(t, requestMetricDuringRequestWindow.Hostname, proxyServiceHostname)
+	require.NotEqual(t, requestMetricDuringRequestWindow.RequestIP, "")
+	require.Equal(t, *requestMetricDuringRequestWindow.UserAgent, EthClientUserAgent)
+	require.NotEqual(t, *requestMetricDuringRequestWindow.Referer, "")
+	require.NotEqual(t, *requestMetricDuringRequestWindow.Origin, "")
 }
 
 func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.T) {
@@ -215,12 +214,12 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
 
-	assert.Greater(t, len(requestMetricsDuringRequestWindow), 0)
+	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
 
-	assert.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
-	assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
-	assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber.Int64())
+	require.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
+	require.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
+	require.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber.Int64())
 }
 
 func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) {
@@ -246,12 +245,12 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 
 	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
 
-	assert.Greater(t, len(requestMetricsDuringRequestWindow), 0)
+	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
 
-	assert.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
-	assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
-	assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, decode.BlockTagToNumberCodec["latest"])
+	require.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
+	require.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
+	require.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, decode.BlockTagToNumberCodec["latest"])
 }
 
 func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.T) {
@@ -308,17 +307,16 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 
 	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, testedmethods)
 
-	// assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
 	// should be the above but geth doesn't implement client methods for all of them
-	assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 7)
+	require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 7)
 
 	for _, requestMetricDuringRequestWindow := range requestMetricsDuringRequestWindow {
-		assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
+		require.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
 		if requestMetricDuringRequestWindow.MethodName == "eth_getBlockTransactionCountByNumber" {
-			assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, decode.BlockTagToNumberCodec["pending"])
+			require.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, decode.BlockTagToNumberCodec["pending"])
 			continue
 		}
-		assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber.Int64())
+		require.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber.Int64())
 	}
 }
 
@@ -363,13 +361,13 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 
 	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, testedmethods)
 
-	// assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
+	// require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
 	// should be the above but geth doesn't implement client methods for all of them
-	assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 3)
+	require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 3)
 
 	for _, requestMetricDuringRequestWindow := range requestMetricsDuringRequestWindow {
-		assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
-		assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber)
+		require.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
+		require.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber)
 	}
 }
 
