@@ -62,7 +62,7 @@ func (c *ServiceCache) CachingMiddleware(
 				// For ex. it can be empty/null response for future blocks.
 				// Similarly, non-finalized responses are also not actual errors
 			); err != nil && err != ErrResponseIsNotCacheable && err != ErrResponseIsNotFinal {
-				c.Logger.Debug().Msgf("can't validate and cache response: %v", err)
+				c.Logger.Debug().Err(err).Any("response", response).Msgf("can't validate and cache response")
 			}
 		}
 
