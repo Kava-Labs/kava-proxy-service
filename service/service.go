@@ -74,9 +74,14 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	//   - if not present marks as uncached in context and forwards to next middleware
 	cacheMiddleware := serviceCache.IsCachedMiddleware(proxyMiddleware)
 
+	// TODO: docs
+	batchProcessingMiddleware := createBatchProcessingMiddleware(cacheMiddleware, serviceLogger)
+	// TODO: docs
+	decodeRequestMiddleware := createDecodeRequestMiddleware(cacheMiddleware, batchProcessingMiddleware, serviceLogger)
+
 	// create an http handler that will log the request to stdout
 	// this handler will run before the proxyMiddleware handler
-	requestLoggingMiddleware := createRequestLoggingMiddleware(cacheMiddleware, serviceLogger)
+	requestLoggingMiddleware := createRequestLoggingMiddleware(decodeRequestMiddleware, serviceLogger)
 
 	// register healthcheck handler that can be used during deployment and operations
 	// to determine if the service is ready to receive requests

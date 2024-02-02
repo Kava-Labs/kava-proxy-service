@@ -55,6 +55,7 @@ fi
 
 # set config for kava processes to use
 cp /docker/kava/config.toml ~/.kava/config/config.toml
+cp /docker/kava/app.toml ~/.kava/config/app.toml
 
 # start the kava process
 kava start

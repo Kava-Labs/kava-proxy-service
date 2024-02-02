@@ -22,6 +22,7 @@ const (
 	DefaultAnonymousUserAgent = "anon"
 	// Service defined context keys
 	DecodedRequestContextKey              = "X-KAVA-PROXY-DECODED-REQUEST-BODY"
+	DecodedBatchRequestContextKey         = "X-KAVA-PROXY-DECODED-BATCH-REQUEST-BODY"
 	OriginRoundtripLatencyMillisecondsKey = "X-KAVA-PROXY-ORIGIN-ROUNDTRIP-LATENCY-MILLISECONDS"
 	RequestStartTimeContextKey            = "X-KAVA-PROXY-REQUEST-START-TIME"
 	RequestHostnameContextKey             = "X-KAVA-PROXY-REQUEST-HOSTNAME"
@@ -88,6 +89,63 @@ func (w bodySaverResponseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
+// createDecodeRequestMiddleware is responsible for creating a middleware that
+// - decodes the incoming EVM request
+// - if successful, puts the decoded request into the context
+// - determines if the request is for a single or batch request
+// - routes batch requests to BatchProcessingMiddleware
+// - routes single requests to next()
+func createDecodeRequestMiddleware(next http.HandlerFunc, batchProcessingMiddleware http.HandlerFunc, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// skip processing if there is no body content
+		if r.Body == nil {
+			serviceLogger.Trace().Msg("no data in request")
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// read body content
+		var rawBodyBuffer bytes.Buffer
+		body := io.TeeReader(r.Body, &rawBodyBuffer)
+
+		rawBody, err := io.ReadAll(body)
+		if err != nil {
+			serviceLogger.Trace().Msg(fmt.Sprintf("error %s reading request body %s", err, body))
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Repopulate the request body for the ultimate consumer of this request
+		r.Body = io.NopCloser(&rawBodyBuffer)
+
+		// attempt to decode as single EVM request
+		decodedRequest, err := decode.DecodeEVMRPCRequest(rawBody)
+		if err == nil {
+			// successfully decoded request as a single valid EVM request
+			// forward along with decoded request in context
+			serviceLogger.Trace().
+				Any("decoded request", decodedRequest).
+				Msg("successfully decoded single EVM request")
+			singleDecodedReqContext := context.WithValue(r.Context(), DecodedRequestContextKey, decodedRequest)
+			next.ServeHTTP(w, r.WithContext(singleDecodedReqContext))
+			return
+		}
+
+		// attempt to decode as list of requests
+		batchRequests, err := decode.DecodeEVMRPCRequestList(rawBody)
+		if err != nil {
+			serviceLogger.Debug().Msg(fmt.Sprintf("error %s parsing of request body %s", err, rawBody))
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// TODO: Trace
+		serviceLogger.Debug().Any("batch", batchRequests).Msg("successfully decoded batch of requests")
+		batchDecodedReqContext := context.WithValue(r.Context(), DecodedBatchRequestContextKey, batchRequests)
+		batchProcessingMiddleware.ServeHTTP(w, r.WithContext(batchDecodedReqContext))
+	}
+}
+
 // createRequestLoggingMiddleware returns a handler that logs any request to stdout
 // and if able to decode the request to a known type adds it as a context key
 // To use the decoded request body, get the value from the context and then
@@ -97,46 +155,36 @@ func (w bodySaverResponseWriter) Write(b []byte) (int, error) {
 func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestStartTimeContext := context.WithValue(r.Context(), RequestStartTimeContextKey, time.Now())
+		h.ServeHTTP(w, r.WithContext(requestStartTimeContext))
+		return
 
-		var rawBody []byte
+		// TODO: cleanup. is this middleware still useful? should it actually...log the request? lol
+	}
+}
 
-		if r.Body != nil {
-			var rawBodyBuffer bytes.Buffer
+// TODO: replace temp h handler with real deal
+func createBatchProcessingMiddleware(h http.HandlerFunc, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
+	// TODO build or pass in middleware for
+	// 1) fetching cached or proxied response for single request
+	// 2) caching & metric creation for single requests
 
-			// Read the request body
-			body := io.TeeReader(r.Body, &rawBodyBuffer)
+	return func(w http.ResponseWriter, r *http.Request) {
+		batch := r.Context().Value(DecodedRequestContextKey)
+		decodedReq, ok := (batch).([]decode.EVMRPCRequestEnvelope)
+		if !ok {
+			// TODO: update this log for batch
+			cachemdw.LogCannotCastRequestError(serviceLogger, r)
 
-			var err error
-
-			rawBody, err = io.ReadAll(body)
-
-			if err != nil {
-				serviceLogger.Debug().Msg(fmt.Sprintf("error %s reading request body %s", err, body))
-
-				h.ServeHTTP(w, r)
-
-				return
-			}
-
-			// Repopulate the request body for the ultimate consumer of this request
-			r.Body = io.NopCloser(&rawBodyBuffer)
+			// if we can't get decoded request then assign it empty structure to avoid panics
+			decodedReq = []decode.EVMRPCRequestEnvelope{}
 		}
 
-		decodedRequest, err := decode.DecodeEVMRPCRequest(rawBody)
+		serviceLogger.Info().Any("batch", decodedReq).Msg("the context's decoded batch!")
 
-		if err != nil {
-			serviceLogger.Debug().Msg(fmt.Sprintf("error %s parsing of request body %s", err, rawBody))
+		// TODO: loop requests, fire off concurrently,
+		// TODO: consider recombining uncached responses before requesting from backend(s)
 
-			h.ServeHTTP(w, r)
-
-			return
-		}
-
-		serviceLogger.Trace().Msg(fmt.Sprintf("decoded request body %+v", decodedRequest))
-
-		decodedRequestBodyContext := context.WithValue(requestStartTimeContext, DecodedRequestContextKey, decodedRequest)
-
-		h.ServeHTTP(w, r.WithContext(decodedRequestBodyContext))
+		h.ServeHTTP(w, r)
 	}
 }
 
