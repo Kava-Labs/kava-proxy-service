@@ -114,11 +114,11 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 	expectedRes := strings.Replace(string(defaultQueryResp), "\"id\": 1", fmt.Sprintf("\"id\": \"%s\"", stringId), 1)
 	require.JSONEq(t, expectedRes, string(resp.JsonRpcResponseResult))
 
-	boolId := true
-	req = mkEVMRPCRequestEnvelope(defaultBlockNumber, boolId)
+	var nullId *interface{} = nil
+	req = mkEVMRPCRequestEnvelope(defaultBlockNumber, nullId)
 	resp, err = serviceCache.GetCachedQueryResponse(ctxb, req)
 	require.NoError(t, err)
-	expectedRes = strings.Replace(string(defaultQueryResp), "\"id\": 1", fmt.Sprintf("\"id\": %t", boolId), 1)
+	expectedRes = strings.Replace(string(defaultQueryResp), "\"id\": 1", "\"id\": null", 1)
 	require.JSONEq(t, expectedRes, string(resp.JsonRpcResponseResult))
 }
 
