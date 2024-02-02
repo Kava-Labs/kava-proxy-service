@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kava-labs/kava-proxy-service/clients/database"
@@ -81,8 +81,14 @@ var (
 )
 
 // lookup all the request metrics in the database paging as necessary
-// search for any request metrics during the time window for particular request methods
-func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, endTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
+// search for any request metrics between starTime and time.Now() for particular request methods
+func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
+	// on fast machines the expected metrics haven't finished being created by the time they are being queried.
+	// hackily sleep for 10 micro seconds & then get current time
+	adjustment := 10 * time.Microsecond
+	time.Sleep(adjustment)
+	endTime := time.Now()
+
 	var nextCursor int64
 	var proxiedRequestMetrics []database.ProxiedRequestMetric
 
@@ -125,7 +131,7 @@ func TestE2ETestProxyReturnsNonZeroLatestBlockHeader(t *testing.T) {
 	header, err := client.HeaderByNumber(testContext, nil)
 	require.NoError(t, err)
 
-	assert.Greater(t, int(header.Number.Int64()), 0)
+	require.Greater(t, int(header.Number.Int64()), 0)
 }
 
 func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
@@ -136,7 +142,7 @@ func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
 	header, err := client.HeaderByNumber(testContext, nil)
 	require.NoError(t, err)
 
-	assert.Greater(t, int(header.Number.Int64()), 0)
+	require.Greater(t, int(header.Number.Int64()), 0)
 
 	pruningClient, err := ethclient.Dial(proxyServicePruningURL)
 
@@ -145,7 +151,7 @@ func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
 	header, err = pruningClient.HeaderByNumber(testContext, nil)
 	require.NoError(t, err)
 
-	assert.Greater(t, int(header.Number.Int64()), 0)
+	require.Greater(t, int(header.Number.Int64()), 0)
 }
 
 func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
@@ -164,23 +170,21 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	_, err = client.HeaderByNumber(testContext, nil)
 
-	endTime := time.Now()
-
 	require.NoError(t, err)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, []string{testEthMethodName})
 
-	assert.Greater(t, len(requestMetricsDuringRequestWindow), 0)
+	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
 
-	assert.Greater(t, requestMetricDuringRequestWindow.ResponseLatencyMilliseconds, int64(0))
-	assert.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
-	assert.Equal(t, requestMetricDuringRequestWindow.Hostname, proxyServiceHostname)
-	assert.NotEqual(t, requestMetricDuringRequestWindow.RequestIP, "")
-	assert.Equal(t, *requestMetricDuringRequestWindow.UserAgent, EthClientUserAgent)
-	assert.NotEqual(t, *requestMetricDuringRequestWindow.Referer, "")
-	assert.NotEqual(t, *requestMetricDuringRequestWindow.Origin, "")
+	require.Greater(t, requestMetricDuringRequestWindow.ResponseLatencyMilliseconds, int64(0))
+	require.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
+	require.Equal(t, requestMetricDuringRequestWindow.Hostname, proxyServiceHostname)
+	require.NotEqual(t, requestMetricDuringRequestWindow.RequestIP, "")
+	require.Equal(t, *requestMetricDuringRequestWindow.UserAgent, EthClientUserAgent)
+	require.NotEqual(t, *requestMetricDuringRequestWindow.Referer, "")
+	require.NotEqual(t, *requestMetricDuringRequestWindow.Origin, "")
 }
 
 func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.T) {
@@ -209,18 +213,16 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	_, err = client.HeaderByNumber(testContext, requestBlockNumber)
 
-	endTime := time.Now()
-
 	require.NoError(t, err)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, []string{testEthMethodName})
 
-	assert.Greater(t, len(requestMetricsDuringRequestWindow), 0)
+	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
 
-	assert.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
-	assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
-	assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber.Int64())
+	require.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
+	require.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
+	require.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber.Int64())
 }
 
 func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) {
@@ -240,18 +242,16 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 	// will default to latest
 	_, err = client.HeaderByNumber(testContext, nil)
 
-	endTime := time.Now()
-
 	require.NoError(t, err)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, []string{testEthMethodName})
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, []string{testEthMethodName})
 
-	assert.Greater(t, len(requestMetricsDuringRequestWindow), 0)
+	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
 
-	assert.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
-	assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
-	assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, decode.BlockTagToNumberCodec["latest"])
+	require.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
+	require.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
+	require.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, decode.BlockTagToNumberCodec["latest"])
 }
 
 func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.T) {
@@ -303,22 +303,18 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	// eth_call
 	_, _ = client.CallContract(testContext, ethereum.CallMsg{}, requestBlockNumber)
 
-	// plus a buffer for slower connections (amd64 lol) :)
-	endTime := time.Now().Add(10)
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, testedmethods)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, testedmethods)
-
-	// assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
 	// should be the above but geth doesn't implement client methods for all of them
-	assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 7)
+	require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 7)
 
 	for _, requestMetricDuringRequestWindow := range requestMetricsDuringRequestWindow {
-		assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
+		require.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
 		if requestMetricDuringRequestWindow.MethodName == "eth_getBlockTransactionCountByNumber" {
-			assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, decode.BlockTagToNumberCodec["pending"])
+			require.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, decode.BlockTagToNumberCodec["pending"])
 			continue
 		}
-		assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber.Int64())
+		require.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber.Int64())
 	}
 }
 
@@ -359,17 +355,16 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 
 	// eth_getTransactionByBlockHashAndIndex
 	_, _ = client.TransactionInBlock(testContext, requestBlockHash, 0)
-	endTime := time.Now()
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, endTime, testedmethods)
+	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, testedmethods)
 
-	// assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
+	// require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
 	// should be the above but geth doesn't implement client methods for all of them
-	assert.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 3)
+	require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 3)
 
 	for _, requestMetricDuringRequestWindow := range requestMetricsDuringRequestWindow {
-		assert.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
-		assert.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber)
+		require.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
+		require.Equal(t, *requestMetricDuringRequestWindow.BlockNumber, requestBlockNumber)
 	}
 }
 
@@ -446,12 +441,12 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 			err := rpc.Call(nil, tc.method, tc.params...)
 			require.NoError(t, err)
 
-			metrics := findMetricsInWindowForMethods(databaseClient, startTime, time.Now(), []string{tc.method})
+			metrics := findMetricsInWindowForMethods(databaseClient, startTime, []string{tc.method})
 
 			require.Len(t, metrics, 1)
 			fmt.Printf("%+v\n", metrics[0])
-			require.Equal(t, metrics[0].MethodName, tc.method)
-			require.Equal(t, metrics[0].ResponseBackend, tc.expectRoute)
+			require.Equal(t, tc.method, metrics[0].MethodName)
+			require.Equal(t, tc.expectRoute, metrics[0].ResponseBackend)
 		})
 	}
 }
@@ -518,6 +513,26 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 
 			// check that CORS headers are present for cache hit scenario
 			require.Equal(t, cacheHitResp.Header[accessControlAllowOriginHeaderName], []string{"*"})
+
+			// eth_getBlockByNumber for request with different id - cache HIT
+			diffIdResp := mkJsonRpcRequest(t, proxyServiceURL, "a string id!", tc.method, tc.params)
+			require.Equal(t, cachemdw.CacheHitHeaderValue, cacheHitResp.Header[cachemdw.CacheHeaderKey][0])
+			body3, err := io.ReadAll(diffIdResp.Body)
+			require.NoError(t, err)
+			err = checkJsonRpcErr(body3)
+			require.NoError(t, err)
+			expectKeysNum(t, redisClient, tc.keysNum)
+			containsKey(t, redisClient, expectedKey)
+
+			// check that response bodies are the same, except the id matches the request
+			expectedRes := strings.Replace(string(body1), "\"id\":1", "\"id\":\"a string id!\"", 1)
+			require.JSONEq(t, expectedRes, string(body3), "blocks should be the same")
+
+			// check that response headers are the same
+			equalHeaders(t, cacheMissResp.Header, diffIdResp.Header)
+
+			// check that CORS headers are present for cache hit scenario
+			require.Equal(t, diffIdResp.Header[accessControlAllowOriginHeaderName], []string{"*"})
 		})
 	}
 
@@ -548,8 +563,8 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 // it's done in that way to allow comparison of headers for cache miss and cache hit cases
 // also it ignores presence/absence of CORS headers
 func equalHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
-	containsHeaders(t, headersMap1, headersMap2)
-	containsHeaders(t, headersMap2, headersMap1)
+	containsHeaders(t, headersMap1, headersMap2, "headers 1 do not contain all of headers 2")
+	containsHeaders(t, headersMap2, headersMap1, "headers 2 do not contain all of headers 1")
 }
 
 // containsHeaders checks that headersMap1 contains all headers from headersMap2 and that values for headers are the same
@@ -557,12 +572,14 @@ func equalHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
 // it's done in that way to allow comparison of headers for cache miss and cache hit cases
 // it ignores presence/absence of CORS headers,
 // it's because caching layer forcefully sets CORS headers in cache hit scenario, even if they didn't exist before
+// we skip Content-Length, because content differences are expected to be verified irrespective of headers
 // we skip Date header, because time between requests can change a bit, and we don't want random test fails due to this
 // we skip Server header because it's not included in our allow list for headers, consult .env.WHITELISTED_HEADERS for allow list
-func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
+func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header, msg string) {
 	headersToSkip := map[string]struct{}{
 		cachemdw.CacheHeaderKey:            {},
 		accessControlAllowOriginHeaderName: {},
+		"Content-Length":                   {},
 		"Date":                             {},
 		"Server":                           {},
 	}
@@ -573,7 +590,7 @@ func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header) {
 			continue
 		}
 
-		require.Equal(t, value, headersMap2[name])
+		require.Equal(t, value, headersMap2[name], fmt.Sprintf("mismatched %s header: %s", name, msg))
 	}
 }
 
@@ -655,11 +672,8 @@ func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 		require.Equal(t, block1, block2, "blocks should be the same")
 	}
 
-	// endTime is a time after last request
-	endTime := time.Now()
-	// get metrics within [startTime, endTime] time range for eth_getBlockByNumber requests
-	allMetrics := getAllMetrics(context.Background(), t, db)
-	filteredMetrics := filterMetrics(allMetrics, []string{"eth_getBlockByNumber"}, startTime, endTime)
+	// get metrics between startTime & now for eth_getBlockByNumber requests
+	filteredMetrics := findMetricsInWindowForMethods(db, startTime, []string{"eth_getBlockByNumber"})
 
 	// we expect 4 metrics, 2 of them are cache hits and two of them are cache misses
 	require.Len(t, filteredMetrics, 4)
@@ -676,63 +690,6 @@ func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 	require.Equal(t, 2, cacheMisses)
 
 	cleanUpRedis(t, redisClient)
-}
-
-// getAllMetrics gets all metrics from database
-func getAllMetrics(ctx context.Context, t *testing.T, db database.PostgresClient) []database.ProxiedRequestMetric {
-	var (
-		metrics        []database.ProxiedRequestMetric
-		cursor         int64
-		limit          int  = 10_000
-		firstIteration bool = true
-	)
-
-	for firstIteration || cursor != 0 {
-		metricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(
-			ctx,
-			db.DB,
-			cursor,
-			limit,
-		)
-		require.NoError(t, err)
-
-		metrics = append(metrics, metricsPage...)
-		cursor = nextCursor
-		firstIteration = false
-	}
-
-	return metrics
-}
-
-// filterMetrics filters metrics based on time range and method
-func filterMetrics(
-	metrics []database.ProxiedRequestMetric,
-	methods []string,
-	startTime time.Time,
-	endTime time.Time,
-) []database.ProxiedRequestMetric {
-	var metricsWithinTimerange []database.ProxiedRequestMetric
-	// iterate in reverse order to start checking the most recent metrics first
-	for i := len(metrics) - 1; i >= 0; i-- {
-		metric := metrics[i]
-		ok1 := metric.RequestTime.After(startTime) && metric.RequestTime.Before(endTime)
-		ok2 := contains(methods, metric.MethodName)
-		if ok1 && ok2 {
-			metricsWithinTimerange = append(metricsWithinTimerange, metric)
-		}
-	}
-
-	return metricsWithinTimerange
-}
-
-func contains(items []string, item string) bool {
-	for _, nextItem := range items {
-		if item == nextItem {
-			return true
-		}
-	}
-
-	return false
 }
 
 func TestE2ETestCachingMdwWithBlockNumberParam_EmptyResult(t *testing.T) {
@@ -1173,7 +1130,7 @@ func cleanUpRedis(t *testing.T, redisClient *redis.Client) {
 	}
 }
 
-func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id int, method string, params []interface{}) *http.Response {
+func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id interface{}, method string, params []interface{}) *http.Response {
 	req := newJsonRpcRequest(id, method, params)
 	reqInJSON, err := json.Marshal(req)
 	require.NoError(t, err)
@@ -1187,12 +1144,12 @@ func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id int, method strin
 
 type jsonRpcRequest struct {
 	JsonRpc string        `json:"jsonrpc"`
-	Id      int           `json:"id"`
+	Id      interface{}   `json:"id"`
 	Method  string        `json:"method"`
 	Params  []interface{} `json:"params"`
 }
 
-func newJsonRpcRequest(id int, method string, params []interface{}) *jsonRpcRequest {
+func newJsonRpcRequest(id interface{}, method string, params []interface{}) *jsonRpcRequest {
 	return &jsonRpcRequest{
 		JsonRpc: "2.0",
 		Id:      id,
@@ -1203,7 +1160,7 @@ func newJsonRpcRequest(id int, method string, params []interface{}) *jsonRpcRequ
 
 type jsonRpcResponse struct {
 	Jsonrpc      string        `json:"jsonrpc"`
-	Id           int           `json:"id"`
+	Id           interface{}   `json:"id"`
 	Result       interface{}   `json:"result"`
 	JsonRpcError *jsonRpcError `json:"error,omitempty"`
 }

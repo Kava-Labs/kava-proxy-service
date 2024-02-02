@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/kava-labs/kava-proxy-service/clients/cache"
@@ -176,10 +175,13 @@ func (c *ServiceCache) GetCachedQueryResponse(
 	}
 
 	// JSON-RPC response's ID and Version should match JSON-RPC request
-	id := strconv.Itoa(int(req.ID))
+	id, err := json.Marshal(req.ID)
+	if err != nil {
+		return nil, err
+	}
 	response := JsonRpcResponse{
 		Version: req.JSONRPCVersion,
-		ID:      []byte(id),
+		ID:      id,
 		Result:  queryResponse.JsonRpcResponseResult,
 	}
 	responseInJSON, err := json.Marshal(response)

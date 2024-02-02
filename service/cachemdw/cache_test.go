@@ -2,6 +2,8 @@ package cachemdw_test
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,12 +57,12 @@ func TestUnitTestIsCacheable(t *testing.T) {
 	}{
 		{
 			desc:      "test case #1",
-			req:       mkEVMRPCRequestEnvelope(defaultBlockNumber),
+			req:       mkEVMRPCRequestEnvelope(defaultBlockNumber, 1),
 			cacheable: true,
 		},
 		{
 			desc:      "test case #2",
-			req:       mkEVMRPCRequestEnvelope("0"),
+			req:       mkEVMRPCRequestEnvelope("0", 1),
 			cacheable: false,
 		},
 	} {
@@ -92,7 +94,7 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 		&logger,
 	)
 
-	req := mkEVMRPCRequestEnvelope(defaultBlockNumber)
+	req := mkEVMRPCRequestEnvelope(defaultBlockNumber, 1)
 	resp, err := serviceCache.GetCachedQueryResponse(ctxb, req)
 	require.Equal(t, cache.ErrNotFound, err)
 	require.Empty(t, resp)
@@ -103,12 +105,27 @@ func TestUnitTestCacheQueryResponse(t *testing.T) {
 	resp, err = serviceCache.GetCachedQueryResponse(ctxb, req)
 	require.NoError(t, err)
 	require.JSONEq(t, string(defaultQueryResp), string(resp.JsonRpcResponseResult))
+
+	// same request with different ids should return same cached response, but with correct id
+	stringId := "this is a string id"
+	req = mkEVMRPCRequestEnvelope(defaultBlockNumber, stringId)
+	resp, err = serviceCache.GetCachedQueryResponse(ctxb, req)
+	require.NoError(t, err)
+	expectedRes := strings.Replace(string(defaultQueryResp), "\"id\": 1", fmt.Sprintf("\"id\": \"%s\"", stringId), 1)
+	require.JSONEq(t, expectedRes, string(resp.JsonRpcResponseResult))
+
+	var nullId *interface{} = nil
+	req = mkEVMRPCRequestEnvelope(defaultBlockNumber, nullId)
+	resp, err = serviceCache.GetCachedQueryResponse(ctxb, req)
+	require.NoError(t, err)
+	expectedRes = strings.Replace(string(defaultQueryResp), "\"id\": 1", "\"id\": null", 1)
+	require.JSONEq(t, expectedRes, string(resp.JsonRpcResponseResult))
 }
 
-func mkEVMRPCRequestEnvelope(blockNumber string) *decode.EVMRPCRequestEnvelope {
+func mkEVMRPCRequestEnvelope(blockNumber string, id interface{}) *decode.EVMRPCRequestEnvelope {
 	return &decode.EVMRPCRequestEnvelope{
 		JSONRPCVersion: "2.0",
-		ID:             1,
+		ID:             id,
 		Method:         "eth_getBalance",
 		Params:         []interface{}{"0x1234", blockNumber},
 	}
