@@ -181,7 +181,7 @@ func (c *ServiceCache) GetCachedQueryResponse(
 	}
 	response := JsonRpcResponse{
 		Version: req.JSONRPCVersion,
-		ID:      []byte(id),
+		ID:      id,
 		Result:  queryResponse.JsonRpcResponseResult,
 	}
 	responseInJSON, err := json.Marshal(response)
