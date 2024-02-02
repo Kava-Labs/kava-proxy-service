@@ -31,7 +31,7 @@ func (hsp PruningOrDefaultProxies) ProxyForRequest(r *http.Request) (*httputil.R
 	_, _, found := hsp.pruningProxies.ProxyForRequest(r)
 	// if the host isn't in the pruning proxies, short circuit fallback to default
 	if !found {
-		hsp.Debug().Msg(fmt.Sprintf("no pruning host backend configured for %s", r.Host))
+		hsp.Trace().Msg(fmt.Sprintf("no pruning host backend configured for %s", r.Host))
 		return hsp.defaultProxies.ProxyForRequest(r)
 	}
 
@@ -45,13 +45,13 @@ func (hsp PruningOrDefaultProxies) ProxyForRequest(r *http.Request) (*httputil.R
 
 	// some RPC methods can always be routed to the latest block
 	if decode.MethodRequiresNoHistory(decodedReq.Method) {
-		hsp.Debug().Msg(fmt.Sprintf("request method %s can always use latest block. routing to pruning proxy", decodedReq.Method))
+		hsp.Trace().Msg(fmt.Sprintf("request method %s can always use latest block. routing to pruning proxy", decodedReq.Method))
 		return hsp.pruningProxies.ProxyForRequest(r)
 	}
 
 	// short circuit if requesting a method that doesn't include block height number
 	if !decode.MethodHasBlockNumberParam(decodedReq.Method) {
-		hsp.Debug().Msg(fmt.Sprintf("request method does not include block height (%s). routing to default proxy", decodedReq.Method))
+		hsp.Trace().Msg(fmt.Sprintf("request method does not include block height (%s). routing to default proxy", decodedReq.Method))
 		return hsp.defaultProxies.ProxyForRequest(r)
 	}
 
@@ -64,10 +64,10 @@ func (hsp PruningOrDefaultProxies) ProxyForRequest(r *http.Request) (*httputil.R
 
 	// route "latest" to pruning proxy, otherwise route to default
 	if shouldRouteToPruning(height) {
-		hsp.Debug().Msg(fmt.Sprintf("request is for latest height (%d). routing to pruning proxy", height))
+		hsp.Trace().Msg(fmt.Sprintf("request is for latest height (%d). routing to pruning proxy", height))
 		return hsp.pruningProxies.ProxyForRequest(r)
 	}
-	hsp.Debug().Msg(fmt.Sprintf("request is for specific height (%d). routing to default proxy", height))
+	hsp.Trace().Msg(fmt.Sprintf("request is for specific height (%d). routing to default proxy", height))
 	return hsp.defaultProxies.ProxyForRequest(r)
 }
 
