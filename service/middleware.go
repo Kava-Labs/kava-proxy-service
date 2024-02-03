@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -84,9 +85,7 @@ func (w bodySaverResponseWriter) Write(b []byte) (int, error) {
 		w.serviceLogger.Trace().Msg("response body is empty, skipping after request interceptors")
 	}
 
-	size, err := w.ResponseWriter.Write(b)
-
-	return size, err
+	return w.ResponseWriter.Write(b)
 }
 
 // createDecodeRequestMiddleware is responsible for creating a middleware that
@@ -156,7 +155,6 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestStartTimeContext := context.WithValue(r.Context(), RequestStartTimeContextKey, time.Now())
 		h.ServeHTTP(w, r.WithContext(requestStartTimeContext))
-		return
 
 		// TODO: cleanup. is this middleware still useful? should it actually...log the request? lol
 	}
@@ -169,22 +167,63 @@ func createBatchProcessingMiddleware(h http.HandlerFunc, serviceLogger *logging.
 	// 2) caching & metric creation for single requests
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		batch := r.Context().Value(DecodedRequestContextKey)
-		decodedReq, ok := (batch).([]decode.EVMRPCRequestEnvelope)
+		batch := r.Context().Value(DecodedBatchRequestContextKey)
+		batchReq, ok := (batch).([]*decode.EVMRPCRequestEnvelope)
 		if !ok {
 			// TODO: update this log for batch
 			cachemdw.LogCannotCastRequestError(serviceLogger, r)
 
 			// if we can't get decoded request then assign it empty structure to avoid panics
-			decodedReq = []decode.EVMRPCRequestEnvelope{}
+			batchReq = []*decode.EVMRPCRequestEnvelope{}
 		}
 
-		serviceLogger.Info().Any("batch", decodedReq).Msg("the context's decoded batch!")
+		serviceLogger.Info().Any("batch", batchReq).Msg("the context's decoded batch!")
 
-		// TODO: loop requests, fire off concurrently,
+		// var responses []*bytes.Buffer = make([]*bytes.Buffer, 0, len(batchReq))
+		var buf bytes.Buffer
+
+		// TODO: make concurrent!
 		// TODO: consider recombining uncached responses before requesting from backend(s)
+		for _, single := range batchReq {
+			serviceLogger.Debug().Any("req", single).Str("url", r.URL.String()).Msg("handling individual request from batch")
 
-		h.ServeHTTP(w, r)
+			lrw := &bodySaverResponseWriter{
+				ResponseWriter:           negroni.NewResponseWriter(w),
+				body:                     &buf,
+				afterRequestInterceptors: []RequestInterceptor{},
+				serviceLogger:            serviceLogger,
+			}
+			// responses = append(responses, &buf)
+
+			singleRequestContext := context.WithValue(r.Context(), DecodedRequestContextKey, single)
+
+			body, err := json.Marshal(single)
+			if err != nil {
+				// TODO: this shouldn't happen b/c we are marshaling something we unmarshaled.
+				// TODO: report and handle err repsonse
+				continue
+			}
+			req, err := http.NewRequestWithContext(singleRequestContext, r.Method, r.URL.String(), bytes.NewBuffer(body))
+			if err != nil {
+				panic(fmt.Sprintf("failed build sub-request: %s", err))
+			}
+			req.Host = r.Host
+			req.Header = r.Header
+
+			h.ServeHTTP(lrw, req)
+		}
+
+		// response, err := json.Marshal(buf)
+		// if err != nil {
+		// 	panic(fmt.Sprintf("failed to marshal buf: %s\n%+v", err, buf))
+		// }
+		// // combine responses
+		// for _, res := range responses {
+
+		// }
+
+		w.Write(buf.Bytes())
+		// h.ServeHTTP(w, r)
 	}
 }
 

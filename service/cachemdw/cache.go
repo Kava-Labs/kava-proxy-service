@@ -80,6 +80,11 @@ func IsCacheable(
 	logger *logging.ServiceLogger,
 	req *decode.EVMRPCRequestEnvelope,
 ) bool {
+	// TODO: technically, we _could_ cache the "invalid request" response for `null` requests...
+	if req == nil {
+		return false
+	}
+
 	if req.Method == "" {
 		return false
 	}
