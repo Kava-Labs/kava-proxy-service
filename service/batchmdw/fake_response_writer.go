@@ -21,12 +21,15 @@ type fakeResponseWriter struct {
 	responseHeader http.Header
 }
 
+var _ http.ResponseWriter = &fakeResponseWriter{}
+
 func newFakeResponseWriter(w http.ResponseWriter, len int) *fakeResponseWriter {
 	return &fakeResponseWriter{
 		ResponseWriter: w,
-		header:         make(http.Header),
+		header:         w.Header().Clone(),
 		responses:      make([]*bytes.Buffer, 0, len),
 		cacheHits:      0,
+		responseHeader: nil,
 	}
 }
 
@@ -41,9 +44,14 @@ func (w *fakeResponseWriter) Header() http.Header {
 	return w.header
 }
 
+func (w *fakeResponseWriter) WriteHeader(status int) {
+	// TODO handle error response codes
+	fmt.Printf("WRITE HEADER CALLED WITH STATUS %d\n", status)
+}
+
 func (w *fakeResponseWriter) updateResponseHeader() {
 	fmt.Printf("incoming headers: %+v\n", w.header)
-	fmt.Printf("my headers before:%+v\n", w.responseHeader)
+	fmt.Printf("my headers before (cache hits=%d):%+v\n", w.cacheHits, w.responseHeader)
 
 	// initialize all headers with the value of the first response
 	if w.responseHeader == nil {
@@ -59,7 +67,7 @@ func (w *fakeResponseWriter) updateResponseHeader() {
 		w.cacheHits += 1
 	}
 
-	fmt.Printf("my headers after:%+v\n", w.responseHeader)
+	fmt.Printf("my headers after (cache hits=%d):%+v\n", w.cacheHits, w.responseHeader)
 
 	// clear current headers for next request
 	w.header = make(http.Header)
@@ -68,13 +76,8 @@ func (w *fakeResponseWriter) updateResponseHeader() {
 func (w *fakeResponseWriter) next(newBody *bytes.Buffer) http.ResponseWriter {
 	if w.body != nil {
 		w.responses = append(w.responses, w.body)
+		w.updateResponseHeader()
 	}
-	// w.updateResponseHeader()
-	if cachemdw.IsCacheHitHeaders(w.Header()) {
-		w.cacheHits += 1
-	}
-	w.Header().Del(cachemdw.CacheHeaderKey)
-	w.Header().Del("Content-Length")
 
 	w.body = newBody
 	return w
@@ -84,19 +87,15 @@ func (w *fakeResponseWriter) FlushResponses() error {
 	w.next(nil)
 
 	// write all headers
-	// headers := w.Header()
-	// for k, v := range w.responseHeader {
-	// 	for _, val := range v {
-	// 		w.ResponseWriter.Header().Set(k, val)
-	// 	}
-	// }
+	for k, v := range w.responseHeader.Clone() {
+		for _, val := range v {
+			w.ResponseWriter.Header().Set(k, val)
+		}
+	}
 
 	// write cache hit header based on results of all requests
 	w.ResponseWriter.Header().Set(cachemdw.CacheHeaderKey, cacheHitValue(len(w.responses), w.cacheHits))
 
-	w.ResponseWriter.Header().Set("PIRTLE-HEADER-KEY", "hellloooooo?!")
-
-	fmt.Println("yoo?!")
 	fmt.Printf("desired headers: %+v\n", w.responseHeader)
 	fmt.Printf("written headers:%+v\n", w.ResponseWriter.Header())
 
@@ -111,6 +110,8 @@ func (w *fakeResponseWriter) FlushResponses() error {
 	}
 
 	// write to actual ResponseWriter
+	// TODO: handle error response
+	w.ResponseWriter.WriteHeader(http.StatusOK)
 	w.ResponseWriter.Write(res)
 	return nil
 }
