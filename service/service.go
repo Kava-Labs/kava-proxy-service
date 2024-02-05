@@ -9,11 +9,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+
 	"github.com/kava-labs/kava-proxy-service/clients/cache"
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/clients/database/migrations"
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/logging"
+	"github.com/kava-labs/kava-proxy-service/service/batchmdw"
 	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
 )
 
@@ -75,7 +77,12 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	cacheMiddleware := serviceCache.IsCachedMiddleware(proxyMiddleware)
 
 	// TODO: docs
-	batchProcessingMiddleware := createBatchProcessingMiddleware(cacheMiddleware, serviceLogger)
+	batchMdwConfig := batchmdw.BatchMiddlewareConfig{
+		ServiceLogger:                  serviceLogger,
+		ContextKeyDecodedRequestBatch:  DecodedBatchRequestContextKey,
+		ContextKeyDecodedRequestSingle: DecodedRequestContextKey,
+	}
+	batchProcessingMiddleware := batchmdw.CreateBatchProcessingMiddleware(cacheMiddleware, &batchMdwConfig)
 	// TODO: docs
 	decodeRequestMiddleware := createDecodeRequestMiddleware(cacheMiddleware, batchProcessingMiddleware, serviceLogger)
 

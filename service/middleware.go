@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -88,43 +87,6 @@ func (w bodySaverResponseWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-// fakeResponseWriter is a custom implementation of http.ResponseWriter
-type fakeResponseWriter struct {
-	http.ResponseWriter
-	body      *bytes.Buffer
-	responses []*bytes.Buffer
-	header    http.Header
-}
-
-// Write implements the Write method of http.ResponseWriter
-func (w *fakeResponseWriter) Write(b []byte) (int, error) {
-	// Write to the buffer
-	w.body.Write(b)
-	return len(b), nil
-}
-
-func (w *fakeResponseWriter) Header() http.Header {
-	return w.header
-}
-
-func (w *fakeResponseWriter) WriteHeader(statusCode int) {
-	fmt.Printf("writing status code %d\n", statusCode)
-}
-
-func (w *fakeResponseWriter) next(newBody *bytes.Buffer) http.ResponseWriter {
-	if w.body != nil {
-		w.responses = append(w.responses, w.body)
-	}
-	w.header = make(http.Header)
-	w.body = newBody
-	return w
-}
-
-func (w *fakeResponseWriter) flush() []*bytes.Buffer {
-	w.next(nil)
-	return w.responses
-}
-
 // createDecodeRequestMiddleware is responsible for creating a middleware that
 // - decodes the incoming EVM request
 // - if successful, puts the decoded request into the context
@@ -194,103 +156,6 @@ func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.S
 		h.ServeHTTP(w, r.WithContext(requestStartTimeContext))
 
 		// TODO: cleanup. is this middleware still useful? should it actually...log the request? lol
-	}
-}
-
-// TODO: replace temp h handler with real deal
-func createBatchProcessingMiddleware(h http.HandlerFunc, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
-	// TODO build or pass in middleware for
-	// 1) fetching cached or proxied response for single request
-	// 2) caching & metric creation for single requests
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		batch := r.Context().Value(DecodedBatchRequestContextKey)
-		batchReq, ok := (batch).([]*decode.EVMRPCRequestEnvelope)
-		if !ok {
-			// TODO: update this log for batch
-			cachemdw.LogCannotCastRequestError(serviceLogger, r)
-
-			// if we can't get decoded request then assign it empty structure to avoid panics
-			batchReq = []*decode.EVMRPCRequestEnvelope{}
-		}
-
-		serviceLogger.Info().Any("batch", batchReq).Msg("the context's decoded batch!")
-
-		frw := &fakeResponseWriter{
-			ResponseWriter: w,
-			body:           nil,
-			responses:      make([]*bytes.Buffer, 0, len(batchReq)),
-		}
-
-		// TODO: make concurrent!
-		// TODO: consider recombining uncached responses before requesting from backend(s)
-		for i, single := range batchReq {
-			serviceLogger.Debug().Msg(fmt.Sprintf("RELAY REQUEST %d", i+1))
-			serviceLogger.Debug().Any("req", single).Str("url", r.URL.String()).Msg("handling individual request from batch")
-
-			rw := frw.next(new(bytes.Buffer))
-
-			// proxy service middlewares expect decoded context key to not be set if the request is nil
-			// not setting it ensures no nil pointer panics if `null` is passing in array of requests
-			singleRequestContext := r.Context()
-			if single != nil {
-				singleRequestContext = context.WithValue(r.Context(), DecodedRequestContextKey, single)
-			}
-
-			body, err := json.Marshal(single)
-			if err != nil {
-				// TODO: this shouldn't happen b/c we are marshaling something we unmarshaled.
-				// TODO: report and handle err repsonse
-				continue
-			}
-
-			req, err := http.NewRequestWithContext(singleRequestContext, r.Method, r.URL.String(), bytes.NewBuffer(body))
-			if err != nil {
-				panic(fmt.Sprintf("failed build sub-request: %s", err))
-			}
-			req.Host = r.Host
-			req.Header = r.Header
-
-			h.ServeHTTP(rw, req)
-		}
-
-		results := frw.flush()
-		// rawMessages := make([]json.RawMessage, 0, len(batchReq))
-
-		// // w.Write("[")
-		// for i, r := range results {
-		// 	rawMessages = append(rawMessages, json.RawMessage(r.Bytes()))
-		// 	serviceLogger.Debug().Bytes("raw", r.Bytes()).Msg(fmt.Sprintf("RESULT %d", i))
-		// }
-
-		// fmt.Printf("%+v\n", rawMessages)
-
-		// res, err := json.Marshal(rawMessages)
-		// if err != nil {
-		// 	panic(fmt.Sprintf("failed to marshal responses: %s\n%+v", err, frw))
-		// }
-		// // combine responses
-		// for _, res := range responses {
-
-		// }
-
-		var res bytes.Buffer
-		res.WriteRune('[')
-		for i, result := range results {
-			if i != 0 {
-				res.WriteRune(',')
-			}
-			res.Write(result.Bytes())
-		}
-		res.WriteRune(']')
-
-		fmt.Printf("%+v\n", res)
-
-		serviceLogger.Debug().Bytes("response", res.Bytes()).Msg("HELLO?")
-
-		w.Write(res.Bytes())
-		w.WriteHeader(http.StatusOK)
-		// h.ServeHTTP(w, r)
 	}
 }
 

@@ -12,9 +12,10 @@ const (
 	CachedContextKey   = "X-KAVA-PROXY-CACHED"
 	ResponseContextKey = "X-KAVA-PROXY-RESPONSE"
 
-	CacheHeaderKey       = "X-Kava-Proxy-Cache-Status"
-	CacheHitHeaderValue  = "HIT"
-	CacheMissHeaderValue = "MISS"
+	CacheHeaderKey          = "X-Kava-Proxy-Cache-Status"
+	CacheHitHeaderValue     = "HIT"
+	CacheMissHeaderValue    = "MISS"
+	CachePartialHeaderValue = "PARTIAL"
 )
 
 // IsCachedMiddleware returns kava-proxy-service compatible middleware which works in the following way:
@@ -82,4 +83,10 @@ func (c *ServiceCache) IsCachedMiddleware(
 func IsRequestCached(ctx context.Context) bool {
 	cached, ok := ctx.Value(CachedContextKey).(bool)
 	return ok && cached
+}
+
+// IsCacheHitHeaders returns true when the passed in response headers are for a request that
+// came from the cache.
+func IsCacheHitHeaders(header http.Header) bool {
+	return header.Get(CacheHeaderKey) == CacheHitHeaderValue
 }
