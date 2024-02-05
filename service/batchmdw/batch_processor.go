@@ -106,7 +106,7 @@ func (bp *BatchProcessor) applyHeaders(h http.Header) {
 	}
 
 	// track cache hits
-	if cachemdw.IsCacheHitHeaders(bp.header) {
+	if cachemdw.IsCacheHitHeaders(h) {
 		bp.cacheHits += 1
 	}
 }
