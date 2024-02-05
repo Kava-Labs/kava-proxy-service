@@ -38,16 +38,8 @@ func CreateBatchProcessingMiddleware(h http.HandlerFunc, config *BatchMiddleware
 
 		config.ServiceLogger.Info().Any("batch", batchReq).Msg("the context's decoded batch!")
 
-		frw := newBatchResponseWriter(w, len(batchReq))
-
-		// TODO: make concurrent!
-		// TODO: consider recombining uncached responses before requesting from backend(s)
-		for i, single := range batchReq {
-			config.ServiceLogger.Debug().Msg(fmt.Sprintf("RELAY REQUEST %d", i+1))
-			config.ServiceLogger.Debug().Any("req", single).Str("url", r.URL.String()).Msg("handling individual request from batch")
-
-			rw := frw.next(new(bytes.Buffer))
-
+		reqs := make([]*http.Request, 0, len(batchReq))
+		for _, single := range batchReq {
 			// proxy service middlewares expect decoded context key to not be set if the request is nil
 			// not setting it ensures no nil pointer panics if `null` is passing in array of requests
 			singleRequestContext := r.Context()
@@ -69,38 +61,10 @@ func CreateBatchProcessingMiddleware(h http.HandlerFunc, config *BatchMiddleware
 			req.Host = r.Host
 			req.Header = r.Header
 
-			h.ServeHTTP(rw, req)
+			reqs = append(reqs, req)
 		}
 
-		frw.FlushResponses()
-		// results := frw.flush()
-		// rawMessages := make([]json.RawMessage, 0, len(batchReq))
-		// for _, r := range results {
-		// 	rawMessages = append(rawMessages, json.RawMessage(r.Bytes()))
-		// }
-
-		// // // w.Write("[")
-
-		// // fmt.Printf("%+v\n", rawMessages)
-
-		// res, err := json.Marshal(rawMessages)
-		// if err != nil {
-		// 	// TODO don't panic!
-		// 	panic(fmt.Sprintf("failed to marshal responses: %s\n%+v", err, frw))
-		// }
-
-		// // var res bytes.Buffer
-		// // res.WriteRune('[')
-		// // for i, result := range results {
-		// // 	if i != 0 {
-		// // 		res.WriteRune(',')
-		// // 	}
-		// // 	res.Write(result.Bytes())
-		// // }
-		// // res.WriteRune(']')
-
-		// // TODO: headers!
-
-		// w.Write(res)
+		batchProcessor := NewBatchProcessor(h, reqs)
+		batchProcessor.RequestAndServe(w)
 	}
 }
