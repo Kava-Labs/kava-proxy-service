@@ -88,6 +88,43 @@ func (w bodySaverResponseWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
+// fakeResponseWriter is a custom implementation of http.ResponseWriter
+type fakeResponseWriter struct {
+	http.ResponseWriter
+	body      *bytes.Buffer
+	responses []*bytes.Buffer
+	header    http.Header
+}
+
+// Write implements the Write method of http.ResponseWriter
+func (w *fakeResponseWriter) Write(b []byte) (int, error) {
+	// Write to the buffer
+	w.body.Write(b)
+	return len(b), nil
+}
+
+func (w *fakeResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *fakeResponseWriter) WriteHeader(statusCode int) {
+	fmt.Printf("writing status code %d\n", statusCode)
+}
+
+func (w *fakeResponseWriter) next(newBody *bytes.Buffer) http.ResponseWriter {
+	if w.body != nil {
+		w.responses = append(w.responses, w.body)
+	}
+	w.header = make(http.Header)
+	w.body = newBody
+	return w
+}
+
+func (w *fakeResponseWriter) flush() []*bytes.Buffer {
+	w.next(nil)
+	return w.responses
+}
+
 // createDecodeRequestMiddleware is responsible for creating a middleware that
 // - decodes the incoming EVM request
 // - if successful, puts the decoded request into the context
@@ -179,23 +216,26 @@ func createBatchProcessingMiddleware(h http.HandlerFunc, serviceLogger *logging.
 
 		serviceLogger.Info().Any("batch", batchReq).Msg("the context's decoded batch!")
 
-		// var responses []*bytes.Buffer = make([]*bytes.Buffer, 0, len(batchReq))
-		var buf bytes.Buffer
+		frw := &fakeResponseWriter{
+			ResponseWriter: w,
+			body:           nil,
+			responses:      make([]*bytes.Buffer, 0, len(batchReq)),
+		}
 
 		// TODO: make concurrent!
 		// TODO: consider recombining uncached responses before requesting from backend(s)
-		for _, single := range batchReq {
+		for i, single := range batchReq {
+			serviceLogger.Debug().Msg(fmt.Sprintf("RELAY REQUEST %d", i+1))
 			serviceLogger.Debug().Any("req", single).Str("url", r.URL.String()).Msg("handling individual request from batch")
 
-			lrw := &bodySaverResponseWriter{
-				ResponseWriter:           negroni.NewResponseWriter(w),
-				body:                     &buf,
-				afterRequestInterceptors: []RequestInterceptor{},
-				serviceLogger:            serviceLogger,
-			}
-			// responses = append(responses, &buf)
+			rw := frw.next(new(bytes.Buffer))
 
-			singleRequestContext := context.WithValue(r.Context(), DecodedRequestContextKey, single)
+			// proxy service middlewares expect decoded context key to not be set if the request is nil
+			// not setting it ensures no nil pointer panics if `null` is passing in array of requests
+			singleRequestContext := r.Context()
+			if single != nil {
+				singleRequestContext = context.WithValue(r.Context(), DecodedRequestContextKey, single)
+			}
 
 			body, err := json.Marshal(single)
 			if err != nil {
@@ -203,6 +243,7 @@ func createBatchProcessingMiddleware(h http.HandlerFunc, serviceLogger *logging.
 				// TODO: report and handle err repsonse
 				continue
 			}
+
 			req, err := http.NewRequestWithContext(singleRequestContext, r.Method, r.URL.String(), bytes.NewBuffer(body))
 			if err != nil {
 				panic(fmt.Sprintf("failed build sub-request: %s", err))
@@ -210,19 +251,45 @@ func createBatchProcessingMiddleware(h http.HandlerFunc, serviceLogger *logging.
 			req.Host = r.Host
 			req.Header = r.Header
 
-			h.ServeHTTP(lrw, req)
+			h.ServeHTTP(rw, req)
 		}
 
-		// response, err := json.Marshal(buf)
+		results := frw.flush()
+		// rawMessages := make([]json.RawMessage, 0, len(batchReq))
+
+		// // w.Write("[")
+		// for i, r := range results {
+		// 	rawMessages = append(rawMessages, json.RawMessage(r.Bytes()))
+		// 	serviceLogger.Debug().Bytes("raw", r.Bytes()).Msg(fmt.Sprintf("RESULT %d", i))
+		// }
+
+		// fmt.Printf("%+v\n", rawMessages)
+
+		// res, err := json.Marshal(rawMessages)
 		// if err != nil {
-		// 	panic(fmt.Sprintf("failed to marshal buf: %s\n%+v", err, buf))
+		// 	panic(fmt.Sprintf("failed to marshal responses: %s\n%+v", err, frw))
 		// }
 		// // combine responses
 		// for _, res := range responses {
 
 		// }
 
-		w.Write(buf.Bytes())
+		var res bytes.Buffer
+		res.WriteRune('[')
+		for i, result := range results {
+			if i != 0 {
+				res.WriteRune(',')
+			}
+			res.Write(result.Bytes())
+		}
+		res.WriteRune(']')
+
+		fmt.Printf("%+v\n", res)
+
+		serviceLogger.Debug().Bytes("response", res.Bytes()).Msg("HELLO?")
+
+		w.Write(res.Bytes())
+		w.WriteHeader(http.StatusOK)
 		// h.ServeHTTP(w, r)
 	}
 }
