@@ -38,7 +38,7 @@ func CreateBatchProcessingMiddleware(h http.HandlerFunc, config *BatchMiddleware
 
 		config.ServiceLogger.Info().Any("batch", batchReq).Msg("the context's decoded batch!")
 
-		frw := newFakeResponseWriter(w, len(batchReq))
+		frw := newBatchResponseWriter(w, len(batchReq))
 
 		// TODO: make concurrent!
 		// TODO: consider recombining uncached responses before requesting from backend(s)
