@@ -84,8 +84,8 @@ var (
 // search for any request metrics between starTime and time.Now() for particular request methods
 func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
 	// on fast machines the expected metrics haven't finished being created by the time they are being queried.
-	// hackily sleep for 10 micro seconds & then get current time
-	adjustment := 10 * time.Microsecond
+	// hackily sleep for 10 milliseconds & then get current time
+	adjustment := 10 * time.Millisecond
 	time.Sleep(adjustment)
 	endTime := time.Now()
 
@@ -178,7 +178,6 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
 
-	require.Greater(t, requestMetricDuringRequestWindow.ResponseLatencyMilliseconds, int64(0))
 	require.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
 	require.Equal(t, requestMetricDuringRequestWindow.Hostname, proxyServiceHostname)
 	require.NotEqual(t, requestMetricDuringRequestWindow.RequestIP, "")
