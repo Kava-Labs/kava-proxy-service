@@ -6,7 +6,8 @@ import (
 	"net/http"
 )
 
-// fakeResponseWriter is a custom implementation of http.ResponseWriter
+// fakeResponseWriter is a custom implementation of http.ResponseWriter that writes all content
+// to a buffer.
 type fakeResponseWriter struct {
 	// body is the response body for the current request
 	body *bytes.Buffer
@@ -16,8 +17,8 @@ type fakeResponseWriter struct {
 
 var _ http.ResponseWriter = &fakeResponseWriter{}
 
-// newfakeResponseWriter creates a new fakeResponseWriter
-func newfakeResponseWriter(buf *bytes.Buffer) *fakeResponseWriter {
+// newFakeResponseWriter creates a new fakeResponseWriter that wraps the provided buffer.
+func newFakeResponseWriter(buf *bytes.Buffer) *fakeResponseWriter {
 	return &fakeResponseWriter{
 		header: make(http.Header),
 		body:   buf,

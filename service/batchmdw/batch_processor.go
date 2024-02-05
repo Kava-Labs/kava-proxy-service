@@ -3,13 +3,15 @@ package batchmdw
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
 )
 
+// BatchProcessor makes multiple requests to the underlying handler and then combines all the
+// responses into a single response.
+// It assumes all individual responses are valid json. Each response is then marshaled into an array.
 type BatchProcessor struct {
 	handler   http.HandlerFunc
 	requests  []*http.Request
@@ -19,6 +21,7 @@ type BatchProcessor struct {
 	mu        sync.Mutex
 }
 
+// NewBatchProcessor creates a BatchProcessor for combining the responses of reqs to the handler
 func NewBatchProcessor(handler http.HandlerFunc, reqs []*http.Request) *BatchProcessor {
 	return &BatchProcessor{
 		handler:   handler,
@@ -29,19 +32,19 @@ func NewBatchProcessor(handler http.HandlerFunc, reqs []*http.Request) *BatchPro
 	}
 }
 
+// RequestAndServe concurrently sends each request to the underlying handler
+// Responses are then collated into a JSON array and written to the ResponseWriter
 func (bp *BatchProcessor) RequestAndServe(w http.ResponseWriter) error {
 	wg := sync.WaitGroup{}
 	for i, r := range bp.requests {
 		wg.Add(1)
 
 		go func(idx int, req *http.Request) {
-			fmt.Printf("HANDLING REQUEST %d\n", idx)
 
 			buf := new(bytes.Buffer)
-			frw := newfakeResponseWriter(buf)
+			frw := newFakeResponseWriter(buf)
 			bp.handler.ServeHTTP(frw, req)
 
-			fmt.Printf("RESPONSE %d: %+v", idx, buf.String())
 			bp.setResponse(idx, buf)
 			bp.applyHeaders(frw.header)
 
@@ -49,10 +52,8 @@ func (bp *BatchProcessor) RequestAndServe(w http.ResponseWriter) error {
 		}(i, r)
 	}
 
-	fmt.Println("WAITING")
 	wg.Wait()
 
-	fmt.Println("DONE WAITING")
 	// write all headers
 	for k, v := range bp.header {
 		for _, val := range v {
@@ -80,12 +81,16 @@ func (bp *BatchProcessor) RequestAndServe(w http.ResponseWriter) error {
 	return nil
 }
 
+// setResponse is a thread-safe method to set the response for the query with index idx
 func (bp *BatchProcessor) setResponse(idx int, res *bytes.Buffer) {
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 	bp.responses[idx] = res
 }
 
+// applyHeaders is a thread-safe method for combining new response headers with existing results.
+// the headers of the first response are used, except for Content-Length and the cache hit status.
+// Cache hits are tracked so a representative value can be set after all responses are received.
 func (bp *BatchProcessor) applyHeaders(h http.Header) {
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
@@ -106,7 +111,7 @@ func (bp *BatchProcessor) applyHeaders(h http.Header) {
 	}
 }
 
-// cacheHitValue handles the combined response's CacheHeader
+// cacheHitValue handles determining the value for the combined response's CacheHeader
 func cacheHitValue(totalNum, cacheHits int) string {
 	// NOTE: middleware assumes non-zero batch length.
 	// totalNum should never be 0. if it is, this will indicate a cache MISS.
