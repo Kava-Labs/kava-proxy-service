@@ -294,6 +294,11 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 					Msg("cache miss")
 
 				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheMissHeaderValue)
+				// add CORS headers (if not already added)
+				accessControlAllowOriginValue := config.GetAccessControlAllowOriginValue(r.Host)
+				if w.Header().Get("Access-Control-Allow-Origin") == "" && accessControlAllowOriginValue != "" {
+					w.Header().Set("Access-Control-Allow-Origin", accessControlAllowOriginValue)
+				}
 				proxy.ServeHTTP(lrw, r)
 			}
 
