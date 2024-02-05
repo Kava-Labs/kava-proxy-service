@@ -136,6 +136,11 @@ func createDecodeRequestMiddleware(next http.HandlerFunc, batchProcessingMiddlew
 			next.ServeHTTP(w, r)
 			return
 		}
+		if len(batchRequests) == 0 {
+			// TODO: hardcode or cache error response here?
+			next.ServeHTTP(w, r)
+			return
+		}
 
 		// TODO: Trace
 		serviceLogger.Debug().Any("batch", batchRequests).Msg("successfully decoded batch of requests")
