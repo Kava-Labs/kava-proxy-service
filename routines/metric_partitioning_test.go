@@ -34,7 +34,7 @@ func TestE2ETestMetricPartitioningRoutinePrefillsExpectedPartitionsAfterStartupD
 	// prepare
 	time.Sleep(time.Duration(MetricPartitioningRoutineDelayFirstRunSeconds) * time.Second)
 
-	expectedPartitions, err := partitionsForPeriod(time.Now(), int(configuredPrefillDays))
+	expectedPartitions, err := partitionsForPeriod(time.Now().UTC(), int(configuredPrefillDays))
 
 	assert.Nil(t, err)
 
