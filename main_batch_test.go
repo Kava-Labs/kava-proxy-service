@@ -3,7 +3,6 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -89,6 +88,12 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 				},
 				{
 					JSONRPCVersion: "2.0",
+					ID:             nil,
+					Method:         "eth_getBlockByNumber",
+					Params:         []interface{}{"0x3", false},
+				},
+				{
+					JSONRPCVersion: "2.0",
 					ID:             123456,
 					Method:         "eth_getBlockByNumber",
 					Params:         []interface{}{"0x4", false},
@@ -170,11 +175,6 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 	}
 }
 
-// Errors to test:
-// - empty batch
-// - unsupported method
-// - invalid json
-
 func TestE2ETest_BatchEvmRequestErrorHandling(t *testing.T) {
 	t.Run("no backend configured (bad gateway error)", func(t *testing.T) {
 		validReq := []*decode.EVMRPCRequestEnvelope{
@@ -185,9 +185,50 @@ func TestE2ETest_BatchEvmRequestErrorHandling(t *testing.T) {
 		require.NoError(t, err)
 		resp, err := http.Post(proxyUnconfiguredUrl, "application/json", bytes.NewBuffer(reqInJSON))
 
-		fmt.Printf("%+v\n", resp)
-
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadGateway, resp.StatusCode)
+	})
+
+	t.Run("empty batch", func(t *testing.T) {
+		emptyReq := []*decode.EVMRPCRequestEnvelope{}
+		reqInJSON, err := json.Marshal(emptyReq)
+		require.NoError(t, err)
+
+		resp, err := http.Post(proxyServiceURL, "application/json", bytes.NewBuffer(reqInJSON))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err, "failed to read response body")
+
+		var decoded *jsonRpcResponse // <--- NOT an array response
+		err = json.Unmarshal(body, &decoded)
+		require.NoError(t, err, "failed to unmarshal response into array of responses")
+
+		require.Equal(t, -32600, decoded.JsonRpcError.Code)
+		require.Equal(t, "empty batch", decoded.JsonRpcError.Message)
+	})
+
+	t.Run("unsupported method", func(t *testing.T) {
+		resp, err := http.Get(proxyServiceURL) // <--- GET, not POST
+		require.NoError(t, err)
+		require.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
+	})
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		req := []byte(`[{id:"almost valid json (missing double quotes around id!)"}]`)
+		resp, err := http.Post(proxyServiceURL, "application/json", bytes.NewBuffer(req))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err, "failed to read response body")
+
+		var decoded *jsonRpcResponse // <--- NOT an array response
+		err = json.Unmarshal(body, &decoded)
+		require.NoError(t, err, "failed to unmarshal response into array of responses")
+
+		require.Equal(t, -32700, decoded.JsonRpcError.Code)
+		require.Equal(t, "parse error", decoded.JsonRpcError.Message)
 	})
 }
