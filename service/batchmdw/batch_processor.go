@@ -18,6 +18,7 @@ type BatchProcessor struct {
 	responses []*bytes.Buffer
 	header    http.Header
 	cacheHits int
+	status    int
 	mu        sync.Mutex
 }
 
@@ -28,6 +29,7 @@ func NewBatchProcessor(handler http.HandlerFunc, reqs []*http.Request) *BatchPro
 		requests:  reqs,
 		responses: make([]*bytes.Buffer, len(reqs)),
 		header:    nil,
+		status:    http.StatusOK,
 		mu:        sync.Mutex{},
 	}
 }
@@ -42,7 +44,7 @@ func (bp *BatchProcessor) RequestAndServe(w http.ResponseWriter) error {
 		go func(idx int, req *http.Request) {
 
 			buf := new(bytes.Buffer)
-			frw := newFakeResponseWriter(buf)
+			frw := newFakeResponseWriter(buf, bp.setErrStatus)
 			bp.handler.ServeHTTP(frw, req)
 
 			bp.setResponse(idx, buf)
@@ -63,6 +65,13 @@ func (bp *BatchProcessor) RequestAndServe(w http.ResponseWriter) error {
 
 	// write cache hit header based on results of all requests
 	w.Header().Set(cachemdw.CacheHeaderKey, cacheHitValue(len(bp.requests), bp.cacheHits))
+
+	// return error status if any sub-request returned a non-200 response
+	if bp.status != http.StatusOK {
+		w.WriteHeader(bp.status)
+		w.Write(nil)
+		return nil
+	}
 
 	// marshal results into a JSON array
 	rawMessages := make([]json.RawMessage, 0, len(bp.requests))
@@ -109,6 +118,13 @@ func (bp *BatchProcessor) applyHeaders(h http.Header) {
 	if cachemdw.IsCacheHitHeaders(h) {
 		bp.cacheHits += 1
 	}
+}
+
+// SetErrStatus tracks an error status code if any request returns a non-200 response
+func (bp *BatchProcessor) setErrStatus(status int) {
+	bp.mu.Lock()
+	defer bp.mu.Unlock()
+	bp.status = status
 }
 
 // cacheHitValue handles determining the value for the combined response's CacheHeader

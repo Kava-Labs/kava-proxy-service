@@ -55,6 +55,8 @@ var (
 		return logger
 	}()
 
+	proxyUnconfiguredUrl = os.Getenv("TEST_UNCONFIGURED_PROXY_URL")
+
 	proxyServiceURL        = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
 	proxyServiceHostname   = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_HOSTNAME")
 	proxyServicePruningURL = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_PRUNING_URL")
@@ -1142,19 +1144,12 @@ func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id interface{}, meth
 	return resp
 }
 
-type jsonRpcRequest struct {
-	JsonRpc string        `json:"jsonrpc"`
-	Id      interface{}   `json:"id"`
-	Method  string        `json:"method"`
-	Params  []interface{} `json:"params"`
-}
-
-func newJsonRpcRequest(id interface{}, method string, params []interface{}) *jsonRpcRequest {
-	return &jsonRpcRequest{
-		JsonRpc: "2.0",
-		Id:      id,
-		Method:  method,
-		Params:  params,
+func newJsonRpcRequest(id interface{}, method string, params []interface{}) *decode.EVMRPCRequestEnvelope {
+	return &decode.EVMRPCRequestEnvelope{
+		JSONRPCVersion: "2.0",
+		ID:             id,
+		Method:         method,
+		Params:         params,
 	}
 }
 

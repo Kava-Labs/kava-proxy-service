@@ -2,7 +2,6 @@ package batchmdw
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 )
 
@@ -13,15 +12,18 @@ type fakeResponseWriter struct {
 	body *bytes.Buffer
 	// header is the response headers for the current request
 	header http.Header
+	// onErrStatus is a method for handling non-OK status responses
+	onErrStatus func(status int)
 }
 
 var _ http.ResponseWriter = &fakeResponseWriter{}
 
 // newFakeResponseWriter creates a new fakeResponseWriter that wraps the provided buffer.
-func newFakeResponseWriter(buf *bytes.Buffer) *fakeResponseWriter {
+func newFakeResponseWriter(buf *bytes.Buffer, onErrStatus func(status int)) *fakeResponseWriter {
 	return &fakeResponseWriter{
-		header: make(http.Header),
-		body:   buf,
+		header:      make(http.Header),
+		body:        buf,
+		onErrStatus: onErrStatus,
 	}
 }
 
@@ -42,6 +44,7 @@ func (w *fakeResponseWriter) Header() http.Header {
 // WriteHeader implements the WriteHeader method of http.ResponseWriter
 // it overrides the WriteHeader method to prevent proxied requests from having finalized headers
 func (w *fakeResponseWriter) WriteHeader(status int) {
-	// TODO handle error response codes
-	fmt.Printf("WRITE HEADER CALLED WITH STATUS %d\n", status)
+	if status != http.StatusOK {
+		w.onErrStatus(status)
+	}
 }

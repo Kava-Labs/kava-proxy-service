@@ -3,9 +3,11 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
@@ -161,11 +163,31 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 
 			// verify CORS header
 			require.Equal(t, resp.Header[accessControlAllowOriginHeaderName], []string{"*"})
+
+			// sleep to let the cache catch up :)
+			time.Sleep(10 * time.Microsecond)
 		})
 	}
 }
 
 // Errors to test:
-// - no backend configures (500 error)
 // - empty batch
 // - unsupported method
+// - invalid json
+
+func TestE2ETest_BatchEvmRequestErrorHandling(t *testing.T) {
+	t.Run("no backend configured (bad gateway error)", func(t *testing.T) {
+		validReq := []*decode.EVMRPCRequestEnvelope{
+			newJsonRpcRequest(123, "eth_getBlockByNumber", []interface{}{"0x1", false}),
+			newJsonRpcRequest("another-req", "eth_getBlockByNumber", []interface{}{"0x2", false}),
+		}
+		reqInJSON, err := json.Marshal(validReq)
+		require.NoError(t, err)
+		resp, err := http.Post(proxyUnconfiguredUrl, "application/json", bytes.NewBuffer(reqInJSON))
+
+		fmt.Printf("%+v\n", resp)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadGateway, resp.StatusCode)
+	})
+}
