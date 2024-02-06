@@ -83,7 +83,6 @@ func (bp *BatchProcessor) RequestAndServe(w http.ResponseWriter) error {
 		return err
 	}
 
-	// TODO: handle error response
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 

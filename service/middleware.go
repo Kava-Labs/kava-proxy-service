@@ -143,7 +143,7 @@ func createDecodeRequestMiddleware(next http.HandlerFunc, batchProcessingMiddlew
 		}
 
 		// TODO: Trace
-		serviceLogger.Debug().Any("batch", batchRequests).Msg("successfully decoded batch of requests")
+		serviceLogger.Trace().Any("batch", batchRequests).Msg("successfully decoded batch of requests")
 		batchDecodedReqContext := context.WithValue(r.Context(), DecodedBatchRequestContextKey, batchRequests)
 		batchProcessingMiddleware.ServeHTTP(w, r.WithContext(batchDecodedReqContext))
 	}
