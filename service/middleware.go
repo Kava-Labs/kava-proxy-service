@@ -95,6 +95,9 @@ func (w bodySaverResponseWriter) Write(b []byte) (int, error) {
 // - routes single requests to next()
 func createDecodeRequestMiddleware(next http.HandlerFunc, batchProcessingMiddleware http.HandlerFunc, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// capture the initial request time in order to calculate response time & latency at the end
+		requestStartTimeContext := context.WithValue(r.Context(), RequestStartTimeContextKey, time.Now())
+
 		// skip processing if there is no body content
 		if r.Body == nil {
 			serviceLogger.Trace().Msg("no data in request")
@@ -124,7 +127,7 @@ func createDecodeRequestMiddleware(next http.HandlerFunc, batchProcessingMiddlew
 			serviceLogger.Trace().
 				Any("decoded request", decodedRequest).
 				Msg("successfully decoded single EVM request")
-			singleDecodedReqContext := context.WithValue(r.Context(), DecodedRequestContextKey, decodedRequest)
+			singleDecodedReqContext := context.WithValue(requestStartTimeContext, DecodedRequestContextKey, decodedRequest)
 			next.ServeHTTP(w, r.WithContext(singleDecodedReqContext))
 			return
 		}
@@ -137,30 +140,14 @@ func createDecodeRequestMiddleware(next http.HandlerFunc, batchProcessingMiddlew
 			return
 		}
 		if len(batchRequests) == 0 {
-			// TODO: hardcode or cache error response here?
+			serviceLogger.Trace().Msg(fmt.Sprintf("request is for an empty batch: %s", rawBody))
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// TODO: Trace
 		serviceLogger.Trace().Any("batch", batchRequests).Msg("successfully decoded batch of requests")
-		batchDecodedReqContext := context.WithValue(r.Context(), DecodedBatchRequestContextKey, batchRequests)
+		batchDecodedReqContext := context.WithValue(requestStartTimeContext, DecodedBatchRequestContextKey, batchRequests)
 		batchProcessingMiddleware.ServeHTTP(w, r.WithContext(batchDecodedReqContext))
-	}
-}
-
-// createRequestLoggingMiddleware returns a handler that logs any request to stdout
-// and if able to decode the request to a known type adds it as a context key
-// To use the decoded request body, get the value from the context and then
-// use type assertion to EVMRPCRequestEnvelope. With this middleware, the request body
-// can be read once, and then accessed by all future middleware and the final
-// http handler.
-func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		requestStartTimeContext := context.WithValue(r.Context(), RequestStartTimeContextKey, time.Now())
-		h.ServeHTTP(w, r.WithContext(requestStartTimeContext))
-
-		// TODO: cleanup. is this middleware still useful? should it actually...log the request? lol
 	}
 }
 

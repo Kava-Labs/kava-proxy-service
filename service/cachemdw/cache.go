@@ -81,6 +81,8 @@ func IsCacheable(
 	req *decode.EVMRPCRequestEnvelope,
 ) bool {
 	// TODO: technically, we _could_ cache the "invalid request" response for `null` requests...
+	// however, doing so will may result in different than expected responses for batch requests
+	// ie. {error} response vs [{error}] (the not-list is expected)
 	if req == nil {
 		return false
 	}

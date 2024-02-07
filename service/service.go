@@ -53,7 +53,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	// create an http router for registering handlers for a given route
 	mux := http.NewServeMux()
 
-	// will run after the proxy middleware handler and is
+	// AfterProxyFinalizer will run after the proxy middleware handler and is
 	// the final function called after all other middleware
 	// allowing it to access values added to the request context
 	// to do things like metric the response and cache the response
@@ -67,7 +67,10 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	//   - response is present in context
 	cacheAfterProxyMiddleware := serviceCache.CachingMiddleware(afterProxyFinalizer)
 
-	// create an http handler that will proxy any request to the specified URL
+	// ProxyRequestMiddleware responds to the client with
+	// - cached data if present in the context
+	// - a forwarded request to the appropriate backend
+	// Backend is decided by the Proxies configuration for a particular host.
 	proxyMiddleware := createProxyRequestMiddleware(cacheAfterProxyMiddleware, config, serviceLogger, []RequestInterceptor{}, []RequestInterceptor{})
 
 	// IsCachedMiddleware works in the following way:
@@ -76,19 +79,24 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	//   - if not present marks as uncached in context and forwards to next middleware
 	cacheMiddleware := serviceCache.IsCachedMiddleware(proxyMiddleware)
 
-	// TODO: docs
+	// BatchProcessingMiddleware separates a batch into multiple requests and routes each one
+	// through the single request middleware sequence.
+	// This allows the sub-requests of a batch to leverage the cache & metric recording.
+	// Expects non-zero length batch to be in the context.
 	batchMdwConfig := batchmdw.BatchMiddlewareConfig{
 		ServiceLogger:                  serviceLogger,
 		ContextKeyDecodedRequestBatch:  DecodedBatchRequestContextKey,
 		ContextKeyDecodedRequestSingle: DecodedRequestContextKey,
 	}
 	batchProcessingMiddleware := batchmdw.CreateBatchProcessingMiddleware(cacheMiddleware, &batchMdwConfig)
-	// TODO: docs
-	decodeRequestMiddleware := createDecodeRequestMiddleware(cacheMiddleware, batchProcessingMiddleware, serviceLogger)
 
-	// create an http handler that will log the request to stdout
-	// this handler will run before the proxyMiddleware handler
-	requestLoggingMiddleware := createRequestLoggingMiddleware(decodeRequestMiddleware, serviceLogger)
+	// DecodeRequestMiddleware captures the request start time & attempts to decode the request body.
+	// If successful, the decoded request is put into the request context:
+	// - if decoded as a single EVM request: it forwards it to the single request middleware sequence
+	// - if decoded as a batch EVM request: it forwards it to the batchProcessingMiddleware
+	// - if fails to decode: it passes to single request middleware sequence which will proxy the request
+	// When requests fail to decode, no context value is set.
+	decodeRequestMiddleware := createDecodeRequestMiddleware(cacheMiddleware, batchProcessingMiddleware, serviceLogger)
 
 	// register healthcheck handler that can be used during deployment and operations
 	// to determine if the service is ready to receive requests
@@ -99,7 +107,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	mux.HandleFunc("/servicecheck", createServicecheckHandler(&service))
 
 	// register middleware chain as the default handler for any request to the proxy service
-	mux.HandleFunc("/", requestLoggingMiddleware)
+	mux.HandleFunc("/", decodeRequestMiddleware)
 
 	// create an http server for the caller to start on demand with a call to ProxyService.Run()
 	server := &http.Server{
