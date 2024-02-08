@@ -5,6 +5,8 @@ import (
 	"net/http"
 )
 
+type ErrorHandler = func(status int, rawRes *bytes.Buffer)
+
 // fakeResponseWriter is a custom implementation of http.ResponseWriter that writes all content
 // to a buffer.
 type fakeResponseWriter struct {
@@ -12,18 +14,18 @@ type fakeResponseWriter struct {
 	body *bytes.Buffer
 	// header is the response headers for the current request
 	header http.Header
-	// onErrStatus is a method for handling non-OK status responses
-	onErrStatus func(status int)
+	// onErrorHandler is a method for handling non-OK status responses
+	onErrorHandler ErrorHandler
 }
 
 var _ http.ResponseWriter = &fakeResponseWriter{}
 
 // newFakeResponseWriter creates a new fakeResponseWriter that wraps the provided buffer.
-func newFakeResponseWriter(buf *bytes.Buffer, onErrStatus func(status int)) *fakeResponseWriter {
+func newFakeResponseWriter(buf *bytes.Buffer, onErrorHandler ErrorHandler) *fakeResponseWriter {
 	return &fakeResponseWriter{
-		header:      make(http.Header),
-		body:        buf,
-		onErrStatus: onErrStatus,
+		header:         make(http.Header),
+		body:           buf,
+		onErrorHandler: onErrorHandler,
 	}
 }
 
@@ -45,6 +47,6 @@ func (w *fakeResponseWriter) Header() http.Header {
 // it overrides the WriteHeader method to prevent proxied requests from having finalized headers
 func (w *fakeResponseWriter) WriteHeader(status int) {
 	if status != http.StatusOK {
-		w.onErrStatus(status)
+		w.onErrorHandler(status, w.body)
 	}
 }
