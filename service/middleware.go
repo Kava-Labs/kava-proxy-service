@@ -22,6 +22,7 @@ const (
 	DefaultAnonymousUserAgent = "anon"
 	// Service defined context keys
 	DecodedRequestContextKey              = "X-KAVA-PROXY-DECODED-REQUEST-BODY"
+	DecodedBatchRequestContextKey         = "X-KAVA-PROXY-DECODED-BATCH-REQUEST-BODY"
 	OriginRoundtripLatencyMillisecondsKey = "X-KAVA-PROXY-ORIGIN-ROUNDTRIP-LATENCY-MILLISECONDS"
 	RequestStartTimeContextKey            = "X-KAVA-PROXY-REQUEST-START-TIME"
 	RequestHostnameContextKey             = "X-KAVA-PROXY-REQUEST-HOSTNAME"
@@ -83,60 +84,70 @@ func (w bodySaverResponseWriter) Write(b []byte) (int, error) {
 		w.serviceLogger.Trace().Msg("response body is empty, skipping after request interceptors")
 	}
 
-	size, err := w.ResponseWriter.Write(b)
-
-	return size, err
+	return w.ResponseWriter.Write(b)
 }
 
-// createRequestLoggingMiddleware returns a handler that logs any request to stdout
-// and if able to decode the request to a known type adds it as a context key
-// To use the decoded request body, get the value from the context and then
-// use type assertion to EVMRPCRequestEnvelope. With this middleware, the request body
-// can be read once, and then accessed by all future middleware and the final
-// http handler.
-func createRequestLoggingMiddleware(h http.HandlerFunc, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
+// createDecodeRequestMiddleware is responsible for creating a middleware that
+// - decodes the incoming EVM request
+// - if successful, puts the decoded request into the context
+// - determines if the request is for a single or batch request
+// - routes batch requests to BatchProcessingMiddleware
+// - routes single requests to next()
+func createDecodeRequestMiddleware(next http.HandlerFunc, batchProcessingMiddleware http.HandlerFunc, serviceLogger *logging.ServiceLogger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// capture the initial request time in order to calculate response time & latency at the end
 		requestStartTimeContext := context.WithValue(r.Context(), RequestStartTimeContextKey, time.Now())
 
-		var rawBody []byte
-
-		if r.Body != nil {
-			var rawBodyBuffer bytes.Buffer
-
-			// Read the request body
-			body := io.TeeReader(r.Body, &rawBodyBuffer)
-
-			var err error
-
-			rawBody, err = io.ReadAll(body)
-
-			if err != nil {
-				serviceLogger.Debug().Msg(fmt.Sprintf("error %s reading request body %s", err, body))
-
-				h.ServeHTTP(w, r)
-
-				return
-			}
-
-			// Repopulate the request body for the ultimate consumer of this request
-			r.Body = io.NopCloser(&rawBodyBuffer)
-		}
-
-		decodedRequest, err := decode.DecodeEVMRPCRequest(rawBody)
-
-		if err != nil {
-			serviceLogger.Debug().Msg(fmt.Sprintf("error %s parsing of request body %s", err, rawBody))
-
-			h.ServeHTTP(w, r)
-
+		// skip processing if there is no body content
+		if r.Body == nil {
+			serviceLogger.Trace().Msg("no data in request")
+			next.ServeHTTP(w, r)
 			return
 		}
 
-		serviceLogger.Trace().Msg(fmt.Sprintf("decoded request body %+v", decodedRequest))
+		// read body content
+		var rawBodyBuffer bytes.Buffer
+		body := io.TeeReader(r.Body, &rawBodyBuffer)
 
-		decodedRequestBodyContext := context.WithValue(requestStartTimeContext, DecodedRequestContextKey, decodedRequest)
+		rawBody, err := io.ReadAll(body)
+		if err != nil {
+			serviceLogger.Trace().Msg(fmt.Sprintf("error %s reading request body %s", err, body))
+			next.ServeHTTP(w, r)
+			return
+		}
 
-		h.ServeHTTP(w, r.WithContext(decodedRequestBodyContext))
+		// Repopulate the request body for the ultimate consumer of this request
+		r.Body = io.NopCloser(&rawBodyBuffer)
+
+		// attempt to decode as single EVM request
+		decodedRequest, err := decode.DecodeEVMRPCRequest(rawBody)
+		if err == nil {
+			// successfully decoded request as a single valid EVM request
+			// forward along with decoded request in context
+			serviceLogger.Trace().
+				Any("decoded request", decodedRequest).
+				Msg("successfully decoded single EVM request")
+			singleDecodedReqContext := context.WithValue(requestStartTimeContext, DecodedRequestContextKey, decodedRequest)
+			next.ServeHTTP(w, r.WithContext(singleDecodedReqContext))
+			return
+		}
+
+		// attempt to decode as list of requests
+		batchRequests, err := decode.DecodeEVMRPCRequestList(rawBody)
+		if err != nil {
+			serviceLogger.Debug().Msg(fmt.Sprintf("error %s parsing of request body %s", err, rawBody))
+			next.ServeHTTP(w, r)
+			return
+		}
+		if len(batchRequests) == 0 {
+			serviceLogger.Trace().Msg(fmt.Sprintf("request is for an empty batch: %s", rawBody))
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		serviceLogger.Trace().Any("batch", batchRequests).Msg("successfully decoded batch of requests")
+		batchDecodedReqContext := context.WithValue(requestStartTimeContext, DecodedBatchRequestContextKey, batchRequests)
+		batchProcessingMiddleware.ServeHTTP(w, r.WithContext(batchDecodedReqContext))
 	}
 }
 
@@ -270,6 +281,11 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 					Msg("cache miss")
 
 				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheMissHeaderValue)
+				// add CORS headers (if not already added)
+				accessControlAllowOriginValue := config.GetAccessControlAllowOriginValue(r.Host)
+				if w.Header().Get("Access-Control-Allow-Origin") == "" && accessControlAllowOriginValue != "" {
+					w.Header().Set("Access-Control-Allow-Origin", accessControlAllowOriginValue)
+				}
 				proxy.ServeHTTP(lrw, r)
 			}
 

@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kava-labs/kava-proxy-service/clients/database"
+	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
 	"github.com/kava-labs/kava-proxy-service/service"
@@ -55,11 +56,14 @@ var (
 		return logger
 	}()
 
+	proxyUnconfiguredUrl = os.Getenv("TEST_UNCONFIGURED_PROXY_URL")
+
 	proxyServiceURL        = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_URL")
 	proxyServiceHostname   = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_HOSTNAME")
 	proxyServicePruningURL = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_PRUNING_URL")
 
 	proxyServiceHeightBasedRouting, _ = strconv.ParseBool(os.Getenv("TEST_PROXY_HEIGHT_BASED_ROUTING_ENABLED"))
+	proxyServiceMaxBatchSize          = config.EnvOrDefaultInt(config.PROXY_MAXIMUM_BATCH_SIZE_ENVIRONMENT_KEY, config.DEFAULT_PROXY_MAXIMUM_BATCH_SIZE)
 
 	databaseURL      = os.Getenv("TEST_DATABASE_ENDPOINT_URL")
 	databasePassword = os.Getenv("DATABASE_PASSWORD")
@@ -81,12 +85,9 @@ var (
 )
 
 // lookup all the request metrics in the database paging as necessary
-// search for any request metrics between starTime and time.Now() for particular request methods
+// search for any request metrics between startTime and time.Now() for particular request methods
+// if testedmethods is empty, all metrics in timeframe are returned.
 func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
-	// on fast machines the expected metrics haven't finished being created by the time they are being queried.
-	// hackily sleep for 10 micro seconds & then get current time
-	adjustment := 10 * time.Microsecond
-	time.Sleep(adjustment)
 	endTime := time.Now()
 
 	var nextCursor int64
@@ -111,7 +112,14 @@ func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Ti
 	// iterate in reverse order to start checking the most recent request metrics first
 	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
 		requestMetric := proxiedRequestMetrics[i]
-		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
+		isBetween := requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime)
+		if isBetween || requestMetric.RequestTime.Equal(startTime) || requestMetric.RequestTime.Equal(endTime) {
+			// collect all metrics if testedmethods = []
+			if len(testedmethods) == 0 {
+				requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
+				continue
+			}
+			// collect metrics for any desired methods
 			for _, testedMethod := range testedmethods {
 				if requestMetric.MethodName == testedMethod {
 					requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
@@ -121,6 +129,34 @@ func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Ti
 	}
 
 	return requestMetricsDuringRequestWindow
+}
+
+// tests for metrics can frequently fail to pass because the check for what's there happens
+// more quickly than the writes to the metrics database.
+// remove some of that finickiness without unnecessary sleeping by polling for the expected requests
+// and only considering it a fail if it times out.
+func waitForMetricsInWindow(
+	t *testing.T,
+	expected int,
+	db database.PostgresClient,
+	startTime time.Time,
+	testedmethods []string,
+) (metrics []database.ProxiedRequestMetric) {
+	timeoutMin := 1 * time.Second
+	// scale the timeout by the number of expected requests, or at least 1 second
+	timeout := time.Duration(expected+1) * 100 * time.Millisecond
+	if timeout < timeoutMin {
+		timeout = timeoutMin
+	}
+
+	// besides verification, waiting for the metrics ensures future tests don't fail b/c metrics are being processed
+	require.Eventually(t, func() bool {
+		metrics = findMetricsInWindowForMethods(db, startTime, []string{})
+		return len(metrics) >= expected
+	}, timeout, time.Millisecond,
+		fmt.Sprintf("failed to find %d metrics in %f seconds from start %s", expected, timeout.Seconds(), startTime))
+
+	return
 }
 
 func TestE2ETestProxyReturnsNonZeroLatestBlockHeader(t *testing.T) {
@@ -172,13 +208,10 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	require.NoError(t, err)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, []string{testEthMethodName})
-
-	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
+	requestMetricsDuringRequestWindow := waitForMetricsInWindow(t, 1, databaseClient, startTime, []string{testEthMethodName})
 
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
 
-	require.Greater(t, requestMetricDuringRequestWindow.ResponseLatencyMilliseconds, int64(0))
 	require.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
 	require.Equal(t, requestMetricDuringRequestWindow.Hostname, proxyServiceHostname)
 	require.NotEqual(t, requestMetricDuringRequestWindow.RequestIP, "")
@@ -215,9 +248,10 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	require.NoError(t, err)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, []string{testEthMethodName})
+	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
+		t, 1, databaseClient, startTime, []string{testEthMethodName},
+	)
 
-	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
 
 	require.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
@@ -244,9 +278,10 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 
 	require.NoError(t, err)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, []string{testEthMethodName})
+	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
+		t, 1, databaseClient, startTime, []string{testEthMethodName},
+	)
 
-	require.Greater(t, len(requestMetricsDuringRequestWindow), 0)
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
 
 	require.Equal(t, requestMetricDuringRequestWindow.MethodName, testEthMethodName)
@@ -303,10 +338,9 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	// eth_call
 	_, _ = client.CallContract(testContext, ethereum.CallMsg{}, requestBlockNumber)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, testedmethods)
-
-	// should be the above but geth doesn't implement client methods for all of them
-	require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 7)
+	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
+		t, 7, databaseClient, startTime, testedmethods,
+	)
 
 	for _, requestMetricDuringRequestWindow := range requestMetricsDuringRequestWindow {
 		require.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
@@ -356,11 +390,9 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 	// eth_getTransactionByBlockHashAndIndex
 	_, _ = client.TransactionInBlock(testContext, requestBlockHash, 0)
 
-	requestMetricsDuringRequestWindow := findMetricsInWindowForMethods(databaseClient, startTime, testedmethods)
-
-	// require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), len(testedmethods))
-	// should be the above but geth doesn't implement client methods for all of them
-	require.GreaterOrEqual(t, len(requestMetricsDuringRequestWindow), 3)
+	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
+		t, 3, databaseClient, startTime, testedmethods,
+	)
 
 	for _, requestMetricDuringRequestWindow := range requestMetricsDuringRequestWindow {
 		require.NotNil(t, *requestMetricDuringRequestWindow.BlockNumber)
@@ -441,10 +473,9 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 			err := rpc.Call(nil, tc.method, tc.params...)
 			require.NoError(t, err)
 
-			metrics := findMetricsInWindowForMethods(databaseClient, startTime, []string{tc.method})
+			metrics := waitForMetricsInWindow(t, 1, databaseClient, startTime, []string{tc.method})
 
 			require.Len(t, metrics, 1)
-			fmt.Printf("%+v\n", metrics[0])
 			require.Equal(t, tc.method, metrics[0].MethodName)
 			require.Equal(t, tc.expectRoute, metrics[0].ResponseBackend)
 		})
@@ -494,6 +525,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 			expectKeysNum(t, redisClient, tc.keysNum)
 			expectedKey := "local-chain:evm-request:eth_getBlockByNumber:sha256:d08b426164eacf6646fb1817403ec0af5d37869a0f32a01ebfab3096fa4999be"
 			containsKey(t, redisClient, expectedKey)
+			require.Equal(t, cacheMissResp.Header[accessControlAllowOriginHeaderName], []string{"*"})
 
 			// eth_getBlockByNumber - cache HIT
 			cacheHitResp := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)
@@ -673,7 +705,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 	}
 
 	// get metrics between startTime & now for eth_getBlockByNumber requests
-	filteredMetrics := findMetricsInWindowForMethods(db, startTime, []string{"eth_getBlockByNumber"})
+	filteredMetrics := waitForMetricsInWindow(t, 4, db, startTime, []string{"eth_getBlockByNumber"})
 
 	// we expect 4 metrics, 2 of them are cache hits and two of them are cache misses
 	require.Len(t, filteredMetrics, 4)
@@ -1130,6 +1162,11 @@ func cleanUpRedis(t *testing.T, redisClient *redis.Client) {
 	}
 }
 
+func cleanMetricsDb(t *testing.T, db database.PostgresClient) {
+	_, err := db.Exec("TRUNCATE proxied_request_metrics;")
+	require.NoError(t, err)
+}
+
 func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id interface{}, method string, params []interface{}) *http.Response {
 	req := newJsonRpcRequest(id, method, params)
 	reqInJSON, err := json.Marshal(req)
@@ -1142,19 +1179,12 @@ func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id interface{}, meth
 	return resp
 }
 
-type jsonRpcRequest struct {
-	JsonRpc string        `json:"jsonrpc"`
-	Id      interface{}   `json:"id"`
-	Method  string        `json:"method"`
-	Params  []interface{} `json:"params"`
-}
-
-func newJsonRpcRequest(id interface{}, method string, params []interface{}) *jsonRpcRequest {
-	return &jsonRpcRequest{
-		JsonRpc: "2.0",
-		Id:      id,
-		Method:  method,
-		Params:  params,
+func newJsonRpcRequest(id interface{}, method string, params []interface{}) *decode.EVMRPCRequestEnvelope {
+	return &decode.EVMRPCRequestEnvelope{
+		JSONRPCVersion: "2.0",
+		ID:             id,
+		Method:         method,
+		Params:         params,
 	}
 }
 

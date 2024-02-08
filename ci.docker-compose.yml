@@ -31,5 +31,6 @@ services:
       EVM_QUERY_SERVICE_URL: https://evmrpc.internal.testnet.proxy.kava.io
     ports:
       - "${PROXY_HOST_PORT}:${PROXY_CONTAINER_PORT}"
+      - "${TEST_UNCONFIGURED_PROXY_PORT}:${PROXY_CONTAINER_PORT}"
       - "${PROXY_CONTAINER_EVM_RPC_PRUNING_PORT}:${PROXY_CONTAINER_PORT}"
       - "${PROXY_HOST_DEBUG_PORT}:${PROXY_CONTAINER_DEBUG_PORT}"

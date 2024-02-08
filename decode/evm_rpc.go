@@ -254,6 +254,13 @@ func DecodeEVMRPCRequest(body []byte) (*EVMRPCRequestEnvelope, error) {
 	return &request, err
 }
 
+// DecodeEVMRPCRequest attempts to decode raw bytes to a list of EVMRPCRequestEnvelopes
+func DecodeEVMRPCRequestList(body []byte) ([]*EVMRPCRequestEnvelope, error) {
+	var request []*EVMRPCRequestEnvelope
+	err := json.Unmarshal(body, &request)
+	return request, err
+}
+
 // ExtractBlockNumberFromEVMRPCRequest attempts to extract the block number
 // associated with a request if
 // - the request is a valid evm rpc request

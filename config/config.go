@@ -20,6 +20,7 @@ type Config struct {
 	EnableHeightBasedRouting                      bool
 	ProxyPruningBackendHostURLMapRaw              string
 	ProxyPruningBackendHostURLMap                 map[string]url.URL
+	ProxyMaximumBatchSize                         int
 	EvmQueryServiceURL                            string
 	DatabaseName                                  string
 	DatabaseEndpointURL                           string
@@ -64,6 +65,8 @@ const (
 	PROXY_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY         = "PROXY_BACKEND_HOST_URL_MAP"
 	PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY             = "PROXY_HEIGHT_BASED_ROUTING_ENABLED"
 	PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY = "PROXY_PRUNING_BACKEND_HOST_URL_MAP"
+	PROXY_MAXIMUM_BATCH_SIZE_ENVIRONMENT_KEY           = "PROXY_MAXIMUM_REQ_BATCH_SIZE"
+	DEFAULT_PROXY_MAXIMUM_BATCH_SIZE                   = 500
 	PROXY_SERVICE_PORT_ENVIRONMENT_KEY                 = "PROXY_SERVICE_PORT"
 	DATABASE_NAME_ENVIRONMENT_KEY                      = "DATABASE_NAME"
 	DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY              = "DATABASE_ENDPOINT_URL"
@@ -279,6 +282,7 @@ func ReadConfig() Config {
 		EnableHeightBasedRouting:                      EnvOrDefaultBool(PROXY_HEIGHT_BASED_ROUTING_ENABLED_KEY, false),
 		ProxyPruningBackendHostURLMapRaw:              rawProxyPruningBackendHostURLMap,
 		ProxyPruningBackendHostURLMap:                 parsedProxyPruningBackendHostURLMap,
+		ProxyMaximumBatchSize:                         EnvOrDefaultInt(PROXY_MAXIMUM_BATCH_SIZE_ENVIRONMENT_KEY, DEFAULT_PROXY_MAXIMUM_BATCH_SIZE),
 		DatabaseName:                                  os.Getenv(DATABASE_NAME_ENVIRONMENT_KEY),
 		DatabaseEndpointURL:                           os.Getenv(DATABASE_ENDPOINT_URL_ENVIRONMENT_KEY),
 		DatabaseUserName:                              os.Getenv(DATABASE_USERNAME_ENVIRONMENT_KEY),
