@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kava-labs/kava-proxy-service/clients/database"
+	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
 	"github.com/kava-labs/kava-proxy-service/service"
@@ -62,6 +63,7 @@ var (
 	proxyServicePruningURL = os.Getenv("TEST_PROXY_SERVICE_EVM_RPC_PRUNING_URL")
 
 	proxyServiceHeightBasedRouting, _ = strconv.ParseBool(os.Getenv("TEST_PROXY_HEIGHT_BASED_ROUTING_ENABLED"))
+	proxyServiceMaxBatchSize          = config.EnvOrDefaultInt(config.PROXY_MAXIMUM_BATCH_SIZE_ENVIRONMENT_KEY, config.DEFAULT_PROXY_MAXIMUM_BATCH_SIZE)
 
 	databaseURL      = os.Getenv("TEST_DATABASE_ENDPOINT_URL")
 	databasePassword = os.Getenv("DATABASE_PASSWORD")
@@ -84,6 +86,7 @@ var (
 
 // lookup all the request metrics in the database paging as necessary
 // search for any request metrics between starTime and time.Now() for particular request methods
+// if testedmethods is empty, all metrics in timeframe are returned.
 func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
 	// on fast machines the expected metrics haven't finished being created by the time they are being queried.
 	// hackily sleep for 10 milliseconds & then get current time
@@ -113,7 +116,14 @@ func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Ti
 	// iterate in reverse order to start checking the most recent request metrics first
 	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
 		requestMetric := proxiedRequestMetrics[i]
-		if requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime) {
+		isBetween := requestMetric.RequestTime.After(startTime) && requestMetric.RequestTime.Before(endTime)
+		if isBetween || requestMetric.RequestTime.Equal(startTime) || requestMetric.RequestTime.Equal(endTime) {
+			// collect all metrics if testedmethods = []
+			if len(testedmethods) == 0 {
+				requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
+				continue
+			}
+			// collect metrics for any desired methods
 			for _, testedMethod := range testedmethods {
 				if requestMetric.MethodName == testedMethod {
 					requestMetricsDuringRequestWindow = append(requestMetricsDuringRequestWindow, requestMetric)
@@ -445,7 +455,6 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 			metrics := findMetricsInWindowForMethods(databaseClient, startTime, []string{tc.method})
 
 			require.Len(t, metrics, 1)
-			fmt.Printf("%+v\n", metrics[0])
 			require.Equal(t, tc.method, metrics[0].MethodName)
 			require.Equal(t, tc.expectRoute, metrics[0].ResponseBackend)
 		})
@@ -1130,6 +1139,11 @@ func cleanUpRedis(t *testing.T, redisClient *redis.Client) {
 		_, err = redisClient.Del(context.Background(), keys...).Result()
 		require.NoError(t, err)
 	}
+}
+
+func cleanMetricsDb(t *testing.T, db database.PostgresClient) {
+	_, err := db.Exec("TRUNCATE proxied_request_metrics;")
+	require.NoError(t, err)
 }
 
 func mkJsonRpcRequest(t *testing.T, proxyServiceURL string, id interface{}, method string, params []interface{}) *http.Response {

@@ -3,16 +3,37 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
+
+func buildBigBatch(n int, sameBlock bool) []*decode.EVMRPCRequestEnvelope {
+	batch := make([]*decode.EVMRPCRequestEnvelope, 0, n)
+	// create n requests
+	for i := 0; i < n; i++ {
+		block := "0x1"
+		if !sameBlock {
+			block = fmt.Sprintf("0x%s", strconv.FormatInt(int64(i)+1, 16))
+		}
+		batch = append(batch, &decode.EVMRPCRequestEnvelope{
+			JSONRPCVersion: "2.0",
+			ID:             i,
+			Method:         "eth_getBlockByNumber",
+			Params:         []interface{}{block, false},
+		})
+	}
+	return batch
+}
 
 func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 	redisClient := redis.NewClient(&redis.Options{
@@ -23,11 +44,17 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 	cleanUpRedis(t, redisClient)
 	expectKeysNum(t, redisClient, 0)
 
+	db, err := database.NewPostgresClient(databaseConfig)
+	require.NoError(t, err)
+	cleanMetricsDb(t, db)
+
 	// NOTE! ordering matters for these tests! earlier request responses may end up in the cache.
 	testCases := []struct {
 		name                string
 		req                 []*decode.EVMRPCRequestEnvelope
 		expectedCacheHeader string
+		expectedErrStatus   int
+		expectedNumMetrics  int
 	}{
 		{
 			name: "first request, valid & not coming from the cache",
@@ -40,6 +67,7 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 				},
 			},
 			expectedCacheHeader: cachemdw.CacheMissHeaderValue,
+			expectedNumMetrics:  1,
 		},
 		{
 			name: "multiple requests, valid & none coming from the cache",
@@ -58,6 +86,7 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 				},
 			},
 			expectedCacheHeader: cachemdw.CacheMissHeaderValue,
+			expectedNumMetrics:  2,
 		},
 		{
 			name: "multiple requests, valid & some coming from the cache",
@@ -76,6 +105,7 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 				},
 			},
 			expectedCacheHeader: cachemdw.CachePartialHeaderValue,
+			expectedNumMetrics:  2,
 		},
 		{
 			name: "multiple requests, valid & all coming from the cache",
@@ -90,21 +120,23 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 					JSONRPCVersion: "2.0",
 					ID:             nil,
 					Method:         "eth_getBlockByNumber",
-					Params:         []interface{}{"0x3", false},
+					Params:         []interface{}{"0x1", false},
 				},
 				{
 					JSONRPCVersion: "2.0",
 					ID:             123456,
 					Method:         "eth_getBlockByNumber",
-					Params:         []interface{}{"0x4", false},
+					Params:         []interface{}{"0x3", false},
 				},
 			},
 			expectedCacheHeader: cachemdw.CacheHitHeaderValue,
+			expectedNumMetrics:  3,
 		},
 		{
 			name:                "empty request",
 			req:                 []*decode.EVMRPCRequestEnvelope{nil}, // <-- empty!
 			expectedCacheHeader: cachemdw.CacheMissHeaderValue,
+			expectedNumMetrics:  0,
 		},
 		{
 			name: "empty & non-empty requests, partial cache hit",
@@ -118,6 +150,7 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 				},
 			},
 			expectedCacheHeader: cachemdw.CachePartialHeaderValue,
+			expectedNumMetrics:  1,
 		},
 		{
 			name: "empty & non-empty requests, cache miss",
@@ -131,16 +164,42 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 				},
 			},
 			expectedCacheHeader: cachemdw.CacheMissHeaderValue,
+			expectedNumMetrics:  1,
+		},
+		{
+			name:                "big-as-can-be batch, some cache hits",
+			req:                 buildBigBatch(proxyServiceMaxBatchSize, false),
+			expectedCacheHeader: cachemdw.CachePartialHeaderValue,
+			expectedNumMetrics:  proxyServiceMaxBatchSize,
+		},
+		{
+			name:                "big-as-can-be batch, all cache hits",
+			req:                 buildBigBatch(proxyServiceMaxBatchSize, true),
+			expectedCacheHeader: cachemdw.CacheHitHeaderValue,
+			expectedNumMetrics:  proxyServiceMaxBatchSize,
+		},
+		{
+			name:                "too-big batch => responds 413",
+			req:                 buildBigBatch(proxyServiceMaxBatchSize+1, false),
+			expectedCacheHeader: cachemdw.CacheHitHeaderValue,
+			expectedErrStatus:   http.StatusRequestEntityTooLarge,
+			expectedNumMetrics:  0,
 		},
 	}
 
 	for _, tc := range testCases {
+		startTime := time.Now()
 		t.Run(tc.name, func(t *testing.T) {
 			reqInJSON, err := json.Marshal(tc.req)
 			require.NoError(t, err)
 
 			resp, err := http.Post(proxyServiceURL, "application/json", bytes.NewBuffer(reqInJSON))
 			require.NoError(t, err)
+
+			if tc.expectedErrStatus != 0 {
+				require.Equal(t, tc.expectedErrStatus, resp.StatusCode, "unexpected response status")
+				return
+			}
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 
 			body, err := io.ReadAll(resp.Body)
@@ -169,10 +228,22 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 			// verify CORS header
 			require.Equal(t, resp.Header[accessControlAllowOriginHeaderName], []string{"*"})
 
-			// sleep to let the cache catch up :)
-			time.Sleep(10 * time.Microsecond)
+			// wait for all metrics to be created.
+			// scale the timeout by the number of requests made during this test.
+			timeout := time.Duration((len(tc.req))+1) * 100 * time.Millisecond
+			// besides verification, waiting for the metrics ensures future tests don't fail b/c metrics are being processed
+			require.Eventually(t, func() bool {
+				numMetrics := len(findMetricsInWindowForMethods(db, startTime, []string{}))
+				return numMetrics >= tc.expectedNumMetrics
+			}, timeout, time.Millisecond,
+				fmt.Sprintf("failed to find %d metrics in %f seconds from start %s", tc.expectedNumMetrics, timeout.Seconds(), startTime))
 		})
 	}
+
+	// clear all metrics & cache state to make future metrics tests less finicky
+	// (more data increases the read/write to db & redis, and these tests make many db & cache entries)
+	cleanMetricsDb(t, db)
+	cleanUpRedis(t, redisClient)
 }
 
 func TestE2ETest_BatchEvmRequestErrorHandling(t *testing.T) {

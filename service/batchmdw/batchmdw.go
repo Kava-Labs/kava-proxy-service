@@ -17,6 +17,7 @@ type BatchMiddlewareConfig struct {
 
 	ContextKeyDecodedRequestBatch  string
 	ContextKeyDecodedRequestSingle string
+	MaximumBatchSize               int
 }
 
 // CreateBatchProcessingMiddleware handles batch EVM requests
@@ -37,6 +38,12 @@ func CreateBatchProcessingMiddleware(
 			config.ServiceLogger.Error().Msg("BatchProcessingMiddleware expected batch EVM request in context but found none")
 			// if we can't get decoded request then assign it empty structure to avoid panics
 			batchReq = []*decode.EVMRPCRequestEnvelope{}
+		}
+		if len(batchReq) > config.MaximumBatchSize {
+			config.ServiceLogger.Debug().Int("size", len(batchReq)).Int("max allowed", config.MaximumBatchSize).Msg("request batch size too large")
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			w.Write([]byte(fmt.Sprintf("request batch size is too large (%d>%d)", len(batchReq), config.MaximumBatchSize)))
+			return
 		}
 
 		config.ServiceLogger.Trace().Any("batch", batchReq).Msg("[BatchProcessingMiddleware] process EVM batch request")

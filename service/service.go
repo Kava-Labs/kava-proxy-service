@@ -87,6 +87,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 		ServiceLogger:                  serviceLogger,
 		ContextKeyDecodedRequestBatch:  DecodedBatchRequestContextKey,
 		ContextKeyDecodedRequestSingle: DecodedRequestContextKey,
+		MaximumBatchSize:               config.ProxyMaximumBatchSize,
 	}
 	batchProcessingMiddleware := batchmdw.CreateBatchProcessingMiddleware(cacheMiddleware, &batchMdwConfig)
 
