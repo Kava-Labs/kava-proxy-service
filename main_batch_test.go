@@ -229,14 +229,8 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 			require.Equal(t, resp.Header[accessControlAllowOriginHeaderName], []string{"*"})
 
 			// wait for all metrics to be created.
-			// scale the timeout by the number of requests made during this test.
-			timeout := time.Duration((len(tc.req))+1) * 100 * time.Millisecond
 			// besides verification, waiting for the metrics ensures future tests don't fail b/c metrics are being processed
-			require.Eventually(t, func() bool {
-				numMetrics := len(findMetricsInWindowForMethods(db, startTime, []string{}))
-				return numMetrics >= tc.expectedNumMetrics
-			}, timeout, time.Millisecond,
-				fmt.Sprintf("failed to find %d metrics in %f seconds from start %s", tc.expectedNumMetrics, timeout.Seconds(), startTime))
+			waitForMetricsInWindow(t, tc.expectedNumMetrics, db, startTime, []string{})
 		})
 	}
 
