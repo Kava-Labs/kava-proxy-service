@@ -120,7 +120,7 @@ func (bp *BatchProcessor) applyHeaders(h http.Header) {
 }
 
 // SetErrStatus tracks an error status code if any request returns a non-200 response
-func (bp *BatchProcessor) setErrStatus(status int, _ *bytes.Buffer) {
+func (bp *BatchProcessor) setErrStatus(status int, _ http.Header, _ *bytes.Buffer) {
 	bp.mu.Lock()
 	defer bp.mu.Unlock()
 	bp.status = status

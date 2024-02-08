@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-type ErrorHandler = func(status int, rawRes *bytes.Buffer)
+type ErrorHandler = func(status int, headers http.Header, body *bytes.Buffer)
 
 // fakeResponseWriter is a custom implementation of http.ResponseWriter that writes all content
 // to a buffer.
@@ -47,6 +47,6 @@ func (w *fakeResponseWriter) Header() http.Header {
 // it overrides the WriteHeader method to prevent proxied requests from having finalized headers
 func (w *fakeResponseWriter) WriteHeader(status int) {
 	if status != http.StatusOK {
-		w.onErrorHandler(status, w.body)
+		w.onErrorHandler(status, w.header, w.body)
 	}
 }
