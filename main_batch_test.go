@@ -225,8 +225,10 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 			// check expected cache status header
 			require.Equal(t, tc.expectedCacheHeader, resp.Header.Get(cachemdw.CacheHeaderKey))
 
-			// verify CORS header
-			require.Equal(t, resp.Header[accessControlAllowOriginHeaderName], []string{"*"})
+			// verify CORS header (only on cache hits. cache misses return the backend value, if set)
+			if tc.expectedCacheHeader == cachemdw.CacheHitHeaderValue {
+				require.Equal(t, resp.Header[accessControlAllowOriginHeaderName], []string{"*"})
+			}
 
 			// wait for all metrics to be created.
 			// besides verification, waiting for the metrics ensures future tests don't fail b/c metrics are being processed
