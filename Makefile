@@ -76,8 +76,8 @@ up:
 .PHONY: down
 # stop the service and it's dependencies
 down:
-	rm docker/shared/genesis.json
-	rm docker/shared/VALIDATOR_NODE_ID
+	rm docker/shared/genesis.json || echo no shared genesis present
+	rm docker/shared/VALIDATOR_NODE_ID || echo no shared validator node id present
 	docker compose down
 
 .PHONY: restart

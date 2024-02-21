@@ -100,7 +100,7 @@ func createDecodeRequestMiddleware(next http.HandlerFunc, batchProcessingMiddlew
 
 		// skip processing if there is no body content
 		if r.Body == nil {
-			serviceLogger.Trace().Msg("no data in request")
+			serviceLogger.Trace().Msg("no data in request body")
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -118,6 +118,13 @@ func createDecodeRequestMiddleware(next http.HandlerFunc, batchProcessingMiddlew
 
 		// Repopulate the request body for the ultimate consumer of this request
 		r.Body = io.NopCloser(&rawBodyBuffer)
+
+		// skip processing if body is empty
+		if len(rawBody) == 0 {
+			serviceLogger.Trace().Msg("no data in request body")
+			next.ServeHTTP(w, r)
+			return
+		}
 
 		// attempt to decode as single EVM request
 		decodedRequest, err := decode.DecodeEVMRPCRequest(rawBody)
@@ -263,7 +270,7 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 						w.Header().Set(headerName, headerValue)
 					}
 				}
-				// add CORS headers (if not already added)
+				// cached requests should have CORs set, but if they don't, default to configured value.
 				accessControlAllowOriginValue := config.GetAccessControlAllowOriginValue(r.Host)
 				if w.Header().Get("Access-Control-Allow-Origin") == "" && accessControlAllowOriginValue != "" {
 					w.Header().Set("Access-Control-Allow-Origin", accessControlAllowOriginValue)
@@ -281,11 +288,6 @@ func createProxyRequestMiddleware(next http.Handler, config config.Config, servi
 					Msg("cache miss")
 
 				w.Header().Add(cachemdw.CacheHeaderKey, cachemdw.CacheMissHeaderValue)
-				// add CORS headers (if not already added)
-				accessControlAllowOriginValue := config.GetAccessControlAllowOriginValue(r.Host)
-				if w.Header().Get("Access-Control-Allow-Origin") == "" && accessControlAllowOriginValue != "" {
-					w.Header().Set("Access-Control-Allow-Origin", accessControlAllowOriginValue)
-				}
 				proxy.ServeHTTP(lrw, r)
 			}
 

@@ -525,7 +525,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam(t *testing.T) {
 			expectKeysNum(t, redisClient, tc.keysNum)
 			expectedKey := "local-chain:evm-request:eth_getBlockByNumber:sha256:d08b426164eacf6646fb1817403ec0af5d37869a0f32a01ebfab3096fa4999be"
 			containsKey(t, redisClient, expectedKey)
-			require.Equal(t, cacheMissResp.Header[accessControlAllowOriginHeaderName], []string{"*"})
+			// don't check CORs because proxy only force-sets header for cache hits.
 
 			// eth_getBlockByNumber - cache HIT
 			cacheHitResp := mkJsonRpcRequest(t, proxyServiceURL, 1, tc.method, tc.params)

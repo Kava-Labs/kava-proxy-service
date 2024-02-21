@@ -109,7 +109,7 @@ func (bp *BatchProcessor) applyHeaders(h http.Header) {
 		// clear content length, will be set by actual Write to client
 		// must be cleared in order to prevent premature end of client read
 		bp.header.Del("Content-Length")
-		// clear cache hit header, will be set by flush()
+		// clear cache hit header, will be set by RequestAndServe()
 		bp.header.Del(cachemdw.CacheHeaderKey)
 	}
 
