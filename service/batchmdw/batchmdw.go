@@ -68,16 +68,18 @@ func CreateBatchProcessingMiddleware(
 			// build request as if it's the only one being requested.
 			req, err := http.NewRequestWithContext(singleRequestContext, r.Method, r.URL.String(), bytes.NewBuffer(body))
 			if err != nil {
-				panic(fmt.Sprintf("failed build sub-request: %s", err))
+				config.ServiceLogger.Error().Err(err).Any("req", single).Msg("failed to sub-request of batch")
+				continue
 			}
 			req.Host = r.Host
 			req.Header = r.Header
+			req.Close = true
 
 			reqs = append(reqs, req)
 		}
 
 		// process all requests and respond with results in an array
-		batchProcessor := NewBatchProcessor(singleRequestHandler, reqs)
+		batchProcessor := NewBatchProcessor(config.ServiceLogger, singleRequestHandler, reqs)
 		batchProcessor.RequestAndServe(w)
 	}
 }

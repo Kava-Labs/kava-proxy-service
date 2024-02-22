@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/kava-labs/kava-proxy-service/logging"
 	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
 )
 
@@ -13,6 +14,8 @@ import (
 // responses into a single response.
 // It assumes all individual responses are valid json. Each response is then marshaled into an array.
 type BatchProcessor struct {
+	*logging.ServiceLogger
+
 	handler   http.HandlerFunc
 	requests  []*http.Request
 	responses []*bytes.Buffer
@@ -23,14 +26,15 @@ type BatchProcessor struct {
 }
 
 // NewBatchProcessor creates a BatchProcessor for combining the responses of reqs to the handler
-func NewBatchProcessor(handler http.HandlerFunc, reqs []*http.Request) *BatchProcessor {
+func NewBatchProcessor(serviceLogger *logging.ServiceLogger, handler http.HandlerFunc, reqs []*http.Request) *BatchProcessor {
 	return &BatchProcessor{
-		handler:   handler,
-		requests:  reqs,
-		responses: make([]*bytes.Buffer, len(reqs)),
-		header:    nil,
-		status:    http.StatusOK,
-		mu:        sync.Mutex{},
+		ServiceLogger: serviceLogger,
+		handler:       handler,
+		requests:      reqs,
+		responses:     make([]*bytes.Buffer, len(reqs)),
+		header:        nil,
+		status:        http.StatusOK,
+		mu:            sync.Mutex{},
 	}
 }
 
@@ -42,6 +46,15 @@ func (bp *BatchProcessor) RequestAndServe(w http.ResponseWriter) error {
 		wg.Add(1)
 
 		go func(idx int, req *http.Request) {
+			// if a client closes the connection prematurely, it can cause panics from batch sub-requests.
+			// when that happens, log & discard the panic.
+			// https://github.com/golang/go/issues/28239
+			defer func() {
+				if recover() != nil {
+					wg.Done()
+					bp.Error().Int("sub-request index", idx).Msg("sub-request for batch panicked")
+				}
+			}()
 
 			buf := new(bytes.Buffer)
 			frw := newFakeResponseWriter(buf, bp.setErrStatus)

@@ -30,7 +30,7 @@ func (hsp HeightShardingProxies) ProxyForRequest(r *http.Request) (*httputil.Rev
 	_, _, found := hsp.pruningProxies.ProxyForRequest(r)
 	// if the host isn't in the pruning proxies, short circuit fallback to default
 	if !found {
-		hsp.Debug().Msg(fmt.Sprintf("no pruning host backend configured for %s", r.Host))
+		hsp.Trace().Msg(fmt.Sprintf("no pruning host backend configured for %s", r.Host))
 		return hsp.defaultProxies.ProxyForRequest(r)
 	}
 
