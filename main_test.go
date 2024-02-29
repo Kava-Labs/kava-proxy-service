@@ -88,7 +88,8 @@ var (
 // search for any request metrics between startTime and time.Now() for particular request methods
 // if testedmethods is empty, all metrics in timeframe are returned.
 func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
-	endTime := time.Now()
+	// add small buffer into future in case metrics are still being created
+	endTime := time.Now().Add(100 * time.Millisecond)
 
 	var nextCursor int64
 	var proxiedRequestMetrics []database.ProxiedRequestMetric
@@ -151,7 +152,7 @@ func waitForMetricsInWindow(
 
 	// besides verification, waiting for the metrics ensures future tests don't fail b/c metrics are being processed
 	require.Eventually(t, func() bool {
-		metrics = findMetricsInWindowForMethods(db, startTime, []string{})
+		metrics = findMetricsInWindowForMethods(db, startTime, testedmethods)
 		return len(metrics) >= expected
 	}, timeout, time.Millisecond,
 		fmt.Sprintf("failed to find %d metrics in %f seconds from start %s", expected, timeout.Seconds(), startTime))
