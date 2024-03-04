@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newConfig(t *testing.T, defaultHostMap string, pruningHostMap string) config.Config {
+func newConfig(t *testing.T, defaultHostMap string, pruningHostMap string, shardHostMap string) config.Config {
 	parsed, err := config.ParseRawProxyBackendHostURLMap(defaultHostMap)
 	require.NoError(t, err)
 	result := config.Config{
@@ -27,27 +27,39 @@ func newConfig(t *testing.T, defaultHostMap string, pruningHostMap string) confi
 		result.ProxyPruningBackendHostURLMap, err = config.ParseRawProxyBackendHostURLMap(pruningHostMap)
 		require.NoError(t, err)
 	}
+	if shardHostMap != "" {
+		result.EnableShardedRouting = true
+		result.ProxyShardBackendHostURLMapRaw = shardHostMap
+		result.ProxyShardBackendHostURLMap, err = config.ParseRawShardRoutingBackendHostURLMap(shardHostMap)
+		require.NoError(t, err)
+	}
 	return result
 }
 
 func TestUnitTest_NewProxies(t *testing.T) {
 	t.Run("returns a HostProxies when sharding disabled", func(t *testing.T) {
-		config := newConfig(t, dummyConfig.ProxyBackendHostURLMapRaw, "")
+		config := newConfig(t, dummyConfig.ProxyBackendHostURLMapRaw, "", "")
 		proxies := service.NewProxies(config, dummyLogger)
 		require.IsType(t, service.HostProxies{}, proxies)
 	})
 
-	t.Run("returns a PruningOrDefaultProxies when sharding enabled", func(t *testing.T) {
-		config := newConfig(t, dummyConfig.ProxyBackendHostURLMapRaw, dummyConfig.ProxyPruningBackendHostURLMapRaw)
+	t.Run("returns a PruningOrDefaultProxies when height-based routing enabled", func(t *testing.T) {
+		config := newConfig(t, dummyConfig.ProxyBackendHostURLMapRaw, dummyConfig.ProxyPruningBackendHostURLMapRaw, "")
 		proxies := service.NewProxies(config, dummyLogger)
 		require.IsType(t, service.PruningOrDefaultProxies{}, proxies)
+	})
+
+	t.Run("returns a ShardProxies when sharding enabled", func(t *testing.T) {
+		config := newConfig(t, dummyConfig.ProxyBackendHostURLMapRaw, "", dummyConfig.ProxyShardBackendHostURLMapRaw)
+		proxies := service.NewProxies(config, dummyLogger)
+		require.IsType(t, service.ShardProxies{}, proxies)
 	})
 }
 
 func TestUnitTest_HostProxies(t *testing.T) {
 	config := newConfig(t,
 		"magic.kava.io>magicalbackend.kava.io,archive.kava.io>archivenode.kava.io,pruning.kava.io>pruningnode.kava.io",
-		"",
+		"", "",
 	)
 	proxies := service.NewProxies(config, dummyLogger)
 
