@@ -89,8 +89,9 @@ var (
 // search for any request metrics between startTime and time.Now() for particular request methods
 // if testedmethods is empty, all metrics in timeframe are returned.
 func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
+	extension := time.Duration(testExtendMetricWindowMs) * time.Millisecond
 	// add small buffer into future in case metrics are still being created
-	endTime := time.Now().Add(time.Duration(testExtendMetricWindowMs) * time.Millisecond)
+	endTime := time.Now().Add(extension)
 
 	var nextCursor int64
 	var proxiedRequestMetrics []database.ProxiedRequestMetric
@@ -130,6 +131,8 @@ func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Ti
 		}
 	}
 
+	// ensure next window has no overlap with current one
+	time.Sleep(extension)
 	return requestMetricsDuringRequestWindow
 }
 
@@ -422,7 +425,7 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 		{
 			name:        "request for non-latest height -> default",
 			method:      "eth_getBlockByNumber",
-			params:      []interface{}{"0x2", false},
+			params:      []interface{}{"0x15", false}, // block 21 is beyond shards
 			expectRoute: service.ResponseBackendDefault,
 		},
 		{
