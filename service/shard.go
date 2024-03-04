@@ -96,6 +96,10 @@ func shouldRouteToPruning(encodedHeight int64) bool {
 	return blockTagEncodingsRoutedToLatest[encodedHeight]
 }
 
+// ShardProxies handles routing requests for specific heights to backends that contain the height.
+// The height is parsed out of requests that would route to the default backend of the underlying `defaultProxies`
+// If the height is contained by a backend in the host's IntervalURLMap, it is routed to that url.
+// Otherwise, it forwards the request via the wrapped defaultProxies.
 type ShardProxies struct {
 	*logging.ServiceLogger
 
