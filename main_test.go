@@ -55,6 +55,7 @@ var (
 		}
 		return logger
 	}()
+	testExtendMetricWindowMs, _ = strconv.ParseInt(os.Getenv("TEST_EXTEND_METRIC_WINDOW_MS"), 10, 0)
 
 	proxyUnconfiguredUrl = os.Getenv("TEST_UNCONFIGURED_PROXY_URL")
 
@@ -89,7 +90,7 @@ var (
 // if testedmethods is empty, all metrics in timeframe are returned.
 func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
 	// add small buffer into future in case metrics are still being created
-	endTime := time.Now().Add(100 * time.Millisecond)
+	endTime := time.Now().Add(time.Duration(testExtendMetricWindowMs) * time.Millisecond)
 
 	var nextCursor int64
 	var proxiedRequestMetrics []database.ProxiedRequestMetric
