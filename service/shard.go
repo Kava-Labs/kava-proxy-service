@@ -112,7 +112,7 @@ var _ Proxies = ShardProxies{}
 
 // ProxyForRequest implements Proxies.
 func (sp ShardProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy, ProxyMetadata, bool) {
-	// short circuit if not host not in shards map
+	// short circuit if host not in shards map
 	shardsForHost, found := sp.shardsByHost[r.Host]
 	if !found {
 		return sp.defaultProxies.ProxyForRequest(r)
