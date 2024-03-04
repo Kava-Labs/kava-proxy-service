@@ -156,8 +156,8 @@ func TestUnitTest_PruningOrDefaultProxies(t *testing.T) {
 			}
 			require.True(t, found, "expected proxy to be found")
 			require.NotNil(t, proxy)
-			require.Equal(t, metadata.BackendName, tc.expectBackend)
-			require.Equal(t, metadata.BackendRoute.String(), tc.expectRoute)
+			require.Equal(t, tc.expectBackend, metadata.BackendName)
+			require.Equal(t, tc.expectRoute, metadata.BackendRoute.String())
 			requireProxyRoutesToUrl(t, proxy, req, tc.expectRoute)
 		})
 	}
@@ -316,11 +316,44 @@ func TestUnitTest_ShardProxies(t *testing.T) {
 			expectRoute:   shard1Backend,
 		},
 		{
+			name: "end block of shard 1 routes to shard 1",
+			url:  "//archive.kava.io",
+			req: &decode.EVMRPCRequestEnvelope{
+				Method: "eth_getBlockByNumber",
+				Params: []interface{}{"0xA", false}, // block 10
+			},
+			expectFound:   true,
+			expectBackend: service.ResponseBackendShard,
+			expectRoute:   shard1Backend,
+		},
+		{
+			name: "first block of shard 2 routes to shard 2",
+			url:  "//archive.kava.io",
+			req: &decode.EVMRPCRequestEnvelope{
+				Method: "eth_getBlockByNumber",
+				Params: []interface{}{"0xB", false}, // block 11
+			},
+			expectFound:   true,
+			expectBackend: service.ResponseBackendShard,
+			expectRoute:   shard2Backend,
+		},
+		{
 			name: "routes to shard 2 for specific height in shard 2",
 			url:  "//archive.kava.io",
 			req: &decode.EVMRPCRequestEnvelope{
 				Method: "eth_getBlockByNumber",
 				Params: []interface{}{"0xF", false}, // block 15
+			},
+			expectFound:   true,
+			expectBackend: service.ResponseBackendShard,
+			expectRoute:   shard2Backend,
+		},
+		{
+			name: "end block of shard 2 routes to shard 2",
+			url:  "//archive.kava.io",
+			req: &decode.EVMRPCRequestEnvelope{
+				Method: "eth_getBlockByNumber",
+				Params: []interface{}{"0x14", false}, // block 20
 			},
 			expectFound:   true,
 			expectBackend: service.ResponseBackendShard,
@@ -338,8 +371,8 @@ func TestUnitTest_ShardProxies(t *testing.T) {
 			}
 			require.True(t, found, "expected proxy to be found")
 			require.NotNil(t, proxy)
-			require.Equal(t, metadata.BackendName, tc.expectBackend)
-			require.Equal(t, metadata.BackendRoute.String(), tc.expectRoute)
+			require.Equal(t, tc.expectBackend, metadata.BackendName)
+			require.Equal(t, tc.expectRoute, metadata.BackendRoute.String())
 			requireProxyRoutesToUrl(t, proxy, req, tc.expectRoute)
 		})
 	}

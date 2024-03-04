@@ -52,7 +52,7 @@ services:
       - "${KAVA_CONTAINER_EVM_RPC_PORT}"
 
   # shards are in name only. they are standard peer nodes, but will only recieve traffic
-  # for a specific block range. kava-shard-10 receives requests for heights 1-9
+  # for a specific block range. kava-shard-10 receives requests for heights 1-10
   kava-shard-10:
     image: kava/kava:${KAVA_CONTAINER_TAG}
     entrypoint: /docker/shared/kava-entrypoint.sh
@@ -66,7 +66,7 @@ services:
       - "${KAVA_CONTAINER_EVM_RPC_PORT}"
 
   # shards are in name only. they are standard peer nodes, but will only recieve traffic
-  # for a specific block range. kava-shard-20 receives requests for heights 10-19
+  # for a specific block range. kava-shard-20 receives requests for heights 11-20
   kava-shard-20:
     image: kava/kava:${KAVA_CONTAINER_TAG}
     entrypoint: /docker/shared/kava-entrypoint.sh
