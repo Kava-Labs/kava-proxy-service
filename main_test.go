@@ -441,10 +441,10 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 			expectRoute: service.ResponseBackendShard,
 		},
 		{
-			name:        "request for earliest height -> default",
+			name:        "request for earliest height -> 1st shard",
 			method:      "eth_getBlockByNumber",
 			params:      []interface{}{"earliest", false},
-			expectRoute: service.ResponseBackendDefault,
+			expectRoute: service.ResponseBackendShard,
 		},
 		{
 			name:        "request for latest height -> pruning",

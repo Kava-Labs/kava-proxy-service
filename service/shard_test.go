@@ -236,18 +236,6 @@ func TestUnitTest_ShardProxies(t *testing.T) {
 			expectBackend: service.ResponseBackendDefault,
 			expectRoute:   archiveBackend,
 		},
-		{
-			// TODO: should it do this? if shards exist, route to first shard?
-			name: "routes to default for 'earliest' block",
-			url:  "//archive.kava.io",
-			req: &decode.EVMRPCRequestEnvelope{
-				Method: "eth_getBlockByNumber",
-				Params: []interface{}{"earliest", false},
-			},
-			expectFound:   true,
-			expectBackend: service.ResponseBackendDefault,
-			expectRoute:   archiveBackend,
-		},
 
 		// PRUNING ROUTE CASES
 		{
@@ -305,6 +293,17 @@ func TestUnitTest_ShardProxies(t *testing.T) {
 		},
 
 		// SHARD ROUTE CASES
+		{
+			name: "routes to 1st shard for 'earliest' block",
+			url:  "//archive.kava.io",
+			req: &decode.EVMRPCRequestEnvelope{
+				Method: "eth_getBlockByNumber",
+				Params: []interface{}{"earliest", false},
+			},
+			expectFound:   true,
+			expectBackend: service.ResponseBackendShard,
+			expectRoute:   shard1Backend,
+		},
 		{
 			name: "routes to shard 1 for specific height in shard 1",
 			url:  "//archive.kava.io",

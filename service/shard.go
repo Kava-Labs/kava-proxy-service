@@ -129,9 +129,21 @@ func (sp ShardProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy,
 	}
 
 	// parse height from the request
-	height, err := decode.ParseBlockNumberFromParams(decodedReq.Method, decodedReq.Params)
+	parsedHeight, err := decode.ParseBlockNumberFromParams(decodedReq.Method, decodedReq.Params)
 	if err != nil {
 		sp.Error().Msg(fmt.Sprintf("expected but failed to parse block number for %+v: %s", decodedReq, err))
+		return sp.defaultProxies.ProxyForRequest(r)
+	}
+
+	// handle encoded block numbers
+	height := parsedHeight
+	if height == decode.BlockTagToNumberCodec[decode.BlockTagEarliest] {
+		// convert "earliest" to "1" so it routes to first shard
+		height = 1
+	} else if parsedHeight < 1 {
+		// route all other encoded tags to default proxy.
+		// in practice, this is unreachable because they will be handled by the pruning Proxies
+		// if shard routing is enabled without PruningOrDefaultProxies, this handles all special block tags
 		return sp.defaultProxies.ProxyForRequest(r)
 	}
 
