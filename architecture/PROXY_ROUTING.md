@@ -138,7 +138,7 @@ Any request made to a host not in the `PROXY_BACKEND_HOST_URL_MAP` map responds 
 
 ## Sharding
 
-Taking the example one step further, support the backend consists of data shards each containing a set of blocks. Although sharded routing can be configured without pruning vs default cluster routing, this example assumes it is.
+Taking the example one step further, suppose the backend consists of data shards each containing a set of blocks. Although sharded routing can be configured without pruning vs default cluster routing, this example assumes it is.
 
 The above example supports fielding requests to a particular endpoint with pruning & archive clusters:
 * request for tip-of-chain -> pruning cluster
