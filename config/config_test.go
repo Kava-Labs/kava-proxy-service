@@ -79,6 +79,12 @@ func TestUnitTestParseRawShardRoutingBackendHostURLMap(t *testing.T) {
 
 	_, err = config.ParseRawShardRoutingBackendHostURLMap("invalid-backend-host>100|")
 	require.ErrorContains(t, err, "invalid shard backend route () for height 100 of host invalid-backend-host")
+
+	_, err = config.ParseRawShardRoutingBackendHostURLMap("unsorted-shards>100|backend-100|50|backend-50")
+	require.ErrorContains(t, err, "shard map expects end blocks to be ordered")
+
+	_, err = config.ParseRawShardRoutingBackendHostURLMap("multiple-shards-for-same-height>10|magic|20|dino|20|dinosaur")
+	require.ErrorContains(t, err, "multiple shards defined for multiple-shards-for-same-height with end block 20")
 }
 
 func setDefaultEnv() {

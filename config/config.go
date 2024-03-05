@@ -245,12 +245,26 @@ func ParseRawShardRoutingBackendHostURLMap(raw string) (map[string]IntervalURLMa
 			)
 		}
 
+		prevMaxHeight := uint64(0)
 		backendByEndHeight := make(map[uint64]*url.URL, len(endpointBackendValues)/2)
 		for i := 0; i < len(endpointBackendValues); i += 2 {
 			endHeight, err := strconv.ParseUint(endpointBackendValues[i], 10, 64)
 			if err != nil || endHeight == 0 {
 				return parsed, fmt.Errorf("invalid shard end height (%s) for host %s: %s",
 					endpointBackendValues[i], host, err,
+				)
+			}
+			// ensure this is the only shard defined with this endBlock for this host
+			if _, exists := backendByEndHeight[endHeight]; exists {
+				return parsed, fmt.Errorf("multiple shards defined for %s with end block %d", host, endHeight)
+			}
+			// require height definitions to be ordered
+			// this is enforced because the shards are expected to cover the entire range
+			// from the previous shard's endBlock to the current shard's endBlock
+			if endHeight < prevMaxHeight {
+				return parsed, fmt.Errorf(
+					"shard map expects end blocks to be ordered. for host %s, shard for height %d found after shard for height %d",
+					host, endHeight, prevMaxHeight,
 				)
 			}
 
@@ -261,6 +275,7 @@ func ParseRawShardRoutingBackendHostURLMap(raw string) (map[string]IntervalURLMa
 				)
 			}
 			backendByEndHeight[endHeight] = backendRoute
+			prevMaxHeight = endHeight
 		}
 
 		parsed[host] = NewIntervalURLMap(backendByEndHeight)
