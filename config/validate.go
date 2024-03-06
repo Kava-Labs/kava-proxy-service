@@ -44,6 +44,10 @@ func Validate(config Config) error {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyPruningBackendHostURLMapRaw), err)
 	}
 
+	if err = validateShardRoutingBackendHostURLMap(config.ProxyShardBackendHostURLMapRaw); err != nil {
+		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s", PROXY_SHARD_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY, config.ProxyShardBackendHostURLMapRaw), err)
+	}
+
 	if err = validateDefaultHostMapContainsHosts(
 		PROXY_PRUNING_BACKEND_HOST_URL_MAP_ENVIRONMENT_KEY,
 		config.ProxyBackendHostURLMapParsed,
@@ -119,6 +123,12 @@ func validateHostnameToHeaderValueMap(raw string, allowEmpty bool) error {
 	if allowEmpty && errors.Is(err, ErrEmptyHostnameToHeaderValueMap) {
 		err = nil
 	}
+	return err
+}
+
+// validateShardRoutingBackendHostURLMap validates the host-backend url map for shard-based routing
+func validateShardRoutingBackendHostURLMap(raw string) error {
+	_, err := ParseRawShardRoutingBackendHostURLMap(raw)
 	return err
 }
 

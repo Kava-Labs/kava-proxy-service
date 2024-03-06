@@ -1,8 +1,9 @@
 package config_test
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/stretchr/testify/assert"
@@ -78,6 +79,15 @@ func TestUnitTestValidateConfigReturnsErrorIfInvalidProxyBackendHostURLComponent
 func TestUnitTestValidateConfigReturnsErrorIfInvalidProxyPruningBackendHostURLComponents(t *testing.T) {
 	testConfig := defaultConfig
 	testConfig.ProxyPruningBackendHostURLMapRaw = "localhost:7777,localhost:7778>http://kava:8545$^,localhost:7777>http://kava:8545"
+
+	err := config.Validate(testConfig)
+
+	assert.NotNil(t, err)
+}
+
+func TestUnitTestValidateConfigReturnsErrorIfInvaidShardRoutingBackendURLMap(t *testing.T) {
+	testConfig := defaultConfig
+	testConfig.ProxyShardBackendHostURLMapRaw = "my-misconfigured-backend>10|backend-10|20|backend-20|20|uh-oh-20-again"
 
 	err := config.Validate(testConfig)
 

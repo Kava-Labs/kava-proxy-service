@@ -15,6 +15,7 @@ var (
 	testDefaultContext           = context.TODO()
 	proxyServiceDefaultURLMapRaw = os.Getenv("TEST_PROXY_BACKEND_HOST_URL_MAP")
 	proxyServicePruningURLMapRaw = os.Getenv("TEST_PROXY_PRUNING_BACKEND_HOST_URL_MAP")
+	proxyServiceShardURLMapRaw   = os.Getenv("TEST_PROXY_SHARD_BACKEND_HOST_URL_MAP")
 	databaseName                 = os.Getenv("DATABASE_NAME")
 	databaseUsername             = os.Getenv("DATABASE_USERNAME")
 	databasePassword             = os.Getenv("DATABASE_PASSWORD")
@@ -23,12 +24,15 @@ var (
 	evmQueryServiceURL           = os.Getenv("TEST_EVM_QUERY_SERVICE_URL")
 
 	dummyConfig = func() config.Config {
-
 		proxyBackendHostURLMapParsed, err := config.ParseRawProxyBackendHostURLMap(proxyServiceDefaultURLMapRaw)
 		if err != nil {
 			panic(err)
 		}
 		proxyPruningBackendHostURLMapParsed, err := config.ParseRawProxyBackendHostURLMap(proxyServicePruningURLMapRaw)
+		if err != nil {
+			panic(err)
+		}
+		proxyShardBackendHostURLMapParsed, err := config.ParseRawShardRoutingBackendHostURLMap(proxyServiceShardURLMapRaw)
 		if err != nil {
 			panic(err)
 		}
@@ -38,6 +42,8 @@ var (
 			ProxyBackendHostURLMapParsed:     proxyBackendHostURLMapParsed,
 			ProxyPruningBackendHostURLMapRaw: proxyServicePruningURLMapRaw,
 			ProxyPruningBackendHostURLMap:    proxyPruningBackendHostURLMapParsed,
+			ProxyShardBackendHostURLMapRaw:   proxyServiceShardURLMapRaw,
+			ProxyShardBackendHostURLMap:      proxyShardBackendHostURLMapParsed,
 
 			DatabaseName:        databaseName,
 			DatabaseUserName:    databaseUsername,

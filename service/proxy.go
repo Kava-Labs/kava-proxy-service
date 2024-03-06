@@ -14,6 +14,7 @@ import (
 const (
 	ResponseBackendDefault = "DEFAULT"
 	ResponseBackendPruning = "PRUNING"
+	ResponseBackendShard   = "SHARD"
 )
 
 // Proxies is an interface for getting a reverse proxy for a given request.
@@ -29,18 +30,30 @@ type ProxyMetadata struct {
 	BackendName string
 	// url of the backend used
 	BackendRoute url.URL
+	// height interval endpoint of shard.
+	// only defined if BackendName is "SHARD"
+	ShardEndHeight uint64
 }
 
 // NewProxies creates a Proxies instance based on the service configuration:
 // - for non-sharding configuration, it returns a HostProxies
-// - for sharding configurations, it returns a HeightShardingProxies
+// - for height-based-routing configurations, it returns a PruningOrDefaultProxies
 func NewProxies(config config.Config, serviceLogger *logging.ServiceLogger) Proxies {
+	var proxies Proxies
+	// configure proxies for default &/or pruning cluster routing
 	if config.EnableHeightBasedRouting {
-		serviceLogger.Debug().Msg("configuring reverse proxies based on host AND height")
-		return newHeightShardingProxies(config, serviceLogger)
+		serviceLogger.Debug().Msg("configuring reverse proxies based on host AND height (pruning or default)")
+		proxies = newPruningOrDefaultProxies(config, serviceLogger)
+	} else {
+		serviceLogger.Debug().Msg("configuring reverse proxies based solely on request host")
+		proxies = newHostProxies(ResponseBackendDefault, config.ProxyBackendHostURLMapParsed, serviceLogger)
 	}
-	serviceLogger.Debug().Msg("configuring reverse proxies based solely on request host")
-	return newHostProxies(ResponseBackendDefault, config.ProxyBackendHostURLMapParsed, serviceLogger)
+
+	// wrap the baseline proxies with shard info if enabled
+	if config.EnableShardedRouting {
+		return newShardProxies(config.ProxyShardBackendHostURLMap, proxies, serviceLogger)
+	}
+	return proxies
 }
 
 // HostProxies chooses a proxy based solely on the Host of the incoming request,

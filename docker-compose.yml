@@ -51,6 +51,34 @@ services:
       - "${KAVA_CONTAINER_COSMOS_RPC_PORT}"
       - "${KAVA_CONTAINER_EVM_RPC_PORT}"
 
+  # shards are in name only. they are standard peer nodes, but will only recieve traffic
+  # for a specific block range. kava-shard-10 receives requests for heights 1-10
+  kava-shard-10:
+    image: kava/kava:${KAVA_CONTAINER_TAG}
+    entrypoint: /docker/shared/kava-entrypoint.sh
+    env_file: .env
+    volumes:
+      - ./docker/shared:/docker/shared
+    # expose ports for other services to be able to connect to within
+    # the default docker-compose network
+    expose:
+      - "${KAVA_CONTAINER_COSMOS_RPC_PORT}"
+      - "${KAVA_CONTAINER_EVM_RPC_PORT}"
+
+  # shards are in name only. they are standard peer nodes, but will only recieve traffic
+  # for a specific block range. kava-shard-20 receives requests for heights 11-20
+  kava-shard-20:
+    image: kava/kava:${KAVA_CONTAINER_TAG}
+    entrypoint: /docker/shared/kava-entrypoint.sh
+    env_file: .env
+    volumes:
+      - ./docker/shared:/docker/shared
+    # expose ports for other services to be able to connect to within
+    # the default docker-compose network
+    expose:
+      - "${KAVA_CONTAINER_COSMOS_RPC_PORT}"
+      - "${KAVA_CONTAINER_EVM_RPC_PORT}"
+
   # run proxy service to observe, route, and scale requests to kava api endpoints
   proxy:
     build:
