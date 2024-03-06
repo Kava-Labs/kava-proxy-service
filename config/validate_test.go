@@ -92,6 +92,11 @@ func TestUnitTestValidateConfigReturnsErrorIfInvaidShardRoutingBackendURLMap(t *
 	err := config.Validate(testConfig)
 
 	assert.NotNil(t, err)
+
+	// allow empty
+	testConfig.ProxyShardBackendHostURLMapRaw = ""
+	err = config.Validate(testConfig)
+	assert.NoError(t, err)
 }
 
 func TestUnitTestValidateConfigReturnsErrorIfInvalidProxyServicePort(t *testing.T) {

@@ -230,6 +230,10 @@ func ParseRawProxyBackendHostURLMap(raw string) (map[string]url.URL, error) {
 // returning the mapping and error (if any)
 func ParseRawShardRoutingBackendHostURLMap(raw string) (map[string]IntervalURLMap, error) {
 	parsed := make(map[string]IntervalURLMap)
+	// allow empty shard map (enabled but unused)
+	if raw == "" {
+		return parsed, nil
+	}
 	hostConfigs := strings.Split(raw, ",")
 	for _, hc := range hostConfigs {
 		pieces := strings.Split(hc, ">")
