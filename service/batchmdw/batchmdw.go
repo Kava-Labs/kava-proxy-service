@@ -83,3 +83,10 @@ func CreateBatchProcessingMiddleware(
 		batchProcessor.RequestAndServe(w)
 	}
 }
+
+// IsBatchContext returns true when the passed in context is for a batch EVM request
+func IsBatchContext(ctx context.Context, decodedBatchContextKey string) bool {
+	batch := ctx.Value(decodedBatchContextKey)
+	batchReq, ok := (batch).([]*decode.EVMRPCRequestEnvelope)
+	return ok && len(batchReq) > 0
+}

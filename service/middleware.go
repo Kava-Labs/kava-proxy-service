@@ -15,6 +15,7 @@ import (
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
+	"github.com/kava-labs/kava-proxy-service/service/batchmdw"
 	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
 )
 
@@ -486,6 +487,8 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 			blockNumber = &rawBlockNumber
 		}
 
+		partOfBatch := batchmdw.IsBatchContext(r.Context(), DecodedBatchRequestContextKey)
+
 		isCached := cachemdw.IsRequestCached(r.Context())
 
 		// create a metric for the request
@@ -502,6 +505,7 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 			ResponseBackend:             proxyMetadata.BackendName,
 			ResponseBackendRoute:        proxyMetadata.BackendRoute.String(),
 			CacheHit:                    isCached,
+			PartOfBatch:                 partOfBatch,
 		}
 
 		// save metric to database async

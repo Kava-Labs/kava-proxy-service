@@ -30,6 +30,7 @@ type ProxiedRequestMetric struct {
 	ResponseBackend             string
 	ResponseBackendRoute        string
 	CacheHit                    bool
+	PartOfBatch                 bool
 }
 
 // Save saves the current ProxiedRequestMetric to
