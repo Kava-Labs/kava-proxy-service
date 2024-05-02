@@ -333,15 +333,24 @@ func ParseBlockNumberFromParams(methodName string, params []interface{}) (int64,
 	}
 
 	blockNumber, exists := BlockTagToNumberCodec[tag]
-
-	if !exists {
-		spaceint, valid := cosmosmath.NewIntFromString(tag)
-		if !valid {
-			return 0, fmt.Errorf(fmt.Sprintf("unable to parse tag %s to integer", tag))
-		}
-
-		blockNumber = spaceint.Int64()
+	if exists {
+		return blockNumber, nil
 	}
 
-	return blockNumber, nil
+	return blockParamToInt64(tag)
+}
+
+// blockParamToInt64 converts a 0x prefixed base 16 or no-prefixed base 10 string to int64
+// and returns an error if value is unable to be converted or out of bounds
+func blockParamToInt64(blockParam string) (int64, error) {
+	result, valid := cosmosmath.NewIntFromString(blockParam)
+	if !valid {
+		return 0, fmt.Errorf("unable to parse tag %s to integer", blockParam)
+	}
+
+	if !result.IsInt64() {
+		return 0, fmt.Errorf("value %s out of range", blockParam)
+	}
+
+	return result.Int64(), nil
 }
