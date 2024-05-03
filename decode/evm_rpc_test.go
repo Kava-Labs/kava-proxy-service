@@ -242,6 +242,28 @@ func TestUnitTest_ParseBlockNumberFromParams(t *testing.T) {
 			expectedBlockNumber: 0,
 			expectedErr:         "error decoding block number param from params",
 		},
+		{
+			name: "errors on base10 int64 overflow",
+			req: EVMRPCRequestEnvelope{
+				Method: "eth_getBlockByNumber",
+				Params: []interface{}{
+					"9223372036854775808", false,
+				},
+			},
+			expectedBlockNumber: 0,
+			expectedErr:         "out of range",
+		},
+		{
+			name: "errors on base16 int64 overflow",
+			req: EVMRPCRequestEnvelope{
+				Method: "eth_getBlockByNumber",
+				Params: []interface{}{
+					"0x8000000000000000", false,
+				},
+			},
+			expectedBlockNumber: 0,
+			expectedErr:         "out of range",
+		},
 	}
 
 	for _, tc := range testCases {
