@@ -135,7 +135,9 @@ func (sp ShardProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy,
 	// parse height from the request
 	parsedHeight, err := decode.ParseBlockNumberFromParams(decodedReq.Method, decodedReq.Params)
 	if err != nil {
-		sp.Error().Msg(fmt.Sprintf("expected but failed to parse block number for %+v: %s", decodedReq, err))
+		if err != decode.ErrUncachaebleByBlockNumberEthRequest {
+			sp.Error().Msg(fmt.Sprintf("expected but failed to parse block number for %+v: %s", decodedReq, err))
+		}
 		return sp.defaultProxies.ProxyForRequest(r)
 	}
 
