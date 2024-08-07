@@ -52,7 +52,9 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 
 	// create an http router for registering handlers for a given route
 	mux := http.NewServeMux()
-	registerPprofHandlers(config, mux)
+	if config.EnablePprof {
+		registerPprofHandlers(config, mux)
+	}
 
 	// AfterProxyFinalizer will run after the proxy middleware handler and is
 	// the final function called after all other middleware

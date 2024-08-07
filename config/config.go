@@ -62,6 +62,7 @@ type Config struct {
 	HostnameToAccessControlAllowOriginValueMap    map[string]string
 	PprofUsername                                 string
 	PprofPassword                                 string
+	EnablePprof                                   bool
 }
 
 const (
@@ -132,6 +133,7 @@ const (
 	HOSTNAME_TO_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_MAP_ENVIRONMENT_KEY = "HOSTNAME_TO_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_MAP"
 	PPROF_USERNAME_ENVIRONMENT_KEY                                    = "PPROF_USERNAME"
 	PPROF_PASSWORD_ENVIRONMENT_KEY                                    = "PPROF_PASSWORD"
+	ENABLE_PPROF_ENVIRONMENT_KEY                                      = "ENABLE_PPROF"
 )
 
 var (
@@ -398,6 +400,7 @@ func ReadConfig() Config {
 		HostnameToAccessControlAllowOriginValueMap:    parsedHostnameToAccessControlAllowOriginValueMap,
 		PprofUsername:                                 os.Getenv(PPROF_USERNAME_ENVIRONMENT_KEY),
 		PprofPassword:                                 os.Getenv(PPROF_PASSWORD_ENVIRONMENT_KEY),
+		EnablePprof:                                   EnvOrDefaultBool(ENABLE_PPROF_ENVIRONMENT_KEY, false),
 	}
 }
 
