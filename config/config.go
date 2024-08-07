@@ -60,6 +60,8 @@ type Config struct {
 	DefaultAccessControlAllowOriginValue          string
 	HostnameToAccessControlAllowOriginValueMapRaw string
 	HostnameToAccessControlAllowOriginValueMap    map[string]string
+	PprofUsername                                 string
+	PprofPassword                                 string
 }
 
 const (
@@ -128,6 +130,8 @@ const (
 	WHITELISTED_HEADERS_ENVIRONMENT_KEY                               = "WHITELISTED_HEADERS"
 	DEFAULT_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_ENVIRONMENT_KEY         = "DEFAULT_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE"
 	HOSTNAME_TO_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_MAP_ENVIRONMENT_KEY = "HOSTNAME_TO_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_MAP"
+	PPROF_USERNAME_ENVIRONMENT_KEY                                    = "PPROF_USERNAME"
+	PPROF_PASSWORD_ENVIRONMENT_KEY                                    = "PPROF_PASSWORD"
 )
 
 var (
@@ -392,6 +396,8 @@ func ReadConfig() Config {
 		DefaultAccessControlAllowOriginValue:          os.Getenv(DEFAULT_ACCESS_CONTROL_ALLOW_ORIGIN_VALUE_ENVIRONMENT_KEY),
 		HostnameToAccessControlAllowOriginValueMapRaw: rawHostnameToAccessControlAllowOriginValueMap,
 		HostnameToAccessControlAllowOriginValueMap:    parsedHostnameToAccessControlAllowOriginValueMap,
+		PprofUsername:                                 os.Getenv(PPROF_USERNAME_ENVIRONMENT_KEY),
+		PprofPassword:                                 os.Getenv(PPROF_PASSWORD_ENVIRONMENT_KEY),
 	}
 }
 

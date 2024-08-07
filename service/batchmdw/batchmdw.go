@@ -80,7 +80,9 @@ func CreateBatchProcessingMiddleware(
 
 		// process all requests and respond with results in an array
 		batchProcessor := NewBatchProcessor(config.ServiceLogger, singleRequestHandler, reqs)
-		batchProcessor.RequestAndServe(w)
+		if err := batchProcessor.RequestAndServe(w); err != nil {
+			config.ServiceLogger.Error().Err(err).Msg("Error processing batch")
+		}
 	}
 }
 

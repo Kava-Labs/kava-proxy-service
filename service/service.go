@@ -6,10 +6,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-
 	"github.com/kava-labs/kava-proxy-service/clients/cache"
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/clients/database/migrations"
@@ -52,6 +52,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 
 	// create an http router for registering handlers for a given route
 	mux := http.NewServeMux()
+	registerPprofHandlers(config, mux)
 
 	// AfterProxyFinalizer will run after the proxy middleware handler and is
 	// the final function called after all other middleware
@@ -134,6 +135,71 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 	}
 
 	return service, nil
+}
+
+// Register pprof handlers with authentication middleware
+func registerPprofHandlers(config config.Config, mux *http.ServeMux) {
+	pprofHandlers := map[string]http.HandlerFunc{
+		// Provides a web interface for various pprof profiling tools
+		// It serves as a convenient starting point to access all profiling data in one place.
+		// http://localhost:7777/debug/pprof/
+		"/debug/pprof/": pprof.Index,
+		// Shows the command-line invocation of the running program.
+		// Helps understand how the program was started, which can be useful for reproducing issues and
+		// understanding runtime configurations.
+		// http://localhost:7777/debug/pprof/cmdline
+		"/debug/pprof/cmdline": pprof.Cmdline,
+		// Generates a CPU profile
+		// Allows developers to analyze CPU usage, identify bottlenecks, and optimize performance.
+		// curl http://localhost:7777/debug/pprof/profile?seconds=30 > cpu_profile.prof
+		// go tool pprof -http :8081 cpu_profile.prof
+		"/debug/pprof/profile": pprof.Profile,
+		// Provides a text-based symbol lookup service for profiling data.
+		// Helps map program counters (addresses in the code) to function names, which is crucial for interpreting profiling data.
+		// http://localhost:7777/debug/pprof/symbol
+		"/debug/pprof/symbol": pprof.Symbol,
+		// Provides a trace of the execution of the program, which includes information about goroutine activity and blocking.
+		// Useful for detailed execution analysis, understanding how goroutines are scheduled, and diagnosing concurrency issues.
+		// curl http://localhost:7777/debug/pprof/trace?seconds=30 > trace_profile.trace
+		// go tool trace trace_profile.trace
+		"/debug/pprof/trace": pprof.Trace,
+		// Generates a heap profile that shows memory allocation details.
+		// Helps identify memory usage patterns, detect memory leaks, and optimize memory usage. Use go tool pprof to analyze the heap profile.
+		// curl http://localhost:7777/debug/pprof/heap?seconds=30 > heap_profile.prof
+		// go tool pprof -http :8081 heap_profile.prof
+		"/debug/pprof/heap": pprof.Handler("heap").ServeHTTP,
+		// Shows goroutine stack traces.
+		// curl http://localhost:7777/debug/pprof/goroutine?seconds=30 > goroutine_profile.prof
+		// Useful for diagnosing deadlocks, understanding goroutine states, and analyzing concurrent execution.
+		// go tool pprof -http :8081 goroutine_profile.prof
+		"/debug/pprof/goroutine": pprof.Handler("goroutine").ServeHTTP,
+		// Shows stack traces of created threads.
+		// curl http://localhost:7777/debug/pprof/threadcreate?seconds=30 > threadcreate_profile.prof
+		// Helps diagnose issues related to thread creation and understand the threading behavior of the program.
+		// go tool pprof -http :8081 threadcreate_profile.prof
+		"/debug/pprof/threadcreate": pprof.Handler("threadcreate").ServeHTTP,
+		// Shows stack traces of goroutines that are blocked on synchronization primitives.
+		// Useful for diagnosing blocking issues, such as deadlocks or contention on mutexes and other synchronization primitives.
+		// curl http://localhost:7777/debug/pprof/block?seconds=30 > block_profile.prof
+		// go tool pprof -http :8081 block_profile.prof
+		"/debug/pprof/block": pprof.Handler("block").ServeHTTP,
+	}
+
+	for path, handler := range pprofHandlers {
+		mux.Handle(path, authMiddleware(config, handler))
+	}
+}
+
+func authMiddleware(config config.Config, next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok || user != config.PprofUsername || pass != config.PprofPassword {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
 }
 
 // createDatabaseClient creates a connection to the database

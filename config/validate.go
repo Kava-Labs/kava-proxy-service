@@ -70,6 +70,10 @@ func Validate(config Config) error {
 		allErrs = errors.Join(allErrs, fmt.Errorf("invalid %s specified %s, must not be empty", REDIS_ENDPOINT_URL_ENVIRONMENT_KEY, config.RedisEndpointURL))
 	}
 
+	if config.PprofUsername == "" || config.PprofPassword == "" {
+		allErrs = errors.Join(allErrs, fmt.Errorf("pprof username %s or password %s, must not be empty", PPROF_USERNAME_ENVIRONMENT_KEY, PPROF_PASSWORD_ENVIRONMENT_KEY))
+	}
+
 	if err := checkTTLConfig(config.CacheMethodHasBlockNumberParamTTL, CACHE_METHOD_HAS_BLOCK_NUMBER_PARAM_TTL_ENVIRONMENT_KEY); err != nil {
 		allErrs = errors.Join(allErrs, err)
 	}
