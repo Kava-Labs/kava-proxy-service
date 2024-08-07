@@ -101,11 +101,15 @@ func IsCacheable(
 					Msg("can't marshal EVM request params into json")
 			}
 
-			logger.Logger.Error().
-				Str("method", req.Method).
-				Str("params", string(paramsInJSON)).
-				Err(err).
-				Msg("can't parse block number from params")
+			// as of now proxy-service doesn't fully support all use-cases of eth_call - so we don't want to log error
+			// for actually valid requests
+			if req.Method != "eth_call" {
+				logger.Logger.Error().
+					Str("method", req.Method).
+					Str("params", string(paramsInJSON)).
+					Err(err).
+					Msg("can't parse block number from params")
+			}
 			return false
 		}
 

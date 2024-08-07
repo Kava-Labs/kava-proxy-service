@@ -58,7 +58,11 @@ func (hsp PruningOrDefaultProxies) ProxyForRequest(r *http.Request) (*httputil.R
 	// parse height from the request
 	height, err := decode.ParseBlockNumberFromParams(decodedReq.Method, decodedReq.Params)
 	if err != nil {
-		hsp.Error().Msg(fmt.Sprintf("expected but failed to parse block number for %+v: %s", decodedReq, err))
+		// as of now proxy-service doesn't fully support all use-cases of eth_call - so we don't want to log error
+		// for actually valid requests
+		if decodedReq.Method != "eth_call" {
+			hsp.Error().Msg(fmt.Sprintf("expected but failed to parse block number for %+v: %s", decodedReq, err))
+		}
 		return hsp.defaultProxies.ProxyForRequest(r)
 	}
 
@@ -135,7 +139,10 @@ func (sp ShardProxies) ProxyForRequest(r *http.Request) (*httputil.ReverseProxy,
 	// parse height from the request
 	parsedHeight, err := decode.ParseBlockNumberFromParams(decodedReq.Method, decodedReq.Params)
 	if err != nil {
-		if err != decode.ErrUncachaebleByBlockNumberEthRequest {
+		// as of now proxy-service doesn't fully support all use-cases of eth_call - so we don't want to log error
+		// for actually valid requests
+		// also we don't want to spam with log errors if request is uncacheable
+		if decodedReq.Method != "eth_call" && err != decode.ErrUncachaebleByBlockNumberEthRequest {
 			sp.Error().Msg(fmt.Sprintf("expected but failed to parse block number for %+v: %s", decodedReq, err))
 		}
 		return sp.defaultProxies.ProxyForRequest(r)
