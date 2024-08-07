@@ -246,6 +246,72 @@ make debug-database
 make debug-cache
 ```
 
+### Profiling
+
+Profiling endpoints have been added to our service to help with performance monitoring and debugging. These endpoints allow developers to analyze various aspects of the application's runtime behavior.
+
+#### Environment Variables:
+* To enable the profiling endpoints, the following environment variables need to be set:
+
+  * `ENABLE_PPROF` (default: false): Set to true to enable the pprof endpoints.
+  * `PPROF_USERNAME`: The username for basic authentication.
+  * `PPROF_PASSWORD`: The password for basic authentication.
+  
+#### Endpoints
+The profiling endpoints are available under the /debug/pprof/ path. Below is a list of the available endpoints and their usage:
+
+* `/debug/pprof/`: Provides a web interface for various pprof profiling tools.
+  * URL: http://localhost:7777/debug/pprof/
+* `/debug/pprof/cmdline`: Shows the command-line invocation of the running program.
+  * URL: http://localhost:7777/debug/pprof/cmdline
+* `/debug/pprof/profile`: Generates a CPU profile.
+  * URL: http://localhost:7777/debug/pprof/profile
+    * Example Command:
+        ```shell
+        curl http://localhost:7777/debug/pprof/profile?seconds=30 > cpu_profile.prof
+        go tool pprof -http :8081 cpu_profile.prof
+        ```
+* `/debug/pprof/symbol`: Provides a text-based symbol lookup service for profiling data.
+  * URL: http://localhost:7777/debug/pprof/symbol
+* `/debug/pprof/trace`: Provides a trace of the execution of the program.
+  * URL: http://localhost:7777/debug/pprof/trace
+    * Example Command:
+        ```shell
+        curl http://localhost:7777/debug/pprof/trace?seconds=30 > trace_profile.trace
+        go tool trace trace_profile.trace
+        ```
+* `/debug/pprof/heap`: Generates a heap profile that shows memory allocation details.
+  * URL: http://localhost:7777/debug/pprof/heap
+    * Example Command:
+        ```shell
+        curl http://localhost:7777/debug/pprof/heap?seconds=30 > heap_profile.prof
+        go tool pprof -http :8081 heap_profile.prof
+        ```
+* `/debug/pprof/goroutine`: Shows goroutine stack traces.
+  * URL: http://localhost:7777/debug/pprof/goroutine
+    * Example Command:
+        ```shell
+        curl http://localhost:7777/debug/pprof/goroutine?seconds=30 > goroutine_profile.prof
+        go tool pprof -http :8081 goroutine_profile.prof
+        ```
+
+* `/debug/pprof/threadcreate`: Shows stack traces of created threads.
+  * URL: http://localhost:7777/debug/pprof/threadcreate
+    * Example Command:
+      ```shell
+      curl http://localhost:7777/debug/pprof/threadcreate?seconds=30 > threadcreate_profile.prof
+      go tool pprof -http :8081 threadcreate_profile.prof
+      ```
+
+* `/debug/pprof/block`: Shows stack traces of goroutines that are blocked on synchronization primitives.
+  * URL: http://localhost:7777/debug/pprof/block
+    * Example Command:
+        ```shell
+        curl http://localhost:7777/debug/pprof/block?seconds=30 > block_profile.prof
+        go tool pprof -http :8081 block_profile.prof
+        ```
+
+
 ## Publishing
 
 Automatic publishing and deploying of new versions of the proxy service for Kava Labs operated infrastructure follows [this process](https://kava-labs.atlassian.net/wiki/spaces/ENG/pages/1235320861/Deploying+New+Versions+of+the+Proxy+Service)
