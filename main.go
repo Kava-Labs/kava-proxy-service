@@ -37,11 +37,11 @@ func init() {
 }
 
 func startMetricPartitioningRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
-	if !serviceConfig.MetricOperationsEnabled {
-		serviceLogger.Info().Msg("skipping starting metric partitioning routine since it is disabled via config")
-
-		return nil
-	}
+	//if !serviceConfig.MetricOperationsEnabled {
+	//	serviceLogger.Info().Msg("skipping starting metric partitioning routine since it is disabled via config")
+	//
+	//	return nil
+	//}
 
 	metricPartitioningRoutineConfig := routines.MetricPartitioningRoutineConfig{
 		Interval:          serviceConfig.MetricPartitioningRoutineInterval,
@@ -73,11 +73,11 @@ func startMetricPartitioningRoutine(serviceConfig config.Config, service service
 }
 
 func startMetricCompactionRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
-	if !serviceConfig.MetricOperationsEnabled {
-		serviceLogger.Info().Msg("skipping starting metric compaction routine since it is disabled via config")
-
-		return nil
-	}
+	//if !serviceConfig.MetricOperationsEnabled {
+	//	serviceLogger.Info().Msg("skipping starting metric compaction routine since it is disabled via config")
+	//
+	//	return nil
+	//}
 
 	metricCompactionRoutineConfig := routines.MetricCompactionRoutineConfig{
 		Interval: serviceConfig.MetricCompactionRoutineInterval,
@@ -107,10 +107,11 @@ func startMetricCompactionRoutine(serviceConfig config.Config, service service.P
 }
 
 func startMetricPruningRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
-	if !serviceConfig.MetricPruningEnabled || !serviceConfig.MetricOperationsEnabled {
+	//if !serviceConfig.MetricPruningEnabled || !serviceConfig.MetricOperationsEnabled {
+	if !serviceConfig.MetricPruningEnabled {
 		serviceLogger.Info().Msg("skipping starting metric pruning routine since it is disabled via config")
 
-		return nil
+		return make(<-chan error)
 	}
 
 	metricPruningRoutineConfig := routines.MetricPruningRoutineConfig{
