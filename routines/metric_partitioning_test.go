@@ -2,6 +2,7 @@ package routines
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -40,6 +41,9 @@ func TestE2ETestMetricPartitioningRoutinePrefillsExpectedPartitionsAfterStartupD
 
 	// execute
 	databaseStatus, err := proxyServiceClient.GetDatabaseStatus(testCtx)
+
+	fmt.Println("expected partitions: ", expectedPartitions)
+	fmt.Println("database status: ", databaseStatus)
 
 	// assert
 	assert.Nil(t, err)
