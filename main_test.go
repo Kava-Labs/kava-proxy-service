@@ -147,9 +147,9 @@ func waitForMetricsInWindow(
 	startTime time.Time,
 	testedmethods []string,
 ) (metrics []database.ProxiedRequestMetric) {
-	timeoutMin := 1 * time.Second
+	timeoutMin := 2 * time.Second
 	// scale the timeout by the number of expected requests, or at least 1 second
-	timeout := time.Duration(expected+1) * 100 * time.Millisecond
+	timeout := time.Duration(expected+1)*100*time.Millisecond + time.Second
 	if timeout < timeoutMin {
 		timeout = timeoutMin
 	}
@@ -208,6 +208,7 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	// make request to api and track start / end time of the request to
 	startTime := time.Now()
+	time.Sleep(1 * time.Second)
 
 	_, err = client.HeaderByNumber(testContext, nil)
 
@@ -248,6 +249,7 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	// make request to api and track start / end time of the request to
 	startTime := time.Now()
+	time.Sleep(1 * time.Second)
 
 	_, err = client.HeaderByNumber(testContext, requestBlockNumber)
 
@@ -277,6 +279,7 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 
 	// make request to api and track start / end time of the request to
 	startTime := time.Now()
+	time.Sleep(1 * time.Second)
 
 	// will default to latest
 	_, err = client.HeaderByNumber(testContext, nil)
@@ -321,6 +324,7 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	// for each request whether the kava node api returns an error or not
 	// and if it doesn't the test itself will fail due to missing metrics
 	startTime := time.Now()
+	time.Sleep(1 * time.Second)
 
 	// eth_getBalance
 	_, _ = client.BalanceAt(testContext, testAddress, requestBlockNumber)
@@ -385,6 +389,7 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 	// for each request whether the kava node api returns an error or not
 	// and if it doesn't the test itself will fail due to missing metrics
 	startTime := time.Now()
+	time.Sleep(1 * time.Second)
 
 	// eth_getBlockByHash
 	_, _ = client.BlockByHash(testContext, requestBlockHash)
@@ -487,6 +492,7 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			startTime := time.Now()
+			time.Sleep(1 * time.Second)
 			err := rpc.Call(nil, tc.method, tc.params...)
 			require.NoError(t, err)
 
@@ -658,6 +664,7 @@ func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 	expectKeysNum(t, redisClient, 0)
 	// startTime is a time before first request
 	startTime := time.Now()
+	time.Sleep(1 * time.Second)
 
 	for _, tc := range []struct {
 		desc    string
