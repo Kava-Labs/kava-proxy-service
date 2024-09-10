@@ -11,11 +11,15 @@ jobs:
   # run default ci checks against main branch
   default-checks:
     uses: ./.github/workflows/ci-default.yml
-  # run e2e testing ci checks against main branch
+  # run e2e testing ci for internal testnet checks against main branch
   e2e-tests:
     needs: [lint-checks, default-checks]
     uses: ./.github/workflows/ci-e2e-tests.yml
-  # build, tag and publish new service docker images
+  # run e2e testing locally db ci checks against main branch
+  e2e-local-tests:
+    needs: [lint-checks, default-checks]
+    uses: ./.github/workflows/ci-e2e-local-tests.yml
+  # run e2e testing without metrics db ci checks against main branch
   e2e-no-metrics-tests:
     needs: [lint-checks, default-checks]
     uses: ./.github/workflows/ci-e2e-no-metrics-tests.yml
