@@ -116,12 +116,12 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 					Method:         "eth_getBlockByNumber",
 					Params:         []interface{}{"0x2", false},
 				},
-				//{
-				//	JSONRPCVersion: "2.0",
-				//	ID:             nil,
-				//	Method:         "eth_getBlockByNumber",
-				//	Params:         []interface{}{"0x1", false},
-				//},
+				{
+					JSONRPCVersion: "2.0",
+					ID:             nil,
+					Method:         "eth_getBlockByNumber",
+					Params:         []interface{}{"0x1", false},
+				},
 				{
 					JSONRPCVersion: "2.0",
 					ID:             123456,
@@ -130,66 +130,66 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 				},
 			},
 			expectedCacheHeader: cachemdw.CacheHitHeaderValue,
-			expectedNumMetrics:  2,
+			expectedNumMetrics:  3,
 		},
-		//{
-		//	name:                "empty request",
-		//	req:                 []*decode.EVMRPCRequestEnvelope{nil}, // <-- empty!
-		//	expectedCacheHeader: cachemdw.CacheMissHeaderValue,
-		//	expectedNumMetrics:  0,
-		//},
-		//{
-		//	name: "empty & non-empty requests, partial cache hit",
-		//	req: []*decode.EVMRPCRequestEnvelope{
-		//		nil, // <-- empty!
-		//		{
-		//			JSONRPCVersion: "2.0",
-		//			ID:             "this block is in the cache",
-		//			Method:         "eth_getBlockByNumber",
-		//			Params:         []interface{}{"0x1", false},
-		//		},
-		//	},
-		//	expectedCacheHeader: cachemdw.CachePartialHeaderValue,
-		//	expectedNumMetrics:  1,
-		//},
-		//{
-		//	name: "empty & non-empty requests, cache miss",
-		//	req: []*decode.EVMRPCRequestEnvelope{
-		//		nil, // <-- empty!
-		//		{
-		//			JSONRPCVersion: "2.0",
-		//			ID:             "this block is NOT in the cache",
-		//			Method:         "eth_getBlockByNumber",
-		//			Params:         []interface{}{"0xa", false},
-		//		},
-		//	},
-		//	expectedCacheHeader: cachemdw.CacheMissHeaderValue,
-		//	expectedNumMetrics:  1,
-		//},
-		//{
-		//	name:                "big-as-can-be batch, some cache hits",
-		//	req:                 buildBigBatch(proxyServiceMaxBatchSize, false),
-		//	expectedCacheHeader: cachemdw.CachePartialHeaderValue,
-		//	expectedNumMetrics:  proxyServiceMaxBatchSize,
-		//},
-		//{
-		//	name:                "big-as-can-be batch, all cache hits",
-		//	req:                 buildBigBatch(proxyServiceMaxBatchSize, true),
-		//	expectedCacheHeader: cachemdw.CacheHitHeaderValue,
-		//	expectedNumMetrics:  proxyServiceMaxBatchSize,
-		//},
-		//{
-		//	name:                "too-big batch => responds 413",
-		//	req:                 buildBigBatch(proxyServiceMaxBatchSize+1, false),
-		//	expectedCacheHeader: cachemdw.CacheHitHeaderValue,
-		//	expectedErrStatus:   http.StatusRequestEntityTooLarge,
-		//	expectedNumMetrics:  0,
-		//},
+		{
+			name:                "empty request",
+			req:                 []*decode.EVMRPCRequestEnvelope{nil}, // <-- empty!
+			expectedCacheHeader: cachemdw.CacheMissHeaderValue,
+			expectedNumMetrics:  0,
+		},
+		{
+			name: "empty & non-empty requests, partial cache hit",
+			req: []*decode.EVMRPCRequestEnvelope{
+				nil, // <-- empty!
+				{
+					JSONRPCVersion: "2.0",
+					ID:             "this block is in the cache",
+					Method:         "eth_getBlockByNumber",
+					Params:         []interface{}{"0x1", false},
+				},
+			},
+			expectedCacheHeader: cachemdw.CachePartialHeaderValue,
+			expectedNumMetrics:  1,
+		},
+		{
+			name: "empty & non-empty requests, cache miss",
+			req: []*decode.EVMRPCRequestEnvelope{
+				nil, // <-- empty!
+				{
+					JSONRPCVersion: "2.0",
+					ID:             "this block is NOT in the cache",
+					Method:         "eth_getBlockByNumber",
+					Params:         []interface{}{"0xa", false},
+				},
+			},
+			expectedCacheHeader: cachemdw.CacheMissHeaderValue,
+			expectedNumMetrics:  1,
+		},
+		{
+			name:                "big-as-can-be batch, some cache hits",
+			req:                 buildBigBatch(proxyServiceMaxBatchSize, false),
+			expectedCacheHeader: cachemdw.CachePartialHeaderValue,
+			expectedNumMetrics:  proxyServiceMaxBatchSize,
+		},
+		{
+			name:                "big-as-can-be batch, all cache hits",
+			req:                 buildBigBatch(proxyServiceMaxBatchSize, true),
+			expectedCacheHeader: cachemdw.CacheHitHeaderValue,
+			expectedNumMetrics:  proxyServiceMaxBatchSize,
+		},
+		{
+			name:                "too-big batch => responds 413",
+			req:                 buildBigBatch(proxyServiceMaxBatchSize+1, false),
+			expectedCacheHeader: cachemdw.CacheHitHeaderValue,
+			expectedErrStatus:   http.StatusRequestEntityTooLarge,
+			expectedNumMetrics:  0,
+		},
 	}
 
 	for _, tc := range testCases {
 		startTime := time.Now()
-		time.Sleep(1 * time.Second) // ensure we have enough time to wait for metrics and request them
+		time.Sleep(1 * time.Second) // ensure startTime will be far from metrics starting
 		t.Run(tc.name, func(t *testing.T) {
 			reqInJSON, err := json.Marshal(tc.req)
 			require.NoError(t, err)
