@@ -11,3 +11,5 @@ jobs:
     uses: ./.github/workflows/ci-default.yml
   e2e-tests:
     uses: ./.github/workflows/ci-e2e-tests.yml
+  e2e-no-metrics-tests:
+    uses: ./.github/workflows/ci-e2e-no-metrics-tests.yml
