@@ -16,12 +16,15 @@ import (
 // PostgresDatabaseConfig contains values for creating a
 // new connection to a postgres database
 type PostgresDatabaseConfig struct {
+	// DatabaseDisabled is used to disable the database, and it won't be used at all. All operations will be skipped.
+	DatabaseDisabled bool
+
 	DatabaseName                     string
 	DatabaseEndpointURL              string
 	DatabaseUsername                 string
 	DatabasePassword                 string
 	ReadTimeoutSeconds               int64
-	WriteTimeousSeconds              int64
+	WriteTimeoutsSeconds             int64
 	DatabaseMaxIdleConnections       int64
 	DatabaseConnectionMaxIdleSeconds int64
 	DatabaseMaxOpenConnections       int64
@@ -33,12 +36,19 @@ type PostgresDatabaseConfig struct {
 
 // PostgresClient wraps a connection to a postgres database
 type PostgresClient struct {
+	isDisabled bool
 	*bun.DB
 }
 
 // NewPostgresClient returns a new connection to the specified
 // postgres data and error (if any)
 func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
+	if config.DatabaseDisabled {
+		return PostgresClient{
+			isDisabled: true,
+		}, nil
+	}
+
 	// configure postgres database connection options
 	var pgOptions *pgdriver.Connector
 
@@ -54,7 +64,7 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 				pgdriver.WithPassword(config.DatabasePassword),
 				pgdriver.WithDatabase(config.DatabaseName),
 				pgdriver.WithReadTimeout(time.Second*time.Duration(config.ReadTimeoutSeconds)),
-				pgdriver.WithWriteTimeout(time.Second*time.Duration(config.WriteTimeousSeconds)),
+				pgdriver.WithWriteTimeout(time.Second*time.Duration(config.WriteTimeoutsSeconds)),
 			)
 	} else {
 		pgOptions = pgdriver.NewConnector(
@@ -64,7 +74,7 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 			pgdriver.WithPassword(config.DatabasePassword),
 			pgdriver.WithDatabase(config.DatabaseName),
 			pgdriver.WithReadTimeout(time.Second*time.Duration(config.ReadTimeoutSeconds)),
-			pgdriver.WithWriteTimeout(time.Second*time.Duration(config.WriteTimeousSeconds)),
+			pgdriver.WithWriteTimeout(time.Second*time.Duration(config.WriteTimeoutsSeconds)),
 		)
 	}
 

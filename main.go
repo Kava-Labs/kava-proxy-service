@@ -37,7 +37,7 @@ func init() {
 }
 
 func startMetricPartitioningRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
-	if !serviceConfig.MetricOperationsEnabled {
+	if !serviceConfig.MetricDatabaseEnabled {
 		serviceLogger.Info().Msg("skipping starting metric partitioning routine since it is disabled via config")
 
 		return nil
@@ -73,7 +73,7 @@ func startMetricPartitioningRoutine(serviceConfig config.Config, service service
 }
 
 func startMetricCompactionRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
-	if !serviceConfig.MetricOperationsEnabled {
+	if !serviceConfig.MetricDatabaseEnabled {
 		serviceLogger.Info().Msg("skipping starting metric compaction routine since it is disabled via config")
 
 		return nil
@@ -107,7 +107,7 @@ func startMetricCompactionRoutine(serviceConfig config.Config, service service.P
 }
 
 func startMetricPruningRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
-	if !serviceConfig.MetricPruningEnabled || !serviceConfig.MetricOperationsEnabled {
+	if !serviceConfig.MetricPruningEnabled || !serviceConfig.MetricDatabaseEnabled {
 		serviceLogger.Info().Msg("skipping starting metric pruning routine since it is disabled via config")
 
 		return make(<-chan error)

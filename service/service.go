@@ -138,10 +138,11 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 
 // createDatabaseClient creates a connection to the database
 // using the specified config and runs migrations async
-// (only if migration flag in config is true) returning the
+// (only if migration flag in config is true)
 // returning the database connection and error (if any)
 func createDatabaseClient(ctx context.Context, config config.Config, logger *logging.ServiceLogger) (*database.PostgresClient, error) {
 	databaseConfig := database.PostgresDatabaseConfig{
+		DatabaseDisabled:                 !config.MetricDatabaseEnabled,
 		DatabaseName:                     config.DatabaseName,
 		DatabaseEndpointURL:              config.DatabaseEndpointURL,
 		DatabaseUsername:                 config.DatabaseUserName,
@@ -149,7 +150,7 @@ func createDatabaseClient(ctx context.Context, config config.Config, logger *log
 		SSLEnabled:                       config.DatabaseSSLEnabled,
 		QueryLoggingEnabled:              config.DatabaseQueryLoggingEnabled,
 		ReadTimeoutSeconds:               config.DatabaseReadTimeoutSeconds,
-		WriteTimeousSeconds:              config.DatabaseWriteTimeoutSeconds,
+		WriteTimeoutsSeconds:             config.DatabaseWriteTimeoutSeconds,
 		DatabaseMaxIdleConnections:       config.DatabaseMaxIdleConnections,
 		DatabaseConnectionMaxIdleSeconds: config.DatabaseConnectionMaxIdleSeconds,
 		DatabaseMaxOpenConnections:       config.DatabaseMaxOpenConnections,
@@ -173,7 +174,7 @@ func createDatabaseClient(ctx context.Context, config config.Config, logger *log
 	// run migrations async so waiting for the database to
 	// be reachable doesn't block the ability of the proxy service
 	// to degrade gracefully and continue to proxy requests even
-	// without it's database
+	// without its database
 	go func() {
 		// wait for database to be reachable
 		var databaseOnline bool

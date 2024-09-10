@@ -1,0 +1,48 @@
+name: Continuous Integration (E2E Testing Checks without metrics database)
+
+on:
+  workflow_call:
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo from current commit
+        uses: actions/checkout@v3
+      - name: set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.21"
+          check-latest: true
+          cache: true
+      - name: pull pre-built images
+        run: sudo docker compose -f ci.docker-compose.yml pull
+        env:
+          METRIC_DATABASE_ENABLED: "false"
+      # In this step, this action saves a list of existing images,
+      # the cache is created without them in the post run.
+      # It also restores the cache if it exists.
+      # TODO(yevhenii): this step failed with "No space left on device" error, debug it and enable back
+      # - name: cache docker images
+      #   uses: satackey/action-docker-layer-caching@v0.0.11
+        # Ignore the failure of a step and avoid terminating the job.
+        continue-on-error: true
+      - name: build and start proxy service and it's dependencies
+        run: sudo docker compose -f ci.docker-compose.yml up -d --build
+      - name: wait for proxy service to be running
+        run: bash ${GITHUB_WORKSPACE}/scripts/wait-for-proxy-service-running.sh
+        env:
+            PROXY_CONTAINER_PORT: 7777
+      - name: wait for proxy service metric partitions database tables to be created
+        run: bash ${GITHUB_WORKSPACE}/scripts/wait-for-proxy-service-database-metric-partitions.sh
+        env:
+            # needs to be 1 + number of partitions created by /clients/database/migrations/20230523101344_partition_proxied_request_metrics_table.up.sql
+            MINIMUM_REQUIRED_PARTITIONS: 30
+            PROXY_CONTAINER_PORT: 7777
+      - name: run e2e tests
+        run: make e2e-test-no-metrics
+      - name: print proxy service logs
+        run: sudo docker compose -f ci.docker-compose.yml logs proxy
+        # because we especially want the logs if the test(s) fail 😅
+        if: always()
+      # Finally, "Post Run jpribyl/action-docker-layer-caching@v0.1.1",
+      # which is the process of saving the cache, will be executed.

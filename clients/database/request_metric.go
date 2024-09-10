@@ -34,8 +34,13 @@ type ProxiedRequestMetric struct {
 }
 
 // Save saves the current ProxiedRequestMetric to
-// the database, returning error (if any)
+// the database, returning error (if any).
+// If db is nil, returns nil error.
 func (prm *ProxiedRequestMetric) Save(ctx context.Context, db *bun.DB) error {
+	if db == nil {
+		return nil
+	}
+
 	_, err := db.NewInsert().Model(prm).Exec(ctx)
 
 	return err
@@ -44,8 +49,13 @@ func (prm *ProxiedRequestMetric) Save(ctx context.Context, db *bun.DB) error {
 // ListProxiedRequestMetricsWithPagination returns a page of max
 // `limit` ProxiedRequestMetrics from the offset specified by`cursor`
 // error (if any) along with a cursor to use to fetch the next page
-// if the cursor is 0 no more pages exists
+// if the cursor is 0 no more pages exists.
+// Uses only in tests. If db is nil, returns empty slice and 0 cursor.
 func ListProxiedRequestMetricsWithPagination(ctx context.Context, db *bun.DB, cursor int64, limit int) ([]ProxiedRequestMetric, int64, error) {
+	if db == nil {
+		return []ProxiedRequestMetric{}, 0, nil
+	}
+
 	var proxiedRequestMetrics []ProxiedRequestMetric
 	var nextCursor int64
 
@@ -62,8 +72,13 @@ func ListProxiedRequestMetricsWithPagination(ctx context.Context, db *bun.DB, cu
 
 // CountAttachedProxiedRequestMetricPartitions returns the current
 // count of attached partitions for the ProxiedRequestMetricsTableName
-// and error (if any)
+// and error (if any).
+// If db is nil, returns 0 and nil error.
 func CountAttachedProxiedRequestMetricPartitions(ctx context.Context, db *bun.DB) (int64, error) {
+	if db == nil {
+		return 0, nil
+	}
+
 	var count int64
 
 	countPartitionsQuery := fmt.Sprintf(`
@@ -88,7 +103,12 @@ func CountAttachedProxiedRequestMetricPartitions(ctx context.Context, db *bun.DB
 
 // GetLastCreatedAttachedProxiedRequestMetricsPartitionName gets the table name
 // for the last created (and attached) proxied request metrics partition
+// Used for status check. If db is nil, returns empty string and nil error.
 func GetLastCreatedAttachedProxiedRequestMetricsPartitionName(ctx context.Context, db *bun.DB) (string, error) {
+	if db == nil {
+		return "", nil
+	}
+
 	var lastCreatedAttachedPartitionName string
 
 	lastCreatedAttachedPartitionNameQuery := fmt.Sprintf(`
@@ -114,8 +134,13 @@ WHERE parent.relname='%s' order by child.oid desc limit 1;`, ProxiedRequestMetri
 
 // DeleteProxiedRequestMetricsOlderThanNDays deletes
 // all proxied request metrics older than the specified
-// days, returning error (if any)
+// days, returning error (if any).
+// Used during pruning process. If db is nil, returns nil error.
 func DeleteProxiedRequestMetricsOlderThanNDays(ctx context.Context, db *bun.DB, n int64) error {
+	if db == nil {
+		return nil
+	}
+
 	_, err := db.NewDelete().Model((*ProxiedRequestMetric)(nil)).Where(fmt.Sprintf("request_time < now() - interval '%d' day", n)).Exec(ctx)
 
 	return err
