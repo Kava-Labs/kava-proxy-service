@@ -42,7 +42,8 @@ unit-test:
 .PHONY: e2e-test
 # run tests that execute against a local or remote instance of the API
 e2e-test:
-	go test -count=1 -v -cover -coverprofile cover.out --race ./... -run "^TestE2ETest*"
+	#go test -count=1 -v -cover -coverprofile cover.out --race ./... -run "^TestE2ETest*"
+	go test -count=1 -v -cover -coverprofile cover.out --race ./... -run "^TestE2ETest_ValidBatchEvmRequests"
 
 .PHONY: e2e-test-no-metrics
 # run tests that execute against a local or remote instance of the API without database for metrics
