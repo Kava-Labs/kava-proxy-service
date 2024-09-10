@@ -16,6 +16,10 @@ jobs:
     needs: [lint-checks, default-checks]
     uses: ./.github/workflows/ci-e2e-tests.yml
   # build, tag and publish new service docker images
+  e2e-no-metrics-tests:
+    needs: [lint-checks, default-checks]
+    uses: ./.github/workflows/ci-e2e-no-metrics-tests.yml
+  # build, tag and publish new service docker images
   release-docker-images:
       needs: [e2e-tests]
       uses: ./.github/workflows/ci-docker-release.yml

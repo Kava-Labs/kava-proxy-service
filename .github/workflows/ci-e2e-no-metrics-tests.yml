@@ -3,7 +3,7 @@ name: Continuous Integration (E2E Testing Checks without metrics database)
 on:
   workflow_call:
 jobs:
-  e2e-test:
+  e2e-no-metrics-test:
     runs-on: ubuntu-latest
     steps:
       - name: checkout repo from current commit
