@@ -110,18 +110,18 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 		{
 			name: "multiple requests, valid & all coming from the cache",
 			req: []*decode.EVMRPCRequestEnvelope{
-				//{
-				//	JSONRPCVersion: "2.0",
-				//	ID:             "magic!",
-				//	Method:         "eth_getBlockByNumber",
-				//	Params:         []interface{}{"0x2", false},
-				//},
 				{
 					JSONRPCVersion: "2.0",
-					ID:             nil,
+					ID:             "magic!",
 					Method:         "eth_getBlockByNumber",
-					Params:         []interface{}{"0x1", false},
+					Params:         []interface{}{"0x2", false},
 				},
+				//{
+				//	JSONRPCVersion: "2.0",
+				//	ID:             nil,
+				//	Method:         "eth_getBlockByNumber",
+				//	Params:         []interface{}{"0x1", false},
+				//},
 				{
 					JSONRPCVersion: "2.0",
 					ID:             123456,
