@@ -2,7 +2,7 @@
 services:
   # run postgres for proxy service to store observability metrics
   postgres:
-    image: postgres:15
+    image: postgres:13.12
     env_file: .env
     ports:
       - "${POSTGRES_HOST_PORT}:${POSTGRES_CONTAINER_PORT}"
