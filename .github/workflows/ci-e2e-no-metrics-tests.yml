@@ -17,9 +17,7 @@ jobs:
       - name: pull pre-built images
         run: sudo docker compose -f ci.docker-compose.yml pull
       - name: build and start proxy service and it's dependencies
-        run: sudo docker compose -f ci.docker-compose.yml up -d --build proxy redis
-        env:
-            METRIC_DATABASE_ENABLED: false
+        run: METRIC_DATABASE_ENABLED=false sudo docker compose -f ci.docker-compose.yml up -d --build proxy redis
       - name: wait for proxy service to be running
         run: bash ${GITHUB_WORKSPACE}/scripts/wait-for-proxy-service-running.sh
         env:
