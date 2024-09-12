@@ -15,17 +15,19 @@ jobs:
           check-latest: true
           cache: true
       - name: pull pre-built images
-        run: sudo docker compose -f ci.docker-compose-no-metrics.yml pull
+        run: sudo docker compose -f ci.docker-compose.yml pull
       - name: build and start proxy service and it's dependencies
-        run: sudo docker compose -f ci.docker-compose-no-metrics.yml up -d --build
+        run: sudo docker compose -f ci.docker-compose.yml up -d --build proxy redis
+        env:
+            METRIC_DATABASE_ENABLED: false
       - name: wait for proxy service to be running
         run: bash ${GITHUB_WORKSPACE}/scripts/wait-for-proxy-service-running.sh
         env:
             PROXY_CONTAINER_PORT: 7777
       - name: run e2e tests
-        run: make e2e-test-no-metrics
+        run: SKIP_METRICS=true make e2e-test
       - name: print proxy service logs
-        run: sudo docker compose -f ci.docker-compose-no-metrics.yml logs proxy
+        run: sudo docker compose -f ci.docker-compose.yml logs proxy
         # because we especially want the logs if the test(s) fail 😅
         if: always()
       # Finally, "Post Run jpribyl/action-docker-layer-caching@v0.1.1",

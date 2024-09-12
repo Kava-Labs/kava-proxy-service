@@ -214,6 +214,10 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	require.NoError(t, err)
 
+	if shouldSkipMetrics() {
+		return
+	}
+
 	requestMetricsDuringRequestWindow := waitForMetricsInWindow(t, 1, databaseClient, startTime, []string{testEthMethodName})
 
 	requestMetricDuringRequestWindow := requestMetricsDuringRequestWindow[0]
@@ -255,6 +259,10 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	require.NoError(t, err)
 
+	if shouldSkipMetrics() {
+		return
+	}
+
 	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
 		t, 1, databaseClient, startTime, []string{testEthMethodName},
 	)
@@ -285,6 +293,10 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 	_, err = client.HeaderByNumber(testContext, nil)
 
 	require.NoError(t, err)
+
+	if shouldSkipMetrics() {
+		return
+	}
 
 	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
 		t, 1, databaseClient, startTime, []string{testEthMethodName},
@@ -347,6 +359,10 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	// eth_call
 	_, _ = client.CallContract(testContext, ethereum.CallMsg{}, requestBlockNumber)
 
+	if shouldSkipMetrics() {
+		return
+	}
+
 	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
 		t, 7, databaseClient, startTime, testedmethods,
 	)
@@ -399,6 +415,10 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 
 	// eth_getTransactionByBlockHashAndIndex
 	_, _ = client.TransactionInBlock(testContext, requestBlockHash, 0)
+
+	if shouldSkipMetrics() {
+		return
+	}
 
 	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
 		t, 3, databaseClient, startTime, testedmethods,
@@ -495,6 +515,10 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			err := rpc.Call(nil, tc.method, tc.params...)
 			require.NoError(t, err)
+
+			if shouldSkipMetrics() {
+				return
+			}
 
 			metrics := waitForMetricsInWindow(t, 1, databaseClient, startTime, []string{tc.method})
 
@@ -726,6 +750,12 @@ func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 		containsKey(t, redisClient, expectedKey)
 
 		require.Equal(t, block1, block2, "blocks should be the same")
+	}
+
+	if shouldSkipMetrics() {
+		cleanUpRedis(t, redisClient)
+
+		return
 	}
 
 	// get metrics between startTime & now for eth_getBlockByNumber requests
@@ -1645,4 +1675,9 @@ func (tx *getTxReceiptByHashResponse) IsIncludedInBlock() bool {
 	return tx.Result.BlockHash != "" &&
 		tx.Result.BlockNumber != "" &&
 		tx.Result.TransactionIndex != ""
+}
+
+func shouldSkipMetrics() bool {
+	// Check if the environment variable SKIP_METRICS is set to "true"
+	return os.Getenv("SKIP_METRICS") == "true"
 }

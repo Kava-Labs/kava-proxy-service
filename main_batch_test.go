@@ -231,6 +231,10 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 				require.Equal(t, resp.Header[accessControlAllowOriginHeaderName], []string{"*"})
 			}
 
+			if shouldSkipMetrics() {
+				return
+			}
+
 			// wait for all metrics to be created.
 			// besides verification, waiting for the metrics ensures future tests don't fail b/c metrics are being processed
 			waitForMetricsInWindow(t, tc.expectedNumMetrics, db, startTime, []string{})
