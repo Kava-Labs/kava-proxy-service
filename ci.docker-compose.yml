@@ -22,6 +22,7 @@ services:
       dockerfile: ci.Dockerfile
     env_file: .env
     environment:
+      METRIC_DATABASE_ENABLED: "${METRIC_DATABASE_ENABLED:-true}"
       PROXY_HEIGHT_BASED_ROUTING_ENABLED: "true"
       PROXY_SHARDED_ROUTING_ENABLED: "true"
       # use public testnet as backend origin server to avoid having
@@ -32,7 +33,6 @@ services:
       # fake the shards by defining shards with existing backends
       PROXY_SHARD_BACKEND_HOST_URL_MAP: localhost:7777>10|https://evmrpcdata.internal.testnet.proxy.kava.io|20|https://evmrpcdata.internal.testnet.proxy.kava.io
       EVM_QUERY_SERVICE_URL: https://evmrpc.internal.testnet.proxy.kava.io
-      METRIC_DATABASE_ENABLED: "false"
     ports:
       - "${PROXY_HOST_PORT}:${PROXY_CONTAINER_PORT}"
       - "${TEST_UNCONFIGURED_PROXY_PORT}:${PROXY_CONTAINER_PORT}"

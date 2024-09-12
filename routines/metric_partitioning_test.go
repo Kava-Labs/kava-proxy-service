@@ -31,6 +31,10 @@ var (
 )
 
 func TestE2ETestMetricPartitioningRoutinePrefillsExpectedPartitionsAfterStartupDelay(t *testing.T) {
+	if shouldSkipMetrics() {
+		t.Skip("Skipping test because environment variable SKIP_METRICS is set to true")
+	}
+
 	// prepare
 	time.Sleep(time.Duration(MetricPartitioningRoutineDelayFirstRunSeconds) * time.Second)
 
@@ -92,4 +96,9 @@ func TestUnitTestpartitionsForPeriodReturnsExpectedNumPartitionsWhenPrefillPerio
 	// assert
 	assert.Nil(t, err)
 	assert.Equal(t, daysToPrefill, len(actualPartitionsForPeriod))
+}
+
+func shouldSkipMetrics() bool {
+	// Check if the environment variable SKIP_METRICS is set to "true"
+	return os.Getenv("SKIP_METRICS") == "true"
 }

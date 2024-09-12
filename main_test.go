@@ -1217,6 +1217,10 @@ func cleanUpRedis(t *testing.T, redisClient *redis.Client) {
 }
 
 func cleanMetricsDb(t *testing.T, db database.PostgresClient) {
+	if shouldSkipMetrics() {
+		return
+	}
+
 	_, err := db.Exec("TRUNCATE proxied_request_metrics;")
 	require.NoError(t, err)
 }
