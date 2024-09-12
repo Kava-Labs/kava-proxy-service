@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"strconv"
@@ -346,6 +347,10 @@ func ReadConfig() Config {
 	// best effort to parse, callers are responsible for validating
 	// before using any values read
 	parsedHostnameToAccessControlAllowOriginValueMap, _ := ParseRawHostnameToHeaderValueMap(rawHostnameToAccessControlAllowOriginValueMap)
+
+	kk, ok := os.LookupEnv(METRIC_DATABASE_ENABLED_ENVIRONMENT_KEY)
+	log.Println("PARSING METRIC_DATABASE_ENABLED:", kk, ok)
+	log.Println("PARSED METRIC_DATABASE_ENABLED:", EnvOrDefaultBool(METRIC_DATABASE_ENABLED_ENVIRONMENT_KEY, DEFAULT_METRIC_DATABASE_ENABLED))
 
 	return Config{
 		ProxyServicePort:                              os.Getenv(PROXY_SERVICE_PORT_ENVIRONMENT_KEY),
