@@ -18,10 +18,10 @@ jobs:
         run: echo "METRIC_DATABASE_ENABLED=false" >> $GITHUB_ENV
       - name: pull pre-built images
         run: sudo docker compose -f ci.docker-compose.yml pull
+      - name: check env vars
+        run: sudo echo "METRIC_DATABASE_ENABLED=$METRIC_DATABASE_ENABLED"
       - name: build and start proxy service and it's dependencies
-        run: echo "METRIC_DATABASE_ENABLED=$METRIC_DATABASE_ENABLED" && sudo docker compose -e METRIC_DATABASE_ENABLED=$METRIC_DATABASE_ENABLED  -f ci.docker-compose.yml up -d --build proxy redis
-        env:
-            METRIC_DATABASE_ENABLED: false
+        run: sudo docker compose -f ci.docker-compose.yml up -d --build proxy redis
       - name: wait for proxy service to be running
         run: bash ${GITHUB_WORKSPACE}/scripts/wait-for-proxy-service-running.sh
         env:
