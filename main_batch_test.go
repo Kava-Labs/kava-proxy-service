@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/kava-labs/kava-proxy-service/clients/database/postgres"
 	"io"
 	"net/http"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/service/cachemdw"
 	"github.com/redis/go-redis/v9"
@@ -44,7 +44,7 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 	cleanUpRedis(t, redisClient)
 	expectKeysNum(t, redisClient, 0)
 
-	db, err := database.NewPostgresClient(databaseConfig)
+	db, err := postgres.NewClient(databaseConfig)
 	require.NoError(t, err)
 	cleanMetricsDb(t, db)
 

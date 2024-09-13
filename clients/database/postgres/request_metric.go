@@ -1,47 +1,22 @@
-package database
+package postgres
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"time"
-
-	"github.com/uptrace/bun"
+	"github.com/kava-labs/kava-proxy-service/clients/database"
 )
 
 const (
 	ProxiedRequestMetricsTableName = "proxied_request_metrics"
 )
 
-// ProxiedRequestMetric contains request metrics for
-// a single request proxied by the proxy service
-type ProxiedRequestMetric struct {
-	bun.BaseModel `bun:"table:proxied_request_metrics,alias:prm"`
-
-	ID                          int64 `bun:",pk,autoincrement"`
-	MethodName                  string
-	BlockNumber                 *int64
-	ResponseLatencyMilliseconds int64
-	Hostname                    string
-	RequestIP                   string `bun:"request_ip"`
-	RequestTime                 time.Time
-	UserAgent                   *string
-	Referer                     *string
-	Origin                      *string
-	ResponseBackend             string
-	ResponseBackendRoute        string
-	CacheHit                    bool
-	PartOfBatch                 bool
-}
-
 // Save saves the current ProxiedRequestMetric to
 // the database, returning error (if any).
 // If db is nil, returns nil error.
-func (prm *ProxiedRequestMetric) Save(ctx context.Context, db *bun.DB) error {
-	if db == nil {
-		return nil
-	}
-
-	_, err := db.NewInsert().Model(prm).Exec(ctx)
+func (c *Client) SaveProxiedRequestMetric(ctx context.Context, metric *database.ProxiedRequestMetric) error {
+	prm := convertProxiedRequestMetric(metric)
+	_, err := c.db.NewInsert().Model(prm).Exec(ctx)
 
 	return err
 }
@@ -51,34 +26,31 @@ func (prm *ProxiedRequestMetric) Save(ctx context.Context, db *bun.DB) error {
 // error (if any) along with a cursor to use to fetch the next page
 // if the cursor is 0 no more pages exists.
 // Uses only in tests. If db is nil, returns empty slice and 0 cursor.
-func ListProxiedRequestMetricsWithPagination(ctx context.Context, db *bun.DB, cursor int64, limit int) ([]ProxiedRequestMetric, int64, error) {
-	if db == nil {
-		return []ProxiedRequestMetric{}, 0, nil
-	}
-
+func (c *Client) ListProxiedRequestMetricsWithPagination(ctx context.Context, cursor int64, limit int) ([]*database.ProxiedRequestMetric, int64, error) {
 	var proxiedRequestMetrics []ProxiedRequestMetric
 	var nextCursor int64
 
-	count, err := db.NewSelect().Model(&proxiedRequestMetrics).Where("ID > ?", cursor).Limit(limit).ScanAndCount(ctx)
+	count, err := c.db.NewSelect().Model(&proxiedRequestMetrics).Where("ID > ?", cursor).Limit(limit).ScanAndCount(ctx)
 
 	// look up the id of the last
 	if count == limit {
 		nextCursor = proxiedRequestMetrics[count-1].ID
 	}
 
+	metrics := make([]*database.ProxiedRequestMetric, 0, len(proxiedRequestMetrics))
+	for _, metric := range proxiedRequestMetrics {
+		metrics = append(metrics, metric.ToProxiedRequestMetric())
+	}
+
 	// otherwise leave nextCursor as 0 to signal no more rows
-	return proxiedRequestMetrics, nextCursor, err
+	return metrics, nextCursor, err
 }
 
 // CountAttachedProxiedRequestMetricPartitions returns the current
 // count of attached partitions for the ProxiedRequestMetricsTableName
 // and error (if any).
 // If db is nil, returns 0 and nil error.
-func CountAttachedProxiedRequestMetricPartitions(ctx context.Context, db *bun.DB) (int64, error) {
-	if db == nil {
-		return 0, nil
-	}
-
+func (c *Client) CountAttachedProxiedRequestMetricPartitions(ctx context.Context) (int64, error) {
 	var count int64
 
 	countPartitionsQuery := fmt.Sprintf(`
@@ -90,7 +62,7 @@ func CountAttachedProxiedRequestMetricPartitions(ctx context.Context, db *bun.DB
 		JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
 	WHERE parent.relname='%s';`, ProxiedRequestMetricsTableName)
 
-	row := db.QueryRow(countPartitionsQuery)
+	row := c.db.QueryRow(countPartitionsQuery)
 	err := row.Scan(&count)
 
 	if err != nil {
@@ -104,11 +76,7 @@ func CountAttachedProxiedRequestMetricPartitions(ctx context.Context, db *bun.DB
 // GetLastCreatedAttachedProxiedRequestMetricsPartitionName gets the table name
 // for the last created (and attached) proxied request metrics partition
 // Used for status check. If db is nil, returns empty string and nil error.
-func GetLastCreatedAttachedProxiedRequestMetricsPartitionName(ctx context.Context, db *bun.DB) (string, error) {
-	if db == nil {
-		return "", nil
-	}
-
+func (c *Client) GetLastCreatedAttachedProxiedRequestMetricsPartitionName(ctx context.Context) (string, error) {
 	var lastCreatedAttachedPartitionName string
 
 	lastCreatedAttachedPartitionNameQuery := fmt.Sprintf(`
@@ -121,7 +89,7 @@ FROM pg_inherits
 	JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
 WHERE parent.relname='%s' order by child.oid desc limit 1;`, ProxiedRequestMetricsTableName)
 
-	row := db.QueryRow(lastCreatedAttachedPartitionNameQuery)
+	row := c.db.QueryRow(lastCreatedAttachedPartitionNameQuery)
 	err := row.Scan(&lastCreatedAttachedPartitionName)
 
 	if err != nil {
@@ -136,12 +104,13 @@ WHERE parent.relname='%s' order by child.oid desc limit 1;`, ProxiedRequestMetri
 // all proxied request metrics older than the specified
 // days, returning error (if any).
 // Used during pruning process. If db is nil, returns nil error.
-func DeleteProxiedRequestMetricsOlderThanNDays(ctx context.Context, db *bun.DB, n int64) error {
-	if db == nil {
-		return nil
-	}
-
-	_, err := db.NewDelete().Model((*ProxiedRequestMetric)(nil)).Where(fmt.Sprintf("request_time < now() - interval '%d' day", n)).Exec(ctx)
+func (c *Client) DeleteProxiedRequestMetricsOlderThanNDays(ctx context.Context, n int64) error {
+	_, err := c.db.NewDelete().Model((*ProxiedRequestMetric)(nil)).Where(fmt.Sprintf("request_time < now() - interval '%d' day", n)).Exec(ctx)
 
 	return err
+}
+
+// Exec is not part of database.MetricsDatabase interface, so it is used only in the implementation for test purposes.
+func (c *Client) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return c.db.Exec(query, args...)
 }

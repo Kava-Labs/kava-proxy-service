@@ -1,4 +1,4 @@
-package database
+package postgres
 
 import (
 	"crypto/tls"
@@ -13,12 +13,9 @@ import (
 	"github.com/uptrace/bun/extra/bundebug"
 )
 
-// PostgresDatabaseConfig contains values for creating a
+// DatabaseConfig contains values for creating a
 // new connection to a postgres database
-type PostgresDatabaseConfig struct {
-	// DatabaseDisabled is used to disable the database, and it won't be used at all. All operations will be skipped.
-	DatabaseDisabled bool
-
+type DatabaseConfig struct {
 	DatabaseName                     string
 	DatabaseEndpointURL              string
 	DatabaseUsername                 string
@@ -34,21 +31,15 @@ type PostgresDatabaseConfig struct {
 	Logger                           *logging.ServiceLogger
 }
 
-// PostgresClient wraps a connection to a postgres database
-type PostgresClient struct {
-	isDisabled bool
-	*bun.DB
+// Client wraps a connection to a postgres database
+type Client struct {
+	db     *bun.DB
+	logger *logging.ServiceLogger
 }
 
-// NewPostgresClient returns a new connection to the specified
+// NewClient returns a new connection to the specified
 // postgres data and error (if any)
-func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
-	if config.DatabaseDisabled {
-		return PostgresClient{
-			isDisabled: true,
-		}, nil
-	}
-
+func NewClient(config DatabaseConfig) (Client, error) {
 	// configure postgres database connection options
 	var pgOptions *pgdriver.Connector
 
@@ -96,17 +87,14 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 		db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
 	}
 
-	return PostgresClient{
-		DB: db,
+	return Client{
+		db:     db,
+		logger: config.Logger,
 	}, nil
 }
 
 // HealthCheck returns an error if the database can not
 // be connected to and queried, nil otherwise
-func (pg *PostgresClient) HealthCheck() error {
-	if pg.isDisabled {
-		return nil
-	}
-
-	return pg.Ping()
+func (c *Client) HealthCheck() error {
+	return c.db.Ping()
 }

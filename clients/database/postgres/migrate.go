@@ -1,4 +1,4 @@
-package database
+package postgres
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/kava-labs/kava-proxy-service/logging"
-	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/migrate"
 )
 
@@ -15,12 +14,9 @@ import (
 // returning error (if any) and a list of migrations that have been
 // run and any that were not
 // If db is nil, returns empty slice and nil error, as there is no database to migrate.
-func Migrate(ctx context.Context, db *bun.DB, migrations migrate.Migrations, logger *logging.ServiceLogger) (*migrate.MigrationSlice, error) {
-	if db == nil {
-		return &migrate.MigrationSlice{}, nil
-	}
+func (c *Client) Migrate(ctx context.Context, migrations migrate.Migrations, logger *logging.ServiceLogger) (*migrate.MigrationSlice, error) {
 	// set up migration config
-	migrator := migrate.NewMigrator(db, &migrations)
+	migrator := migrate.NewMigrator(c.db, &migrations)
 
 	// create / verify tables used to tack migrations
 	err := migrator.Init(ctx)

@@ -5,10 +5,10 @@ package routines
 
 import (
 	"fmt"
+	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/logging"
 )
 
@@ -16,7 +16,7 @@ import (
 // for creating a new metric compaction routine
 type MetricCompactionRoutineConfig struct {
 	Interval time.Duration
-	Database *database.PostgresClient
+	Database database.MetricsDatabase
 	Logger   logging.ServiceLogger
 }
 
@@ -26,7 +26,7 @@ type MetricCompactionRoutineConfig struct {
 type MetricCompactionRoutine struct {
 	id       string
 	interval time.Duration
-	*database.PostgresClient
+	db       database.MetricsDatabase
 	logging.ServiceLogger
 }
 
@@ -52,9 +52,9 @@ func (mcr *MetricCompactionRoutine) Run() (<-chan error, error) {
 // using the provided config, returning the routine and error (if any)
 func NewMetricCompactionRoutine(config MetricCompactionRoutineConfig) (*MetricCompactionRoutine, error) {
 	return &MetricCompactionRoutine{
-		id:             uuid.New().String(),
-		interval:       config.Interval,
-		PostgresClient: config.Database,
-		ServiceLogger:  config.Logger,
+		id:            uuid.New().String(),
+		interval:      config.Interval,
+		db:            config.Database,
+		ServiceLogger: config.Logger,
 	}, nil
 }

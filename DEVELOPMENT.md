@@ -131,7 +131,7 @@ make it p=".*Eth_getBlockByNumberRequest"
 
 ## Migrations
 
-On startup the proxy service will run any SQL based migration in the [migrations folder](./clients/database/migrations) that haven't already been run against the database being used.
+On startup the proxy service will run any SQL based migration in the [migrations folder](clients/database/postgres/migrations) that haven't already been run against the database being used.
 
 For lower level details on how the migration process works consult [these docs](https://bun.uptrace.dev/guide/migrations.html).
 
@@ -144,7 +144,7 @@ $ date '+%Y%m%d%H%M%S'
 > 20230306182227
 ```
 
-Add new SQL file with commands to run in the new migration (add/delete/modify tables and or indices) in the in the [migrations folder](./clients/database/migrations)
+Add new SQL file with commands to run in the new migration (add/delete/modify tables and or indices) in the in the [migrations folder](clients/database/postgres/migrations)
 
 ### Running migrations
 
