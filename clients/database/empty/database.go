@@ -5,6 +5,7 @@ import (
 	"github.com/kava-labs/kava-proxy-service/clients/database"
 )
 
+// Empty is a database client that does nothing
 type Empty struct{}
 
 func New() *Empty {

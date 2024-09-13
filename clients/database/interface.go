@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// MetricsDatabase is an interface for interacting with the database
 type MetricsDatabase interface {
 	SaveProxiedRequestMetric(ctx context.Context, metric *ProxiedRequestMetric) error
 	ListProxiedRequestMetricsWithPagination(ctx context.Context, cursor int64, limit int) ([]*ProxiedRequestMetric, int64, error)
