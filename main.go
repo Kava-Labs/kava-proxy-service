@@ -172,7 +172,7 @@ func main() {
 			}
 		}()
 	} else {
-		serviceLogger.Info().Msg("skipping starting metric partitioning, compaction, and pruning routines since metric database is enabled")
+		serviceLogger.Info().Msg("skipping starting metric partitioning, compaction, and pruning routines since metric database is disabled")
 	}
 
 	// run the proxy service
