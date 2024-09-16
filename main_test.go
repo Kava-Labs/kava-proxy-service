@@ -197,6 +197,10 @@ func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
 }
 
 func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
+	if shouldSkipMetrics() {
+		t.Skip("metrics are disabled")
+	}
+
 	testEthMethodName := "eth_getBlockByNumber"
 	// create api and database clients
 	client, err := ethclient.Dial(proxyServiceURL)
@@ -213,10 +217,6 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 	_, err = client.HeaderByNumber(testContext, nil)
 
 	require.NoError(t, err)
-
-	if shouldSkipMetrics() {
-		return
-	}
 
 	requestMetricsDuringRequestWindow := waitForMetricsInWindow(t, 1, databaseClient, startTime, []string{testEthMethodName})
 

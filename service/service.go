@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kava-labs/kava-proxy-service/clients/database"
-	"github.com/kava-labs/kava-proxy-service/clients/database/empty"
+	"github.com/kava-labs/kava-proxy-service/clients/database/noop"
 	"github.com/kava-labs/kava-proxy-service/clients/database/postgres"
 	"github.com/kava-labs/kava-proxy-service/clients/database/postgres/migrations"
 	"net/http"
@@ -46,7 +46,7 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 			return ProxyService{}, err
 		}
 	} else {
-		db = empty.New()
+		db = noop.New()
 	}
 
 	// create evm api client

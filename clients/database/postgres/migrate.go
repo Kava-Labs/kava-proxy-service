@@ -13,7 +13,6 @@ import (
 // that haven't been run on the database being used by the proxy service
 // returning error (if any) and a list of migrations that have been
 // run and any that were not
-// If db is nil, returns empty slice and nil error, as there is no database to migrate.
 func (c *Client) Migrate(ctx context.Context, migrations migrate.Migrations, logger *logging.ServiceLogger) (*migrate.MigrationSlice, error) {
 	// set up migration config
 	migrator := migrate.NewMigrator(c.db, &migrations)

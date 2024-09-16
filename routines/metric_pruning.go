@@ -31,7 +31,7 @@ type MetricPruningRoutine struct {
 	interval                     time.Duration
 	startDelay                   time.Duration
 	maxRequestMetricsHistoryDays int64
-	Database                     database.MetricsDatabase
+	db                           database.MetricsDatabase
 	logging.ServiceLogger
 }
 
@@ -50,7 +50,7 @@ func (mpr *MetricPruningRoutine) Run() (<-chan error, error) {
 		for tick := range timer {
 			mpr.Trace().Msg(fmt.Sprintf("%s tick at %+v", mpr.id, tick))
 
-			mpr.Database.DeleteProxiedRequestMetricsOlderThanNDays(context.Background(), mpr.maxRequestMetricsHistoryDays)
+			mpr.db.DeleteProxiedRequestMetricsOlderThanNDays(context.Background(), mpr.maxRequestMetricsHistoryDays)
 		}
 	}()
 
@@ -65,7 +65,7 @@ func NewMetricPruningRoutine(config MetricPruningRoutineConfig) (*MetricPruningR
 		interval:                     config.Interval,
 		startDelay:                   config.StartDelay,
 		maxRequestMetricsHistoryDays: config.MaxRequestMetricsHistoryDays,
-		Database:                     config.Database,
+		db:                           config.Database,
 		ServiceLogger:                config.Logger,
 	}, nil
 }
