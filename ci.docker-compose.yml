@@ -34,7 +34,7 @@ services:
       EVM_QUERY_SERVICE_URL: https://evmrpc.internal.testnet.proxy.kava.io
       # we need the metric to be used from no_metric.env or by default set up as true, so to test the metrics collection.
       # doesn't work with the env variable, so need env file. Mentioned here: https://github.com/docker/compose/issues/9737
-      METRIC_DATABASE_ENABLED: "${METRIC_DATABASE_ENABLED}:-true"
+      METRIC_DATABASE_ENABLED: "${METRIC_DATABASE_ENABLED}"
     ports:
       - "${PROXY_HOST_PORT}:${PROXY_CONTAINER_PORT}"
       - "${TEST_UNCONFIGURED_PROXY_PORT}:${PROXY_CONTAINER_PORT}"
