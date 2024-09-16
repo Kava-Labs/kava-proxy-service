@@ -17,7 +17,9 @@ jobs:
       - name: pull pre-built images
         run: sudo docker compose -f ci.docker-compose.yml pull
       - name: build and start proxy service and it's dependencies
-        run: METRIC_DATABASE_ENABLED=false sudo docker compose -f ci.docker-compose.yml up -d --build proxy redis
+        # We need to provide additional env file to override the METRIC_DATABASE_ENABLED variable, not via env variable.
+        # Mentioned here: https://github.com/docker/compose/issues/9737
+        run: sudo docker compose -f ci.docker-compose.yml up -d --build proxy redis
         env:
             METRIC_DATABASE_ENABLED: "false"
       - name: wait for proxy service to be running
