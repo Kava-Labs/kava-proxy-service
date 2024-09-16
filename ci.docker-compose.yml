@@ -32,6 +32,7 @@ services:
       # fake the shards by defining shards with existing backends
       PROXY_SHARD_BACKEND_HOST_URL_MAP: localhost:7777>10|https://evmrpcdata.internal.testnet.proxy.kava.io|20|https://evmrpcdata.internal.testnet.proxy.kava.io
       EVM_QUERY_SERVICE_URL: https://evmrpc.internal.testnet.proxy.kava.io
+      METRIC_DATABASE_ENABLED: "${METRIC_DATABASE_ENABLED}"
     ports:
       - "${PROXY_HOST_PORT}:${PROXY_CONTAINER_PORT}"
       - "${TEST_UNCONFIGURED_PROXY_PORT}:${PROXY_CONTAINER_PORT}"
