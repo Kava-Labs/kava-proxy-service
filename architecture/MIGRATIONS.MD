@@ -14,7 +14,7 @@ Setting an environment variable named `RUN_DATABASE_MIGRATIONS` to true will cau
 
 ### Migration Format
 
-New migration files must be placed in the [migrations directory](../clients/database/migrations/), have a unique name, and start with a timestamp in the below format:
+New migration files must be placed in the [migrations directory](../clients/database/postgres/migrations/), have a unique name, and start with a timestamp in the below format:
 
 ```bash
 $ date '+%Y%m%d%H%M%S'

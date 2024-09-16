@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"io"
 	"net/http"
 	"strings"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/urfave/negroni"
 
-	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
@@ -492,7 +492,7 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 		isCached := cachemdw.IsRequestCached(r.Context())
 
 		// create a metric for the request
-		metric := database.ProxiedRequestMetric{
+		metric := &database.ProxiedRequestMetric{
 			MethodName:                  decodedRequestBody.Method,
 			ResponseLatencyMilliseconds: originRoundtripLatencyMilliseconds,
 			RequestTime:                 requestStartTime,
@@ -511,7 +511,7 @@ func createAfterProxyFinalizer(service *ProxyService, config config.Config) http
 		// save metric to database async
 		go func() {
 			// using background context so save won't be terminated when request finishes
-			err = metric.Save(context.Background(), service.Database.DB)
+			err = service.Database.SaveProxiedRequestMetric(context.Background(), metric)
 
 			if err != nil {
 				// TODO: consider only logging

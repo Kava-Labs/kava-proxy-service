@@ -5,14 +5,16 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/kava-labs/kava-proxy-service/clients/database"
+	"github.com/kava-labs/kava-proxy-service/clients/database/noop"
+	"github.com/kava-labs/kava-proxy-service/clients/database/postgres"
+	"github.com/kava-labs/kava-proxy-service/clients/database/postgres/migrations"
 	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/kava-labs/kava-proxy-service/clients/cache"
-	"github.com/kava-labs/kava-proxy-service/clients/database"
-	"github.com/kava-labs/kava-proxy-service/clients/database/migrations"
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/logging"
 	"github.com/kava-labs/kava-proxy-service/service/batchmdw"
@@ -21,7 +23,7 @@ import (
 
 // ProxyService represents an instance of the proxy service API
 type ProxyService struct {
-	Database  *database.PostgresClient
+	Database  database.MetricsDatabase
 	Cache     *cachemdw.ServiceCache
 	httpProxy *http.Server
 	evmClient *ethclient.Client
@@ -32,10 +34,19 @@ type ProxyService struct {
 func New(ctx context.Context, config config.Config, serviceLogger *logging.ServiceLogger) (ProxyService, error) {
 	service := ProxyService{}
 
-	// create database client
-	db, err := createDatabaseClient(ctx, config, serviceLogger)
-	if err != nil {
-		return ProxyService{}, err
+	var (
+		db  database.MetricsDatabase
+		err error
+	)
+
+	if config.MetricDatabaseEnabled {
+		// create database client
+		db, err = createDatabaseClient(ctx, config, serviceLogger)
+		if err != nil {
+			return ProxyService{}, err
+		}
+	} else {
+		db = noop.New()
 	}
 
 	// create evm api client
@@ -138,10 +149,10 @@ func New(ctx context.Context, config config.Config, serviceLogger *logging.Servi
 
 // createDatabaseClient creates a connection to the database
 // using the specified config and runs migrations async
-// (only if migration flag in config is true) returning the
+// (only if migration flag in config is true)
 // returning the database connection and error (if any)
-func createDatabaseClient(ctx context.Context, config config.Config, logger *logging.ServiceLogger) (*database.PostgresClient, error) {
-	databaseConfig := database.PostgresDatabaseConfig{
+func createDatabaseClient(ctx context.Context, config config.Config, logger *logging.ServiceLogger) (*postgres.Client, error) {
+	databaseConfig := postgres.DatabaseConfig{
 		DatabaseName:                     config.DatabaseName,
 		DatabaseEndpointURL:              config.DatabaseEndpointURL,
 		DatabaseUsername:                 config.DatabaseUserName,
@@ -149,7 +160,7 @@ func createDatabaseClient(ctx context.Context, config config.Config, logger *log
 		SSLEnabled:                       config.DatabaseSSLEnabled,
 		QueryLoggingEnabled:              config.DatabaseQueryLoggingEnabled,
 		ReadTimeoutSeconds:               config.DatabaseReadTimeoutSeconds,
-		WriteTimeousSeconds:              config.DatabaseWriteTimeoutSeconds,
+		WriteTimeoutSeconds:              config.DatabaseWriteTimeoutSeconds,
 		DatabaseMaxIdleConnections:       config.DatabaseMaxIdleConnections,
 		DatabaseConnectionMaxIdleSeconds: config.DatabaseConnectionMaxIdleSeconds,
 		DatabaseMaxOpenConnections:       config.DatabaseMaxOpenConnections,
@@ -157,12 +168,12 @@ func createDatabaseClient(ctx context.Context, config config.Config, logger *log
 		RunDatabaseMigrations:            config.RunDatabaseMigrations,
 	}
 
-	serviceDatabase, err := database.NewPostgresClient(databaseConfig)
+	serviceDatabase, err := postgres.NewClient(databaseConfig)
 
 	if err != nil {
 		logger.Error().Msg(fmt.Sprintf("error %s creating database using config %+v", err, databaseConfig))
 
-		return &database.PostgresClient{}, err
+		return &postgres.Client{}, err
 	}
 
 	if !databaseConfig.RunDatabaseMigrations {
@@ -173,7 +184,7 @@ func createDatabaseClient(ctx context.Context, config config.Config, logger *log
 	// run migrations async so waiting for the database to
 	// be reachable doesn't block the ability of the proxy service
 	// to degrade gracefully and continue to proxy requests even
-	// without it's database
+	// without its database
 	go func() {
 		// wait for database to be reachable
 		var databaseOnline bool
@@ -195,7 +206,7 @@ func createDatabaseClient(ctx context.Context, config config.Config, logger *log
 
 		logger.Debug().Msg("running migrations on database")
 
-		migrations, err := database.Migrate(ctx, serviceDatabase.DB, *migrations.Migrations, logger)
+		migrations, err := serviceDatabase.Migrate(ctx, *migrations.Migrations, logger)
 
 		if err != nil {
 			// TODO: retry based on config

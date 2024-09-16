@@ -1,0 +1,32 @@
+name: Continuous Integration (E2E Testing Checks without metrics database)
+
+on:
+  workflow_call:
+jobs:
+  e2e-no-metrics-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo from current commit
+        uses: actions/checkout@v3
+      - name: set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.21"
+          check-latest: true
+          cache: false
+      - name: pull pre-built images
+        run: sudo docker compose -f ci.docker-compose.yml pull
+      - name: build and start proxy service and it's dependencies
+        # We need to provide additional env file to override the METRIC_DATABASE_ENABLED variable, not via env variable.
+        # Mentioned here: https://github.com/docker/compose/issues/9737
+        run: sudo docker compose -f ci.docker-compose.yml --env-file .env --env-file no_metric.env up -d --build proxy redis
+      - name: wait for proxy service to be running
+        run: bash ${GITHUB_WORKSPACE}/scripts/wait-for-proxy-service-running.sh
+        env:
+            PROXY_CONTAINER_PORT: 7777
+      - name: run e2e tests
+        run: SKIP_METRICS=true make e2e-test
+      - name: print proxy service logs
+        run: sudo docker compose -f ci.docker-compose.yml logs proxy
+        # because we especially want the logs if the test(s) fail 😅
+        if: always()

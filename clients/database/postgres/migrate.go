@@ -1,4 +1,4 @@
-package database
+package postgres
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/kava-labs/kava-proxy-service/logging"
-	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/migrate"
 )
 
@@ -14,9 +13,9 @@ import (
 // that haven't been run on the database being used by the proxy service
 // returning error (if any) and a list of migrations that have been
 // run and any that were not
-func Migrate(ctx context.Context, db *bun.DB, migrations migrate.Migrations, logger *logging.ServiceLogger) (*migrate.MigrationSlice, error) {
+func (c *Client) Migrate(ctx context.Context, migrations migrate.Migrations, logger *logging.ServiceLogger) (*migrate.MigrationSlice, error) {
 	// set up migration config
-	migrator := migrate.NewMigrator(db, &migrations)
+	migrator := migrate.NewMigrator(c.db, &migrations)
 
 	// create / verify tables used to tack migrations
 	err := migrator.Init(ctx)

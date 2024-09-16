@@ -48,6 +48,7 @@ type Config struct {
 	MetricPruningRoutineInterval                  time.Duration
 	MetricPruningRoutineDelayFirstRun             time.Duration
 	MetricPruningMaxRequestMetricsHistoryDays     int
+	MetricDatabaseEnabled                         bool
 	CacheEnabled                                  bool
 	RedisEndpointURL                              string
 	RedisPassword                                 string
@@ -101,6 +102,8 @@ const (
 	DEFAULT_METRIC_PRUNING_ENABLED                              = true
 	METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS_ENVIRONMENT_KEY     = "METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS"
 	// 60 seconds * 60 minutes * 24 hours = 1 day
+	METRIC_DATABASE_ENABLED_ENVIRONMENT_KEY                           = "METRIC_DATABASE_ENABLED"
+	DEFAULT_METRIC_DATABASE_ENABLED                                   = true
 	DEFAULT_METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS                   = 86400
 	METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS_ENVIRONMENT_KEY    = "METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS"
 	DEFAULT_METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS            = 10
@@ -380,6 +383,7 @@ func ReadConfig() Config {
 		MetricPruningRoutineInterval:                  time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PRUNING_ROUTINE_INTERVAL_SECONDS)) * time.Second),
 		MetricPruningRoutineDelayFirstRun:             time.Duration(time.Duration(EnvOrDefaultInt(METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS_ENVIRONMENT_KEY, DEFAULT_METRIC_PRUNING_ROUTINE_DELAY_FIRST_RUN_SECONDS)) * time.Second),
 		MetricPruningMaxRequestMetricsHistoryDays:     EnvOrDefaultInt(METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS_ENVIRONMENT_KEY, DEFAULT_METRIC_PRUNING_MAX_REQUEST_METRICS_HISTORY_DAYS),
+		MetricDatabaseEnabled:                         EnvOrDefaultBool(METRIC_DATABASE_ENABLED_ENVIRONMENT_KEY, DEFAULT_METRIC_DATABASE_ENABLED),
 		CacheEnabled:                                  EnvOrDefaultBool(CACHE_ENABLED_ENVIRONMENT_KEY, false),
 		RedisEndpointURL:                              os.Getenv(REDIS_ENDPOINT_URL_ENVIRONMENT_KEY),
 		RedisPassword:                                 os.Getenv(REDIS_PASSWORD_ENVIRONMENT_KEY),

@@ -6,10 +6,10 @@ package routines
 import (
 	"context"
 	"fmt"
+	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/kava-labs/kava-proxy-service/clients/database"
 	"github.com/kava-labs/kava-proxy-service/logging"
 )
 
@@ -19,7 +19,7 @@ type MetricPruningRoutineConfig struct {
 	Interval                     time.Duration
 	StartDelay                   time.Duration
 	MaxRequestMetricsHistoryDays int64
-	Database                     *database.PostgresClient
+	Database                     database.MetricsDatabase
 	Logger                       logging.ServiceLogger
 }
 
@@ -31,7 +31,7 @@ type MetricPruningRoutine struct {
 	interval                     time.Duration
 	startDelay                   time.Duration
 	maxRequestMetricsHistoryDays int64
-	*database.PostgresClient
+	db                           database.MetricsDatabase
 	logging.ServiceLogger
 }
 
@@ -50,7 +50,7 @@ func (mpr *MetricPruningRoutine) Run() (<-chan error, error) {
 		for tick := range timer {
 			mpr.Trace().Msg(fmt.Sprintf("%s tick at %+v", mpr.id, tick))
 
-			database.DeleteProxiedRequestMetricsOlderThanNDays(context.Background(), mpr.DB, mpr.maxRequestMetricsHistoryDays)
+			mpr.db.DeleteProxiedRequestMetricsOlderThanNDays(context.Background(), mpr.maxRequestMetricsHistoryDays)
 		}
 	}()
 
@@ -65,7 +65,7 @@ func NewMetricPruningRoutine(config MetricPruningRoutineConfig) (*MetricPruningR
 		interval:                     config.Interval,
 		startDelay:                   config.StartDelay,
 		maxRequestMetricsHistoryDays: config.MaxRequestMetricsHistoryDays,
-		PostgresClient:               config.Database,
+		db:                           config.Database,
 		ServiceLogger:                config.Logger,
 	}, nil
 }

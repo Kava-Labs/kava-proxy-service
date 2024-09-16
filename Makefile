@@ -44,6 +44,11 @@ unit-test:
 e2e-test:
 	go test -count=1 -v -cover -coverprofile cover.out --race ./... -run "^TestE2ETest*"
 
+.PHONY: e2e-test-no-metrics
+# run tests that execute against a local or remote instance of the API without database for metrics
+e2e-test-no-metrics:
+	SKIP_METRICS=true go test -count=1 -v -cover -coverprofile cover.out --race ./... -run "^TestE2ETest*"
+
 .PHONY: ci-setup
 # set up your local environment such that running `make e2e-test` runs against testnet (like in CI)
 ci-setup:

@@ -20,7 +20,7 @@ The proxy functionality provides the foundation for all other proxy service feat
 
 ![API Observability Worfklow Conceptual Overview](./images/observability_workflow_conceptual.jpg)
 
-For every request that is proxied by the proxy service, a [request metric](../decode/evm_rpc.go) is created and stored in a [postgres table](../clients/database/migrations/20230306182203_add_proxied_request_metrics_table.up.sql) that can be aggregated with other request metrics over a time range to answer ad hoc questions such as:
+For every request that is proxied by the proxy service, a [request metric](../decode/evm_rpc.go) is created and stored in a [postgres table](../clients/database/postgres/migrations/20230306182203_add_proxied_request_metrics_table.up.sql) that can be aggregated with other request metrics over a time range to answer ad hoc questions such as:
 
 - what methods take the longest time?
 - what methods are called the most frequently?

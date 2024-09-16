@@ -1,4 +1,4 @@
-package database
+package postgres
 
 import (
 	"crypto/tls"
@@ -13,15 +13,15 @@ import (
 	"github.com/uptrace/bun/extra/bundebug"
 )
 
-// PostgresDatabaseConfig contains values for creating a
+// DatabaseConfig contains values for creating a
 // new connection to a postgres database
-type PostgresDatabaseConfig struct {
+type DatabaseConfig struct {
 	DatabaseName                     string
 	DatabaseEndpointURL              string
 	DatabaseUsername                 string
 	DatabasePassword                 string
 	ReadTimeoutSeconds               int64
-	WriteTimeousSeconds              int64
+	WriteTimeoutSeconds              int64
 	DatabaseMaxIdleConnections       int64
 	DatabaseConnectionMaxIdleSeconds int64
 	DatabaseMaxOpenConnections       int64
@@ -31,14 +31,15 @@ type PostgresDatabaseConfig struct {
 	Logger                           *logging.ServiceLogger
 }
 
-// PostgresClient wraps a connection to a postgres database
-type PostgresClient struct {
-	*bun.DB
+// Client wraps a connection to a postgres database
+type Client struct {
+	db     *bun.DB
+	logger *logging.ServiceLogger
 }
 
-// NewPostgresClient returns a new connection to the specified
+// NewClient returns a new connection to the specified
 // postgres data and error (if any)
-func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
+func NewClient(config DatabaseConfig) (Client, error) {
 	// configure postgres database connection options
 	var pgOptions *pgdriver.Connector
 
@@ -54,7 +55,7 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 				pgdriver.WithPassword(config.DatabasePassword),
 				pgdriver.WithDatabase(config.DatabaseName),
 				pgdriver.WithReadTimeout(time.Second*time.Duration(config.ReadTimeoutSeconds)),
-				pgdriver.WithWriteTimeout(time.Second*time.Duration(config.WriteTimeousSeconds)),
+				pgdriver.WithWriteTimeout(time.Second*time.Duration(config.WriteTimeoutSeconds)),
 			)
 	} else {
 		pgOptions = pgdriver.NewConnector(
@@ -64,7 +65,7 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 			pgdriver.WithPassword(config.DatabasePassword),
 			pgdriver.WithDatabase(config.DatabaseName),
 			pgdriver.WithReadTimeout(time.Second*time.Duration(config.ReadTimeoutSeconds)),
-			pgdriver.WithWriteTimeout(time.Second*time.Duration(config.WriteTimeousSeconds)),
+			pgdriver.WithWriteTimeout(time.Second*time.Duration(config.WriteTimeoutSeconds)),
 		)
 	}
 
@@ -86,13 +87,14 @@ func NewPostgresClient(config PostgresDatabaseConfig) (PostgresClient, error) {
 		db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
 	}
 
-	return PostgresClient{
-		DB: db,
+	return Client{
+		db:     db,
+		logger: config.Logger,
 	}, nil
 }
 
 // HealthCheck returns an error if the database can not
 // be connected to and queried, nil otherwise
-func (pg *PostgresClient) HealthCheck() error {
-	return pg.Ping()
+func (c *Client) HealthCheck() error {
+	return c.db.Ping()
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kava-labs/kava-proxy-service/clients/database"
+	"github.com/kava-labs/kava-proxy-service/clients/database/postgres"
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
@@ -70,7 +71,7 @@ var (
 	databasePassword = os.Getenv("DATABASE_PASSWORD")
 	databaseUsername = os.Getenv("DATABASE_USERNAME")
 	databaseName     = os.Getenv("DATABASE_NAME")
-	databaseConfig   = database.PostgresDatabaseConfig{
+	databaseConfig   = postgres.DatabaseConfig{
 		DatabaseName:          databaseName,
 		DatabaseEndpointURL:   databaseURL,
 		DatabaseUsername:      databaseUsername,
@@ -88,22 +89,22 @@ var (
 // lookup all the request metrics in the database paging as necessary
 // search for any request metrics between startTime and time.Now() for particular request methods
 // if testedmethods is empty, all metrics in timeframe are returned.
-func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Time, testedmethods []string) []database.ProxiedRequestMetric {
+func findMetricsInWindowForMethods(db postgres.Client, startTime time.Time, testedmethods []string) []*database.ProxiedRequestMetric {
 	extension := time.Duration(testExtendMetricWindowMs) * time.Millisecond
 	// add small buffer into future in case metrics are still being created
 	endTime := time.Now().Add(extension)
 
 	var nextCursor int64
-	var proxiedRequestMetrics []database.ProxiedRequestMetric
+	var proxiedRequestMetrics []*database.ProxiedRequestMetric
 
-	proxiedRequestMetricsPage, nextCursor, err := database.ListProxiedRequestMetricsWithPagination(testContext, db.DB, nextCursor, 10000)
+	proxiedRequestMetricsPage, nextCursor, err := db.ListProxiedRequestMetricsWithPagination(testContext, nextCursor, 10000)
 	if err != nil {
 		panic(err)
 	}
 
 	proxiedRequestMetrics = proxiedRequestMetricsPage
 	for nextCursor != 0 {
-		proxiedRequestMetricsPage, nextCursor, err = database.ListProxiedRequestMetricsWithPagination(testContext, db.DB, nextCursor, 10000)
+		proxiedRequestMetricsPage, nextCursor, err = db.ListProxiedRequestMetricsWithPagination(testContext, nextCursor, 10000)
 		if err != nil {
 			panic(err)
 		}
@@ -111,7 +112,7 @@ func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Ti
 		proxiedRequestMetrics = append(proxiedRequestMetrics, proxiedRequestMetricsPage...)
 	}
 
-	var requestMetricsDuringRequestWindow []database.ProxiedRequestMetric
+	var requestMetricsDuringRequestWindow []*database.ProxiedRequestMetric
 	// iterate in reverse order to start checking the most recent request metrics first
 	for i := len(proxiedRequestMetrics) - 1; i >= 0; i-- {
 		requestMetric := proxiedRequestMetrics[i]
@@ -143,13 +144,13 @@ func findMetricsInWindowForMethods(db database.PostgresClient, startTime time.Ti
 func waitForMetricsInWindow(
 	t *testing.T,
 	expected int,
-	db database.PostgresClient,
+	db postgres.Client,
 	startTime time.Time,
 	testedmethods []string,
-) (metrics []database.ProxiedRequestMetric) {
-	timeoutMin := 1 * time.Second
+) (metrics []*database.ProxiedRequestMetric) {
+	timeoutMin := 2 * time.Second
 	// scale the timeout by the number of expected requests, or at least 1 second
-	timeout := time.Duration(expected+1) * 100 * time.Millisecond
+	timeout := time.Duration(expected+1)*100*time.Millisecond + time.Second
 	if timeout < timeoutMin {
 		timeout = timeoutMin
 	}
@@ -196,13 +197,17 @@ func TestE2ETestProxyProxiesForMultipleHosts(t *testing.T) {
 }
 
 func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
+	if shouldSkipMetrics() {
+		t.Skip("metrics are disabled")
+	}
+
 	testEthMethodName := "eth_getBlockByNumber"
 	// create api and database clients
 	client, err := ethclient.Dial(proxyServiceURL)
 
 	require.NoError(t, err)
 
-	databaseClient, err := database.NewPostgresClient(databaseConfig)
+	databaseClient, err := postgres.NewClient(databaseConfig)
 
 	require.NoError(t, err)
 
@@ -233,7 +238,7 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	require.NoError(t, err)
 
-	databaseClient, err := database.NewPostgresClient(databaseConfig)
+	databaseClient, err := postgres.NewClient(databaseConfig)
 
 	require.NoError(t, err)
 
@@ -253,6 +258,10 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	require.NoError(t, err)
 
+	if shouldSkipMetrics() {
+		return
+	}
+
 	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
 		t, 1, databaseClient, startTime, []string{testEthMethodName},
 	)
@@ -271,7 +280,7 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 
 	require.NoError(t, err)
 
-	databaseClient, err := database.NewPostgresClient(databaseConfig)
+	databaseClient, err := postgres.NewClient(databaseConfig)
 
 	require.NoError(t, err)
 
@@ -282,6 +291,10 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 	_, err = client.HeaderByNumber(testContext, nil)
 
 	require.NoError(t, err)
+
+	if shouldSkipMetrics() {
+		return
+	}
 
 	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
 		t, 1, databaseClient, startTime, []string{testEthMethodName},
@@ -304,7 +317,7 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	client, err := ethclient.Dial(proxyServiceURL)
 	require.NoError(t, err)
 
-	databaseClient, err := database.NewPostgresClient(databaseConfig)
+	databaseClient, err := postgres.NewClient(databaseConfig)
 	require.NoError(t, err)
 
 	// get the latest queryable block number
@@ -343,6 +356,10 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	// eth_call
 	_, _ = client.CallContract(testContext, ethereum.CallMsg{}, requestBlockNumber)
 
+	if shouldSkipMetrics() {
+		return
+	}
+
 	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
 		t, 7, databaseClient, startTime, testedmethods,
 	)
@@ -365,7 +382,7 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 
 	require.NoError(t, err)
 
-	databaseClient, err := database.NewPostgresClient(databaseConfig)
+	databaseClient, err := postgres.NewClient(databaseConfig)
 
 	require.NoError(t, err)
 
@@ -395,6 +412,10 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 	// eth_getTransactionByBlockHashAndIndex
 	_, _ = client.TransactionInBlock(testContext, requestBlockHash, 0)
 
+	if shouldSkipMetrics() {
+		return
+	}
+
 	requestMetricsDuringRequestWindow := waitForMetricsInWindow(
 		t, 3, databaseClient, startTime, testedmethods,
 	)
@@ -413,7 +434,7 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 	rpc, err := rpc.Dial(proxyServiceURL)
 	require.NoError(t, err)
 
-	databaseClient, err := database.NewPostgresClient(databaseConfig)
+	databaseClient, err := postgres.NewClient(databaseConfig)
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -489,6 +510,10 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 			startTime := time.Now()
 			err := rpc.Call(nil, tc.method, tc.params...)
 			require.NoError(t, err)
+
+			if shouldSkipMetrics() {
+				return
+			}
 
 			metrics := waitForMetricsInWindow(t, 1, databaseClient, startTime, []string{tc.method})
 
@@ -646,7 +671,7 @@ func containsHeaders(t *testing.T, headersMap1, headersMap2 http.Header, msg str
 func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 	client, err := ethclient.Dial(proxyServiceURL)
 	require.NoError(t, err)
-	db, err := database.NewPostgresClient(databaseConfig)
+	db, err := postgres.NewClient(databaseConfig)
 	require.NoError(t, err)
 
 	redisClient := redis.NewClient(&redis.Options{
@@ -658,7 +683,6 @@ func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 	expectKeysNum(t, redisClient, 0)
 	// startTime is a time before first request
 	startTime := time.Now()
-
 	for _, tc := range []struct {
 		desc    string
 		method  string
@@ -719,6 +743,12 @@ func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 		containsKey(t, redisClient, expectedKey)
 
 		require.Equal(t, block1, block2, "blocks should be the same")
+	}
+
+	if shouldSkipMetrics() {
+		cleanUpRedis(t, redisClient)
+
+		return
 	}
 
 	// get metrics between startTime & now for eth_getBlockByNumber requests
@@ -1179,7 +1209,11 @@ func cleanUpRedis(t *testing.T, redisClient *redis.Client) {
 	}
 }
 
-func cleanMetricsDb(t *testing.T, db database.PostgresClient) {
+func cleanMetricsDb(t *testing.T, db postgres.Client) {
+	if shouldSkipMetrics() {
+		return
+	}
+
 	_, err := db.Exec("TRUNCATE proxied_request_metrics;")
 	require.NoError(t, err)
 }
@@ -1638,4 +1672,9 @@ func (tx *getTxReceiptByHashResponse) IsIncludedInBlock() bool {
 	return tx.Result.BlockHash != "" &&
 		tx.Result.BlockNumber != "" &&
 		tx.Result.TransactionIndex != ""
+}
+
+func shouldSkipMetrics() bool {
+	// Check if the environment variable SKIP_METRICS is set to "true"
+	return os.Getenv("SKIP_METRICS") == "true"
 }

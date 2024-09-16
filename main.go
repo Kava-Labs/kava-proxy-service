@@ -97,6 +97,7 @@ func startMetricCompactionRoutine(serviceConfig config.Config, service service.P
 func startMetricPruningRoutine(serviceConfig config.Config, service service.ProxyService, serviceLogger logging.ServiceLogger) <-chan error {
 	if !serviceConfig.MetricPruningEnabled {
 		serviceLogger.Info().Msg("skipping starting metric pruning routine since it is disabled via config")
+
 		return make(<-chan error)
 	}
 
@@ -141,33 +142,38 @@ func main() {
 		serviceLogger.Panic().Msg(fmt.Sprintf("%v", errors.Unwrap(err)))
 	}
 
-	// configure and run background routines
-	// metric partitioning routine
-	go func() {
-		metricPartitioningErrs := startMetricPartitioningRoutine(serviceConfig, service, serviceLogger)
+	// if we use metrics with database, we run some background routines
+	if serviceConfig.MetricDatabaseEnabled {
+		// configure and run background routines
+		// metric partitioning routine
+		go func() {
+			metricPartitioningErrs := startMetricPartitioningRoutine(serviceConfig, service, serviceLogger)
 
-		for routineErr := range metricPartitioningErrs {
-			serviceLogger.Error().Msg(fmt.Sprintf("metric partitioning routine encountered error %s", routineErr))
-		}
-	}()
+			for routineErr := range metricPartitioningErrs {
+				serviceLogger.Error().Msg(fmt.Sprintf("metric partitioning routine encountered error %s", routineErr))
+			}
+		}()
 
-	// metric compaction routine
-	go func() {
-		metricCompactionErrs := startMetricCompactionRoutine(serviceConfig, service, serviceLogger)
+		// metric compaction routine
+		go func() {
+			metricCompactionErrs := startMetricCompactionRoutine(serviceConfig, service, serviceLogger)
 
-		for routineErr := range metricCompactionErrs {
-			serviceLogger.Error().Msg(fmt.Sprintf("metric compaction routine encountered error %s", routineErr))
-		}
-	}()
+			for routineErr := range metricCompactionErrs {
+				serviceLogger.Error().Msg(fmt.Sprintf("metric compaction routine encountered error %s", routineErr))
+			}
+		}()
 
-	// metric pruning routine
-	go func() {
-		metricPruningErrs := startMetricPruningRoutine(serviceConfig, service, serviceLogger)
+		// metric pruning routine
+		go func() {
+			metricPruningErrs := startMetricPruningRoutine(serviceConfig, service, serviceLogger)
 
-		for routineErr := range metricPruningErrs {
-			serviceLogger.Error().Msg(fmt.Sprintf("metric pruning routine encountered error %s", routineErr))
-		}
-	}()
+			for routineErr := range metricPruningErrs {
+				serviceLogger.Error().Msg(fmt.Sprintf("metric pruning routine encountered error %s", routineErr))
+			}
+		}()
+	} else {
+		serviceLogger.Info().Msg("skipping starting metric partitioning, compaction, and pruning routines since metric database is disabled")
+	}
 
 	// run the proxy service
 	finalErr := service.Run()

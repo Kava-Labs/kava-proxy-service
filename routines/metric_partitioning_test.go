@@ -2,13 +2,13 @@ package routines
 
 import (
 	"context"
-	"os"
-	"testing"
-	"time"
-
+	"github.com/kava-labs/kava-proxy-service/clients/database/postgres"
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/service"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"testing"
+	"time"
 )
 
 var (
@@ -31,10 +31,14 @@ var (
 )
 
 func TestE2ETestMetricPartitioningRoutinePrefillsExpectedPartitionsAfterStartupDelay(t *testing.T) {
+	if shouldSkipMetrics() {
+		t.Skip("Skipping test because environment variable SKIP_METRICS is set to true")
+	}
+
 	// prepare
 	time.Sleep(time.Duration(MetricPartitioningRoutineDelayFirstRunSeconds) * time.Second)
 
-	expectedPartitions, err := partitionsForPeriod(time.Now().UTC(), int(configuredPrefillDays))
+	expectedPartitions, err := postgres.PartitionsForPeriod(time.Now().UTC(), int(configuredPrefillDays))
 
 	assert.Nil(t, err)
 
@@ -47,49 +51,7 @@ func TestE2ETestMetricPartitioningRoutinePrefillsExpectedPartitionsAfterStartupD
 	assert.Equal(t, expectedPartitions[len(expectedPartitions)-1].TableName, databaseStatus.LatestProxiedRequestMetricPartitionTableName)
 }
 
-func TestUnitTestpartitionsForPeriodReturnsErrWhenTooManyPrefillDays(t *testing.T) {
-	// prepare
-	daysToPrefill := config.MaxMetricPartitioningPrefillPeriodDays + 1
-
-	// execute
-	_, err := partitionsForPeriod(time.Now(), daysToPrefill)
-
-	// assert
-	assert.NotNil(t, err)
-}
-
-func TestUnitTestpartitionsForPeriodReturnsExpectedNumPartitionsWhenPrefillPeriodIsContainedInCurrentMonth(t *testing.T) {
-	// prepare
-
-	// pick a date in the middle of a month
-	startFrom := time.Date(1989, 5, 11, 12, 0, 0, 0, time.UTC)
-
-	// set prefill period to less then days remaining in month
-	// from above date
-	daysToPrefill := 3
-
-	// execute
-	actualPartitionsForPeriod, err := partitionsForPeriod(startFrom, daysToPrefill)
-
-	// assert
-	assert.Nil(t, err)
-	assert.Equal(t, daysToPrefill, len(actualPartitionsForPeriod))
-}
-
-func TestUnitTestpartitionsForPeriodReturnsExpectedNumPartitionsWhenPrefillPeriodIsNotContainedInCurrentMonth(t *testing.T) {
-	// prepare
-
-	// pick a date in the middle of a month
-	startFrom := time.Date(1989, 5, 20, 12, 0, 0, 0, time.UTC)
-
-	// set prefill period to more then days remaining in month
-	// from above date
-	daysToPrefill := 21
-
-	// execute
-	actualPartitionsForPeriod, err := partitionsForPeriod(startFrom, daysToPrefill)
-
-	// assert
-	assert.Nil(t, err)
-	assert.Equal(t, daysToPrefill, len(actualPartitionsForPeriod))
+func shouldSkipMetrics() bool {
+	// Check if the environment variable SKIP_METRICS is set to "true"
+	return os.Getenv("SKIP_METRICS") == "true"
 }

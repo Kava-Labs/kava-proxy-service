@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-
 	"github.com/kava-labs/kava-proxy-service/clients/database"
+	"net/http"
 )
 
 // createHealthcheckHandler creates a health check handler function that
@@ -68,11 +67,11 @@ func createServicecheckHandler(service *ProxyService) func(http.ResponseWriter, 
 // function responding to requests for the status of database related
 // operations such as proxied request metrics compaction and
 // partitioning
-func createDatabaseStatusHandler(service *ProxyService, db *database.PostgresClient) func(http.ResponseWriter, *http.Request) {
+func createDatabaseStatusHandler(service *ProxyService, db database.MetricsDatabase) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		service.Debug().Msg("/database/status called")
 
-		proxiedRequestMetricPartitionsCount, err := database.CountAttachedProxiedRequestMetricPartitions(r.Context(), db.DB)
+		proxiedRequestMetricPartitionsCount, err := db.CountAttachedProxiedRequestMetricPartitions(r.Context())
 
 		if err != nil {
 			service.Error().Msg(fmt.Sprintf("error %s getting proxiedRequestMetricPartitionsCount", err))
@@ -80,7 +79,7 @@ func createDatabaseStatusHandler(service *ProxyService, db *database.PostgresCli
 			return
 		}
 
-		proxiedRequestMetricLatestAttachedPartitionName, err := database.GetLastCreatedAttachedProxiedRequestMetricsPartitionName(r.Context(), db.DB)
+		proxiedRequestMetricLatestAttachedPartitionName, err := db.GetLastCreatedAttachedProxiedRequestMetricsPartitionName(r.Context())
 
 		if err != nil {
 			service.Error().Msg(fmt.Sprintf("error %s getting proxiedRequestMetricPartitionsCount", err))
