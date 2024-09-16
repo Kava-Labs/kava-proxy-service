@@ -143,7 +143,7 @@ func main() {
 	}
 
 	// if we use metrics with database, we run some background routines
-	if !serviceConfig.MetricDatabaseEnabled {
+	if serviceConfig.MetricDatabaseEnabled {
 		// configure and run background routines
 		// metric partitioning routine
 		go func() {
@@ -171,6 +171,8 @@ func main() {
 				serviceLogger.Error().Msg(fmt.Sprintf("metric pruning routine encountered error %s", routineErr))
 			}
 		}()
+	} else {
+		serviceLogger.Info().Msg("skipping starting metric partitioning, compaction, and pruning routines since metric database is enabled")
 	}
 
 	// run the proxy service
