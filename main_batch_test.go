@@ -189,7 +189,6 @@ func TestE2ETest_ValidBatchEvmRequests(t *testing.T) {
 
 	for _, tc := range testCases {
 		startTime := time.Now()
-		time.Sleep(1 * time.Second) // ensure startTime will be far from metrics starting
 		t.Run(tc.name, func(t *testing.T) {
 			reqInJSON, err := json.Marshal(tc.req)
 			require.NoError(t, err)

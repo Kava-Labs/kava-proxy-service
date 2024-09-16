@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kava-labs/kava-proxy-service/clients/database"
-	"github.com/kava-labs/kava-proxy-service/clients/database/postgres"
 	"io"
 	"log"
 	"math/big"
@@ -29,6 +27,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kava-labs/kava-proxy-service/clients/database"
+	"github.com/kava-labs/kava-proxy-service/clients/database/postgres"
 	"github.com/kava-labs/kava-proxy-service/config"
 	"github.com/kava-labs/kava-proxy-service/decode"
 	"github.com/kava-labs/kava-proxy-service/logging"
@@ -209,7 +209,6 @@ func TestE2ETestProxyCreatesRequestMetricForEachRequest(t *testing.T) {
 
 	// make request to api and track start / end time of the request to
 	startTime := time.Now()
-	time.Sleep(1 * time.Second)
 
 	_, err = client.HeaderByNumber(testContext, nil)
 
@@ -254,7 +253,6 @@ func TestE2ETestProxyTracksBlockNumberForEth_getBlockByNumberRequest(t *testing.
 
 	// make request to api and track start / end time of the request to
 	startTime := time.Now()
-	time.Sleep(1 * time.Second)
 
 	_, err = client.HeaderByNumber(testContext, requestBlockNumber)
 
@@ -288,7 +286,6 @@ func TestE2ETestProxyTracksBlockTagForEth_getBlockByNumberRequest(t *testing.T) 
 
 	// make request to api and track start / end time of the request to
 	startTime := time.Now()
-	time.Sleep(1 * time.Second)
 
 	// will default to latest
 	_, err = client.HeaderByNumber(testContext, nil)
@@ -337,7 +334,6 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockNumberParam(t *testing.
 	// for each request whether the kava node api returns an error or not
 	// and if it doesn't the test itself will fail due to missing metrics
 	startTime := time.Now()
-	time.Sleep(1 * time.Second)
 
 	// eth_getBalance
 	_, _ = client.BalanceAt(testContext, testAddress, requestBlockNumber)
@@ -406,7 +402,6 @@ func TestE2ETestProxyTracksBlockNumberForMethodsWithBlockHashParam(t *testing.T)
 	// for each request whether the kava node api returns an error or not
 	// and if it doesn't the test itself will fail due to missing metrics
 	startTime := time.Now()
-	time.Sleep(1 * time.Second)
 
 	// eth_getBlockByHash
 	_, _ = client.BlockByHash(testContext, requestBlockHash)
@@ -513,7 +508,6 @@ func TestE2ETest_HeightBasedRouting(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			startTime := time.Now()
-			time.Sleep(1 * time.Second)
 			err := rpc.Call(nil, tc.method, tc.params...)
 			require.NoError(t, err)
 
@@ -689,8 +683,6 @@ func TestE2ETestCachingMdwWithBlockNumberParam_Metrics(t *testing.T) {
 	expectKeysNum(t, redisClient, 0)
 	// startTime is a time before first request
 	startTime := time.Now()
-	time.Sleep(1 * time.Second)
-
 	for _, tc := range []struct {
 		desc    string
 		method  string
